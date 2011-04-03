@@ -13,6 +13,7 @@ import Graphics.Rendering.FreeType.Internal.Bitmap as B
 
 import Foreign
 import Foreign.Marshal
+import Foreign.Marshal.MissingAlloc
 import Foreign.C.String
 
 import System.Exit
@@ -38,13 +39,13 @@ main = do
         })
   (filename:text:_) <- getArgs
 
-  libraryptr <- malloc
+  libraryptr <- calloc
   library <- do
     print $ libraryptr == nullPtr
     ft_Init_FreeType libraryptr >>= print
     peek libraryptr
 
-  faceptr <- malloc
+  faceptr <- calloc
   print $ faceptr == nullPtr
   face <- withCString filename $ \str -> do
     print =<< ft_New_Face library str 0 faceptr
