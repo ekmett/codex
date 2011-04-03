@@ -3,6 +3,13 @@ module Main where
 import Control.Monad
 import System.Environment
 import Graphics.Rendering.FreeType.Internal as FT
+import Graphics.Rendering.FreeType.Internal.Matrix as M
+import Graphics.Rendering.FreeType.Internal.Vector as V
+import Graphics.Rendering.FreeType.Internal.GlyphSlot as GS
+import Graphics.Rendering.FreeType.Internal.PrimitiveTypes as PT
+import Graphics.Rendering.FreeType.Internal.Face as F
+import Graphics.Rendering.FreeType.Internal.Library as L
+import Graphics.Rendering.FreeType.Internal.Bitmap as B
 
 import Foreign
 import Foreign.Marshal
@@ -52,21 +59,20 @@ main = do
     withForeignPtr matrix $ \mp ->
       withForeignPtr pen $ \pp -> do
         ft_Set_Transform face mp pp
-        slot <- glyph face
+        slot <- peek $ glyph face
         print =<< ft_Load_Char face
                                (fromIntegral . fromEnum $ c)
                                ft_LOAD_RENDER
-        numFaces <- peek $ face_num_faces face
+        numFaces <- peek $ num_faces face
         putStrLn $ "face->num_faces = " ++ show numFaces
         v <- peek $ advance slot
         putStrLn "advance: "
         print v
-        numGlyphs <- peek $ face_num_glyphs face
+        numGlyphs <- peek $ num_glyphs face
         putStrLn $ "numGlyphs = " ++ show numGlyphs
         pen' <- peek pp
         poke pp $ FT_Vector { x = x v + x pen'
                             , y = y v + y pen' }
-        -- print =<< peek pp
         b <- peek $ bitmap slot
         left <- peek $ bitmap_left slot
         top  <- peek $ bitmap_top slot
