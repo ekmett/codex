@@ -8,22 +8,25 @@ import Graphics.Rendering.FreeType.Internal.Vector as V
 import Graphics.Rendering.FreeType.Internal.GlyphSlot as GS
 import Graphics.Rendering.FreeType.Internal.PrimitiveTypes as PT
 import Graphics.Rendering.FreeType.Internal.Face as F
-import Graphics.Rendering.FreeType.Internal.Library as L
 import Graphics.Rendering.FreeType.Internal.Bitmap as B
 
 import Foreign
 import Foreign.Marshal
-import Foreign.Marshal.MissingAlloc
 import Foreign.C.String
 
 import System.Exit
 
 import Data.Array.IO as A
 
+runFreeType :: IO FT_Error -> IO ()
+runFreeType m = do
+  r <- m
+  unless (r == 0) $ fail $ "FreeType Error:" ++ show r
+
 main :: IO ()
 main = do
-  let width  = 640
-      height = 480
+  let display_width  = 640
+      display_height = 480
       angle  = (25 / 360) * pi * 2
   matrix <- mallocForeignPtr
   pen    <- mallocForeignPtr
@@ -35,40 +38,42 @@ main = do
         })
   withForeignPtr pen $ \p -> poke p (FT_Vector
         { x = 300 * 64
-        , y = (height - 200) * 64
+        , y = (display_height - 200) * 64
         })
   (filename:text:_) <- getArgs
 
-  libraryptr <- calloc
-  library <- do
-    print $ libraryptr == nullPtr
-    ft_Init_FreeType libraryptr >>= print
+  putStrLn $ concat ["Loading file: ", filename]
+  putStrLn $ concat ["Drawing text: ", text]
+
+  library <- alloca $ \libraryptr -> do
+    putStr "Library ptr: "
+    print libraryptr
+    runFreeType $ ft_Init_FreeType libraryptr
     peek libraryptr
 
-  faceptr <- calloc
-  print $ faceptr == nullPtr
-  face <- withCString filename $ \str -> do
-    print =<< ft_New_Face library str 0 faceptr
-    peek faceptr
+  face <- alloca $ \faceptr -> do
+    putStr "Face ptr: "
+    print faceptr
+    withCString filename $ \str -> do
+      runFreeType $ ft_New_Face library str 0 faceptr
+      peek faceptr
 
   image <- A.newArray
-    ((0,0), (fromIntegral height - 1, fromIntegral width - 1)) 0
+    ((0,0), (fromIntegral display_height - 1, fromIntegral display_width - 1)) 0
     :: IO (IOUArray (Int, Int) Int)
 
-  print =<< ft_Set_Char_Size face (50*64) 0 100 0
+  runFreeType $ ft_Set_Char_Size face (50*64) 0 100 0
   forM_ text $ \c -> do
     withForeignPtr matrix $ \mp ->
       withForeignPtr pen $ \pp -> do
         ft_Set_Transform face mp pp
         slot <- peek $ glyph face
-        print =<< ft_Load_Char face
-                               (fromIntegral . fromEnum $ c)
-                               ft_LOAD_RENDER
+        runFreeType $
+          ft_Load_Char face (fromIntegral . fromEnum $ c) ft_LOAD_RENDER
         numFaces <- peek $ num_faces face
         putStrLn $ "face->num_faces = " ++ show numFaces
         v <- peek $ advance slot
-        putStrLn "advance: "
-        print v
+        putStrLn $ "advance: " ++ show v
         numGlyphs <- peek $ num_glyphs face
         putStrLn $ "numGlyphs = " ++ show numGlyphs
         pen' <- peek pp
@@ -77,14 +82,14 @@ main = do
         b <- peek $ bitmap slot
         left <- peek $ bitmap_left slot
         top  <- peek $ bitmap_top slot
-        drawBitmap b
-                   image
-                   left
-                   (fromIntegral height - top)
+        let b_top = fromIntegral display_height - top
+            b_right = left + width b
+            b_bottom = fromIntegral . fromEnum $ b_top + rows b
+        unless (b_right >= display_width || b_bottom >= display_height) $
+          drawBitmap b image left b_top
   showImage image
-  print =<< ft_Done_Face face
-  print =<< ft_Done_FreeType library
-
+  runFreeType $ ft_Done_Face face
+  runFreeType $ ft_Done_FreeType library
 
 drawBitmap :: FT_Bitmap -> IOUArray (Int, Int) Int
            -> FT_Int -> FT_Int -> IO ()
@@ -101,8 +106,8 @@ drawBitmap bitmap image x y = do
 showImage :: IOUArray (Int, Int) Int -> IO ()
 showImage image = do
   ((hmin,wmin), (hmax,wmax)) <- getBounds image
-  forM_ [ hmin .. hmax ] $ \i -> do
-    forM_ [ wmin .. wmax ] $ \j -> do
+  forM_ [ hmin .. hmax - 1 ] $ \i -> do
+    forM_ [ wmin .. wmax - 1 ] $ \j -> do
       v <- readArray image (i,j)
       putc v
     putChar '\n'
