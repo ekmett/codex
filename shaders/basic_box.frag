@@ -1,6 +1,8 @@
-#version 130
+#version 330
 
 uniform vec2 iResolution = vec2(640.,480.);
+
+layout (location = 0) out vec4 fragColor;
 
 float sdfCircle(vec2 p, float r) {
   return length(p) - r;
@@ -48,5 +50,5 @@ void main() {
   // colours, yay!
   vec3 col = vec3(1.0) - sign(d) * vec3(0.1, 0.4, 0.7);
 
-  gl_FragColor = vec4(col, 1.0);
+  fragColor = vec4(col, 1.0);
 }
