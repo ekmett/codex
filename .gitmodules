@@ -1,0 +1,9 @@
+[submodule "nih/msdfgen"]
+	path = nih/msdfgen
+	url = https://github.com/Chlumsky/msdfgen
+[submodule "nih/bindings-freetype-gl"]
+	path = nih/bindings-freetype-gl
+	url = https://github.com/lamdu/bindings-freetype-gl.git
+[submodule "nih/freetype2"]
+	path = nih/freetype2
+	url = https://github.com/lamdu/freetype2

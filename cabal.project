@@ -1,1 +1,1 @@
-packages: .
+packages: ., nih/bindings-freetype-gl, nih/freetype2
