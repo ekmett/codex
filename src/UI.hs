@@ -14,20 +14,20 @@ module UI
   , HasUI(..)
   ) where
 
-import           Control.Lens    (view)
-import           Control.Lens.TH (makeClassy)
+import Control.Lens (view)
+import Control.Lens.TH (makeClassy)
 
-import           Control.Monad   (unless)
-import           Data.ByteString (ByteString)
-import           Data.StateVar
-import           Foreign.C.Types (CInt)
-import           Graphics.GL
-import           Linear          (V2 (..))
-import           Linear.Affine   (_Point)
+import Control.Monad (unless)
+import Data.ByteString (ByteString)
+import Data.StateVar
+import Foreign.C.Types (CInt)
+import Graphics.GL
+import Linear (V2 (..))
+import Linear.Affine (_Point)
 import qualified SDL
 
-import           Glow
-import           UI.Shaders
+import Glow
+import UI.Shaders
 
 data UI = UI
   { _uiProgram  :: Program
