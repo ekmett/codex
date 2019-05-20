@@ -5,6 +5,8 @@ let
   pkgs = import nixpkgs {};
 
   sources = {
+    packing              = ./packing;
+    glow                 = ./glow;
     freetype2            = import ./nix/freetype2.nix;
     bindings-freetype-gl = import ./nix/bindings-freetype-gl.nix;
   };
@@ -26,14 +28,19 @@ let
                   sources.bindings-freetype-gl 
                   drvArgs;
 
+          # if https://github.com/lamdu/bindings-freetype-gl/pull/1 is merged
+          # then we won't need this anymore.
           drvPatched = pkgs.haskell.lib.appendPatch drv 
                         ./nix/bindings-freetype-gl-fix-setuphs.patch;
         in
           drvPatched;
+
+      packing = hsuper.callCabal2nix "packing" sources.packing {};
+      glow = hsuper.callCabal2nix "glow" sources.glow {};
     };
   };
 
-  drv = modHaskPkgs.callPackage ./codex.nix {};
+  drv = modHaskPkgs.callPackage ./ui.nix {};
 
 in
   pkgs.haskell.lib.shellAware drv
