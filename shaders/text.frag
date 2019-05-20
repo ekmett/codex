@@ -1,0 +1,93 @@
+#version 410
+
+layout (binding = 0) uniform sampler2D tex;
+
+layout (std140) uniform Font {
+  vec3 pixel;
+  mat4 pvm;
+};
+
+layout (location = 0) in Input {
+  vec4 vcolor;
+  vec2 vtex_coord;
+  float vshift;
+  float vgamma;
+};
+
+layout (location = 0) out vec4 fragColor;
+
+vec3 energy_distribution( vec4 previous, vec4 current, vec4 next ) {
+  float primary   = 1.0/3.0;
+  float secondary = 1.0/3.0;
+  float tertiary  = 0.0;
+
+  // Energy distribution as explained on:
+  // http://www.grc.com/freeandclear.htm
+
+  float r =
+    tertiary  * previous.g +
+    secondary * previous.b +
+    primary   * current.r  +
+    secondary * current.g  +
+    tertiary  * current.b;
+
+  float g =
+    tertiary  * previous.b +
+    secondary * current.r +
+    primary   * current.g  +
+    secondary * current.b  +
+    tertiary  * next.r;
+
+  float b =
+    tertiary  * current.r +
+    secondary * current.g +
+    primary   * current.b +
+    secondary * next.r    +
+    tertiary  * next.g;
+
+  return vec3(r,g,b);
+}
+
+
+void main() {
+  // LCD Off
+  if (pixel.z == 1.0) {
+    float a = texture2D(tex, vtex_coord).r;
+    fragColor = vcolor * pow( a, 1.0/vgamma );
+    return;
+  }
+
+  // LCD On
+  vec4 current = texture2D(tex, vtex_coord);
+  vec4 previous= texture2D(tex, vtex_coord+vec2(-1.,0.)*pixel.xy);
+  vec4 next    = texture2D(tex, vtex_coord+vec2(+1.,0.)*pixel.xy);
+
+  current = pow(current, vec4(1.0/vgamma));
+  previous= pow(previous, vec4(1.0/vgamma));
+
+  float r = current.r;
+  float g = current.g;
+  float b = current.b;
+
+  if (vshift <= 0.333) {
+    float z = vshift/0.333;
+    r = mix(current.r, previous.b, z);
+    g = mix(current.g, current.r,  z);
+    b = mix(current.b, current.g,  z);
+  } else if(vshift <= 0.666) {
+    float z = (vshift-0.33)/0.333;
+    r = mix(previous.b, previous.g, z);
+    g = mix(current.r,  previous.b, z);
+    b = mix(current.g,  current.r,  z);
+  } else if( vshift < 1.0) {
+    float z = (vshift-0.66)/0.334;
+    r = mix(previous.g, previous.r, z);
+    g = mix(previous.b, previous.g, z);
+    b = mix(current.r,  previous.b, z);
+  }
+
+  float t = max(max(r,g),b);
+  vec4 color = vec4(vcolor.rgb, (r+g+b)/3.0);
+  color = t*color + (1.0-t)*vec4(r,g,b, min(min(r,g),b));
+  fragColor = vec4( color.rgb, vcolor.a*color.a);
+}
