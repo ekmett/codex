@@ -1,0 +1,112 @@
+cabal-version: 2.2
+name: ui
+version: 0
+synopsis: UI toolbox to complement Coda
+description: UI toolbox to complement Coda.
+homepage: https://github.com/ekmett/codex#readme
+license: BSD-2-Clause OR Apache-2.0
+license-file: LICENSE.md
+author: Edward Kmett and Sean Chalmers
+maintainer: Edward Kmett <ekmett@gmail.com>
+copyright: Copyright (c) 2019 Edward Kmett, Sean Chalmers
+stability: experimental
+category: Graphics
+build-type: Simple
+extra-doc-files:
+  README.md,
+  CHANGELOG.md
+data-files:
+  shaders/*.frag,
+  shaders/*.vert
+
+source-repository head
+  type: git
+  location: https://github.com/ekmett/codex
+
+flag embed
+  Description: Embed shaders and other resources in the binary where possible
+  Default: False
+
+common base
+  build-depends: base >= 4.11 && < 5
+  default-language: Haskell2010
+  ghc-options:
+    -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+    -Wredundant-constraints -Widentities -Wmissing-export-lists
+
+common common
+  import: base
+  build-depends:
+    adjunctions,
+    bindings-freetype-gl,
+    bytestring,
+    containers,
+    data-default,
+    distributive,
+    file-embed >= 0.0.11 && < 0.1,
+    JuicyPixels,
+    gl,
+    lens,
+    linear,
+    mtl,
+    packing,
+    primitive,
+    sdl2,
+    StateVar,
+    text,
+    transformers,
+    vector
+
+  if flag(embed)
+    cpp-options: -DEMBED
+
+common threaded
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+
+library
+  import: common
+  hs-source-dirs: src
+  other-modules: Paths_ui
+  exposed-modules:
+    Glow,
+    Glow.Attribute,
+    Glow.Block,
+    Glow.Buffer,
+    Glow.Draw,
+    Glow.Error,
+    Glow.Framebuffer,
+    Glow.Image,
+    Glow.Object,
+    Glow.Pixel,
+    Glow.Program,
+    Glow.ProgramPipeline,
+    Glow.Renderbuffer,
+    Glow.Sampler,
+    Glow.Shader,
+    Glow.Texture,
+    Glow.Types,
+    Glow.Uniform,
+    Glow.Version,
+    Glow.VertexArray
+    UI,
+    UI.HKD,
+    UI.Shaders,
+    UI.Text.Atlas,
+    UI.Text.Buffer,
+    UI.Text.Color,
+    UI.Text.Font,
+    UI.Text.Markup
+
+executable ui
+  import: base, threaded
+  hs-source-dirs: app
+  main-is: Main.hs
+  ghc-options: -O2
+  build-depends: ui
+
+test-suite ui-test
+  import: common, threaded
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is: Spec.hs
+  build-depends: ui, hspec, hedgehog
