@@ -8,7 +8,7 @@ run:
 	cabal v2-run codex
 
 repl:
-	cabal v2-repl codex --repl-options=-fobject-code --repl-options=-v1 --repl-options=-ferror-spans --repl-options=-j
+	cabal v2-repl codex --repl-options=-v1 --repl-options=-ferror-spans --repl-options=-j
 
 test:
 	cabal v2-test codex-test
