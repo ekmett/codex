@@ -3,7 +3,7 @@ name: ui
 version: 0
 synopsis: UI toolbox to complement Coda
 description: UI toolbox to complement Coda.
-homepage: https://github.com/ekmett/codex#readme
+homepage: https://github.com/ekmett/ui#readme
 license: BSD-2-Clause OR Apache-2.0
 license-file: LICENSE.md
 author: Edward Kmett and Sean Chalmers
@@ -21,7 +21,7 @@ data-files:
 
 source-repository head
   type: git
-  location: https://github.com/ekmett/codex
+  location: https://github.com/ekmett/ui
 
 flag embed
   Description: Embed shaders and other resources in the binary where possible
