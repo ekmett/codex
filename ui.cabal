@@ -80,7 +80,6 @@ library
 
 executable ui
   import: base, threaded
-  hs-source-dirs: app
   main-is: Main.hs
   ghc-options: -O2
   build-depends: ui
