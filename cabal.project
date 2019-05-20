@@ -1,6 +1,6 @@
 packages:
   .,
-  lib/glow,
-  lib/packing,
+  glow,
+  packing,
   nih/bindings-freetype-gl,
   nih/freetype2
