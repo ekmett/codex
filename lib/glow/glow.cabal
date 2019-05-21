@@ -29,7 +29,6 @@ library
     -Wredundant-constraints -Widentities -Wmissing-export-lists
   build-depends:
     adjunctions,
-    bindings-freetype-gl,
     bytestring,
     containers,
     data-default,
@@ -40,7 +39,6 @@ library
     linear,
     mtl,
     primitive,
-    sdl2,
     StateVar,
     transformers,
     vector
