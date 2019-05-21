@@ -1,5 +1,6 @@
 packages:
   .,
+  fontconfig,
   glow,
   packing,
   nih/bindings-freetype-gl,

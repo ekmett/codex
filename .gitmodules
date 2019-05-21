@@ -7,3 +7,6 @@
 [submodule "nih/freetype2"]
 	path = nih/freetype2
 	url = https://github.com/lamdu/freetype2
+[submodule "nih/glyphy"]
+	path = nih/glyphy
+	url = https://github.com/behdad/glyphy.git
