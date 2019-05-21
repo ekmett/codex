@@ -10,3 +10,6 @@
 [submodule "nih/glyphy"]
 	path = nih/glyphy
 	url = https://github.com/behdad/glyphy.git
+[submodule "nih/stb"]
+	path = nih/stb
+	url = https://github.com/nothings/stb.git
