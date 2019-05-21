@@ -1,6 +1,4 @@
 {-# language BangPatterns #-}
-{-# language ForeignFunctionInterface #-}
-{-# language RankNTypes #-}
 {-# language LambdaCase #-}
 {-# language ViewPatterns #-}
 {-# language TypeOperators #-}
@@ -17,7 +15,6 @@
 module Data.Atlas
   ( Atlas
   , new, new_
-  , delete
   -- * Setup
   , heuristic, Heuristic(..)
   , allowOOM
@@ -38,29 +35,30 @@ import Data.Atlas.Raw
 import Data.Foldable (toList)
 import Data.Maybe (fromMaybe)
 import Data.Proxy
+import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
 import Foreign.Ptr
 
--- create a packing context with a fixed node count, when node count < width is used, this results in quantization unless allowOOM is set
+-- | create a packing context with an optional node count, when @node count < width@ is used this results in quantization unless allowOOM is set
+-- when no value is supplied, it defaults to the width of the 'Atlas'.
+--
+-- Uses a 'ForeignPtr' behind the scenes, so there is no memory management to be done, it is handled by the garbage collector
 new :: PrimMonad m => Int -> Int -> Maybe Int -> m (Atlas (PrimState m))
 new width height mn = unsafeIOToPrim $ do
   let nodes = fromMaybe width mn
   unless (width < 0xffff && height < 0xffff) $ fail $ "Atlas.new " ++ show width ++ show height ++ ": atlas too large"
-  c <- mallocBytes (sizeOfAtlas + sizeOfNode * nodes)
-  let n = plusPtr c sizeOfAtlas
-  Atlas c <$ stbrp_init_target (Atlas c) (fromIntegral width) (fromIntegral height) n (fromIntegral nodes)
+  fp <- mallocForeignPtrBytes (sizeOfAtlas + sizeOfNode * nodes)
+  withForeignPtr fp $ \ p -> stbrp_init_target p (fromIntegral width) (fromIntegral height) (plusPtr p sizeOfAtlas) (fromIntegral nodes)
+  pure $ Atlas fp
 
 new_ :: PrimMonad m => Int -> Int -> m (Atlas (PrimState m))
 new_ w h = new w h Nothing
 
-delete :: PrimMonad m => Atlas (PrimState m) -> m ()
-delete (Atlas c) = unsafeIOToPrim $ free c
-
 heuristic :: PrimMonad m => Atlas (PrimState m) -> Heuristic -> m ()
-heuristic c h = unsafeIOToPrim $ stbrp_setup_heuristic c (heuristicId h)
+heuristic fp h = unsafeIOToPrim $ withAtlas fp $ \p -> stbrp_setup_heuristic p (heuristicId h)
 
 allowOOM :: PrimMonad m => Atlas (PrimState m) -> Bool -> m ()
-allowOOM c b = unsafeIOToPrim $ stbrp_setup_allow_out_of_mem c $ fromIntegral $ fromEnum b
+allowOOM fp b = unsafeIOToPrim $ withAtlas fp $ \p -> stbrp_setup_allow_out_of_mem p $ fromIntegral $ fromEnum b
 
 peekBox :: (Ptr Rect -> IO (f Pt)) -> Ptr Rect -> IO (Box f)
 peekBox k p = Box <$> k p <*> peekWH p
@@ -80,13 +78,14 @@ pack
   -> (a -> Box Identity -> c) -- report uniformly successful packings
   -> f a
   -> m (Either (f b) (f c))
-pack c f g h as = unsafeIOToPrim $ do
+pack fc f g h as = unsafeIOToPrim $ do
     let n = length as
     allocaBytes (n*sizeOfRect) $ \ rs -> do
       pokePts f rs (toList as)
-      stbrp_pack_rects c rs (fromIntegral n) >>= \res -> if res == 0
-        then Left  <$> evalStateT (traverse (go boxMaybe g) as) rs -- partial
-        else Right <$> evalStateT (traverse (go boxId h) as) rs -- all allocated
+      withAtlas fc $ \c ->
+        stbrp_pack_rects c rs (fromIntegral n) >>= \res -> if res == 0
+          then Left  <$> evalStateT (traverse (go boxMaybe g) as) rs -- partial
+          else Right <$> evalStateT (traverse (go boxId h) as) rs -- all allocated
   where
     go :: (Ptr Rect -> IO (u Pt)) -> (a -> Box u -> d) -> a -> StateT (Ptr Rect) IO d
     go k gh a = StateT $ \p -> (\b -> (,) (gh a b) $! plusPtr p sizeOfRect) <$> peekBox k p
