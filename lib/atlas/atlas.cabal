@@ -35,7 +35,7 @@ library
   build-tool-depends: hsc2hs:hsc2hs
   c-sources: cbits/stb_rect_pack.c
   build-depends: data-default, lens
-  exposed-modules: Data.Atlas
+  exposed-modules: Data.Atlas, Data.Atlas.Raw
 
 test-suite atlas-test
   import: base
