@@ -1,14 +1,7 @@
-{-# language BangPatterns #-}
-{-# language LambdaCase #-}
-{-# language ViewPatterns #-}
 {-# language TypeOperators #-}
-{-# language RecordWildCards #-}
 {-# language ScopedTypeVariables #-}
-{-# language StandaloneDeriving #-}
 {-# language UndecidableInstances #-}
 {-# language MultiParamTypeClasses #-}
-{-# language FunctionalDependencies #-}
-{-# language TemplateHaskell #-}
 {-# language FlexibleInstances #-}
 
 -- | skyline packing using @stb_rect_pack.h@

@@ -13,7 +13,7 @@ harness :: Int -> Int -> [Pt] -> Either [Maybe Pt] [Pt]
 harness w h xs = runST $ harnessM w h xs
 
 main :: IO ()
-main = hspec $ do
+main = hspec $
   describe "Data.Atlas" $ do
     it "can fill the packing region" $
       harness 100 100 [Pt 50 50, Pt 50 50, Pt 50 50, Pt 50 50] `shouldBe` Right [Pt 0 0,Pt 50 0,Pt 0 50,Pt 50 50]
