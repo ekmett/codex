@@ -51,7 +51,7 @@ common common
     lens,
     linear,
     mtl,
-    packing,
+    atlas,
     primitive,
     sdl2,
     StateVar,

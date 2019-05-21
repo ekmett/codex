@@ -1,0 +1,45 @@
+cabal-version: 2.2
+name: atlas
+version: 0
+synopsis: Skyline rectangle packing
+homepage: https://github.com/ekmett/codex#readme
+license: BSD-2-Clause OR Apache-2.0
+license-file: LICENSE.md
+author: Edward Kmett
+maintainer: Edward Kmett <ekmett@gmail.com>
+copyright: Copyright (c) 2019 Edward Kmett
+stability: experimental
+category: Graphics
+build-type: Simple
+description:
+  Skyline rectangle packing for Atlases and the like using @stb_rect_pack.h@
+extra-doc-files:
+  README.md,
+  CHANGELOG.md
+
+source-repository head
+  type: git
+  location: https://github.com/ekmett/codex
+
+common base
+  build-depends: base >= 4.11 && < 5, primitive, transformers
+  default-language: Haskell2010
+  ghc-options:
+    -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+    -Wredundant-constraints -Widentities -Wmissing-export-lists
+
+library
+  import: base
+  hs-source-dirs: src
+  include-dirs: cbits
+  build-tool-depends: hsc2hs:hsc2hs
+  c-sources: cbits/stb_rect_pack.c
+  build-depends: data-default, lens
+  exposed-modules: Data.Atlas
+
+test-suite atlas-test
+  import: base
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is: Spec.hs
+  build-depends: hspec, atlas

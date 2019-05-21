@@ -11,7 +11,7 @@ module UI.HKD
   , indexLog
   ) where
 
-import Data.Packing
+import Data.Atlas
 
 type f ~> g = forall a. f a -> g a
 

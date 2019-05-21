@@ -1,7 +1,4 @@
 packages:
   .,
-  fontconfig,
-  glow,
-  packing,
-  nih/bindings-freetype-gl,
-  nih/freetype2
+  lib/*,
+  nih/*
