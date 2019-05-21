@@ -29,7 +29,7 @@ flag embed
 
 flag nih
   Description: Build other people's stuff
-  Default: True
+  Default: False
 
 common base
   build-depends: base >= 4.11 && < 5
