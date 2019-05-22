@@ -20,30 +20,23 @@ source-repository head
   type: git
   location: https://github.com/ekmett/ui
 
-common base
+library
+  hs-source-dirs: src
+  build-tool-depends: hsc2hs:hsc2hs
   default-language: Haskell2010
-  -- FcPatternAddRange sets the floor
   pkgconfig-depends: fontconfig >= 2.11.91
   extra-libraries: fontconfig
   ghc-options:
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
     -Wredundant-constraints -Widentities -Wmissing-export-lists
-    --with-ghc-options=-optl-Wl,-export_dynamic.
   build-depends:
     base >= 4.11 && < 5,
-    data-default,
-    inline-c
-
--- There appears to be a pretty harsh phase separation required by my mix of hsc2hs and template-haskell
-
-library
-  import: base
-  hs-source-dirs: src
-  build-tool-depends: hsc2hs:hsc2hs
-  build-depends:
     containers >= 0.6,
-    template-haskell,
+    data-default,
+    inline-c,
     StateVar,
+    template-haskell,
     transformers
-  exposed-modules: Font.Config
-  exposed-modules: Font.Config.Internal
+  exposed-modules:
+    Font.Config,
+    Font.Config.Internal
