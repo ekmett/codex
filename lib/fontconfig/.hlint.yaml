@@ -1,2 +1,3 @@
 - arguments: [-XNoPatternSynonyms, --cpp-define=HLINT]
 - ignore: {name: Use const}
+- ignore: {name: Use camelCase, within: Font.Config.Internal}
