@@ -20,8 +20,7 @@ source-repository head
   type: git
   location: https://github.com/ekmett/ui
 
-library
-  hs-source-dirs: src
+common base
   default-language: Haskell2010
   -- may work as low as 2.5.1, untested
   pkgconfig-depends: fontconfig >= 2.13
@@ -32,7 +31,24 @@ library
   build-depends:
     base >= 4.11 && < 5,
     data-default,
+    inline-c
+
+-- There appears to be a pretty harsh phase separation required by my mix of hsc2hs and template-haskell
+library internal
+  import: base
+  hs-source-dirs: raw
+  build-tool-depends: hsc2hs:hsc2hs
+  build-depends:
+    containers >= 0.6,
+    template-haskell
+  exposed-modules: Font.Config.Internal
+
+library
+  import: base
+  hs-source-dirs: src
+  build-depends:
+    internal,
+    StateVar,
     transformers
-  exposed-modules:
-    Font.Config,
-    Font.Config.Raw
+  exposed-modules: Font.Config
+  reexported-modules: Font.Config.Internal
