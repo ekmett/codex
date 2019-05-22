@@ -45,5 +45,5 @@ library
     template-haskell,
     StateVar,
     transformers
-  exposed-modules: Font.Config.Internal
   exposed-modules: Font.Config
+  exposed-modules: Font.Config.Internal
