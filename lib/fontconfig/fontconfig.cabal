@@ -22,8 +22,8 @@ source-repository head
 
 common base
   default-language: Haskell2010
-  -- may work as low as 2.5.1, untested
-  pkgconfig-depends: fontconfig >= 2.13
+  -- FcPatternAddRange sets the floor
+  pkgconfig-depends: fontconfig >= 2.11.91
   extra-libraries: fontconfig
   ghc-options:
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
