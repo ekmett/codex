@@ -31,6 +31,7 @@ library
     -Wredundant-constraints -Widentities -Wmissing-export-lists
   build-depends:
     base >= 4.11 && < 5,
+    const,
     containers >= 0.6,
     data-default,
     inline-c,
