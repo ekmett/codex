@@ -28,6 +28,12 @@ module Foreign.Const.ForeignPtr
   , newConstForeignPtrEnv
   , withConstForeignPtr
 
+  -- * const-preserving foreign pointer operations
+
+  , Unforeign
+  , plusAForeignPtr
+  , withAForeignPtr
+
   -- * const agnostic foreign pointer operations
 
   , addAForeignPtrFinalizer
@@ -44,6 +50,11 @@ import Foreign.ForeignPtr
 import Foreign.Ptr
 
 import Data.Const.Unsafe
+
+type family Unforeign (fp :: * -> *) :: * -> * where
+  Unforeign ForeignPtr = Ptr
+  Unforeign ConstForeignPtr = ConstPtr
+
 
 constForeignPtr :: AForeignPtr fp => fp a -> ConstForeignPtr a
 constForeignPtr = constant
@@ -85,7 +96,14 @@ castConstForeignPtr :: forall fp a b. AForeignPtr fp => fp a -> ConstForeignPtr 
 castConstForeignPtr = gcoerceWith (unsafeForeignPtrCoercion @fp @a) $ coerce $ castForeignPtr @a @b
 {-# inline castConstForeignPtr #-}
 
+plusAForeignPtr :: forall fp a b. AForeignPtr fp => fp a -> Int -> fp b
+plusAForeignPtr = gcoerceWith (unsafeForeignPtrCoercion @fp @a) $ gcoerceWith (unsafeForeignPtrCoercion @fp @b) $ coerce $ plusForeignPtr @a @b
+{-# inline plusAForeignPtr #-}
+
 plusConstForeignPtr :: forall fp a b. AForeignPtr fp => fp a -> Int -> ConstForeignPtr b
 plusConstForeignPtr = gcoerceWith (unsafeForeignPtrCoercion @fp @a) $ coerce $ plusForeignPtr @a @b
 {-# inline plusConstForeignPtr #-}
 
+withAForeignPtr :: forall fp a r. (AForeignPtr fp, APtr (Unforeign fp)) => fp a -> (Unforeign fp a -> IO r) -> IO r
+withAForeignPtr = gcoerceWith (unsafeForeignPtrCoercion @fp @a) $ gcoerceWith (unsafePtrCoercion @(Unforeign fp) @a) $ coerce $ withForeignPtr @a @r
+{-# inline withAForeignPtr #-}
