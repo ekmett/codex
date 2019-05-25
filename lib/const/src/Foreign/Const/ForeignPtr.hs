@@ -1,8 +1,10 @@
 {-# language UndecidableSuperClasses #-}
 {-# language ScopedTypeVariables #-}
 {-# language FlexibleContexts #-}
+{-# language TypeApplications #-}
 {-# language ConstraintKinds #-}
 {-# language TypeFamilies #-}
+{-# language RankNTypes #-}
 module Foreign.Const.ForeignPtr
   ( ConstForeignPtr
   , AForeignPtr
@@ -18,7 +20,7 @@ module Foreign.Const.ForeignPtr
 
   -- * const agnostic foreign pointer operations
 
-  , addFinalizerPtr'
+  , addForeignPtrFinalizer'
   , addForeignPtrFinalizerEnv'
   , finalizeForeignPtr'
   , touchForeignPtr'
@@ -29,46 +31,47 @@ module Foreign.Const.ForeignPtr
   , addConcurrentForeignPtrFinalizer'
   ) where
 
+import Data.Coerce
+import Data.Type.Coercion
 import qualified Foreign.Concurrent as Concurrent
-import Foreign.Const.Internal
 import Foreign.Const.Ptr
 import Foreign.Const.Unsafe
 import Foreign.ForeignPtr
 import Foreign.Ptr
 
 newConstForeignPtr :: forall p a. APtr p => FinalizerPtr a -> p a -> IO (ConstForeignPtr a)
-newConstForeignPtr f p = ConstForeignPtr <$> newForeignPtr f (unsafePtr p)
+newConstForeignPtr = gcoerceWith (unsafePtrCoercion @p @a) $ coerce $ newForeignPtr @a
 
 newConstForeignPtr_ :: forall p a. APtr p => p a -> IO (ConstForeignPtr a)
-newConstForeignPtr_ p = ConstForeignPtr <$> newForeignPtr_ (unsafePtr p)
+newConstForeignPtr_ = gcoerceWith (unsafePtrCoercion @p @a) $ coerce $ newForeignPtr_ @a
 
-addFinalizerPtr' :: forall fp a. AForeignPtr fp => FinalizerPtr a -> fp a -> IO ()
-addFinalizerPtr' f fp = addFinalizerPtr' f (unsafeForeignPtr fp)
+addForeignPtrFinalizer' :: forall fp a. AForeignPtr fp => FinalizerPtr a -> fp a -> IO ()
+addForeignPtrFinalizer' = gcoerceWith (unsafeForeignPtrCoercion @fp @a) $ coerce $ addForeignPtrFinalizer @a
 
 newConstForeignPtrEnv :: forall p env a. APtr p => FinalizerEnvPtr env a -> Ptr env -> p a -> IO (ConstForeignPtr a)
-newConstForeignPtrEnv fep e p = ConstForeignPtr <$> newForeignPtrEnv fep e (unsafePtr p)
+newConstForeignPtrEnv = gcoerceWith (unsafePtrCoercion @p @a) $ coerce $ newForeignPtrEnv @env @a
 
 addForeignPtrFinalizerEnv' :: forall fp env a. AForeignPtr fp => FinalizerEnvPtr env a -> Ptr env -> fp a -> IO ()
-addForeignPtrFinalizerEnv' fep e fp = addForeignPtrFinalizerEnv fep e (unsafeForeignPtr fp)
+addForeignPtrFinalizerEnv' = gcoerceWith (unsafeForeignPtrCoercion @fp @a) $ coerce $ addForeignPtrFinalizerEnv @env @a
 
 withConstForeignPtr :: forall fp a r. AForeignPtr fp => fp a -> (ConstPtr a -> IO r) -> IO r
-withConstForeignPtr p f = withForeignPtr (unsafeForeignPtr p) (f .# ConstPtr)
+withConstForeignPtr = gcoerceWith (unsafeForeignPtrCoercion @fp @a) $ coerce $ withForeignPtr @a @r
 
 finalizeForeignPtr' :: forall fp a. AForeignPtr fp => fp a -> IO ()
-finalizeForeignPtr' fp = finalizeForeignPtr (unsafeForeignPtr fp)
+finalizeForeignPtr' = gcoerceWith (unsafeForeignPtrCoercion @fp @a) $ coerce $ finalizeForeignPtr @a
 
 touchForeignPtr' :: forall fp a. AForeignPtr fp => fp a -> IO ()
-touchForeignPtr' fp = touchForeignPtr (unsafeForeignPtr fp)
+touchForeignPtr' = gcoerceWith (unsafeForeignPtrCoercion @fp @a) $ coerce $ touchForeignPtr @a
 
 castConstForeignPtr :: forall fp a b. AForeignPtr fp => fp a -> ConstForeignPtr b
-castConstForeignPtr = ConstForeignPtr #. castForeignPtr . unsafeForeignPtr
+castConstForeignPtr = gcoerceWith (unsafeForeignPtrCoercion @fp @a) $ coerce $ castForeignPtr @a @b
 
 plusConstForeignPtr :: forall fp a b. AForeignPtr fp => fp a -> Int -> ConstForeignPtr b
-plusConstForeignPtr fp = ConstForeignPtr #. plusForeignPtr (unsafeForeignPtr fp)
+plusConstForeignPtr = gcoerceWith (unsafeForeignPtrCoercion @fp @a) $ coerce $ plusForeignPtr @a @b
 
 -- | Analogous to Foreign.Concurrent.newForeignPtr
 newConstForeignPtrConcurrent :: forall p a. APtr p => p a -> IO () -> IO (ConstForeignPtr a)
-newConstForeignPtrConcurrent p f = ConstForeignPtr <$> Concurrent.newForeignPtr (unsafePtr p) f
+newConstForeignPtrConcurrent = gcoerceWith (unsafePtrCoercion @p @a) $ coerce $ Concurrent.newForeignPtr @a
 
 addConcurrentForeignPtrFinalizer' :: forall fp a. AForeignPtr fp => fp a -> IO () -> IO ()
-addConcurrentForeignPtrFinalizer' fp f = Concurrent.addForeignPtrFinalizer (unsafeForeignPtr fp) f
+addConcurrentForeignPtrFinalizer' = gcoerceWith (unsafeForeignPtrCoercion @fp @a) $ coerce $ Concurrent.addForeignPtrFinalizer @a
