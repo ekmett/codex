@@ -9,6 +9,8 @@
 
 module Foreign.Const.ForeignPtr
   ( ConstForeignPtr
+  , constForeignPtr
+
   , AForeignPtr
 
   -- * const foreign pointer operations
@@ -41,6 +43,10 @@ import Foreign.ForeignPtr
 import Foreign.Ptr
 
 import Data.Const.Unsafe
+
+constForeignPtr :: AForeignPtr fp => fp a -> ConstForeignPtr a
+constForeignPtr = constant
+{-# inline constForeignPtr #-}
 
 newConstForeignPtr :: forall p a. APtr p => FinalizerPtr a -> p a -> IO (ConstForeignPtr a)
 newConstForeignPtr = gcoerceWith (unsafePtrCoercion @p @a) $ coerce $ newForeignPtr @a

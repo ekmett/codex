@@ -9,6 +9,7 @@ module Data.Const.IORef
   ( ConstIORef
   , constIORef
   , AnIORef
+
   , readAnIORef
   ) where
 

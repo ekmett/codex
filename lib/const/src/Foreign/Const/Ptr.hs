@@ -7,6 +7,7 @@
 
 module Foreign.Const.Ptr
   ( ConstPtr
+  , constPtr
   , APtr
 
   -- * const-agnostic operations
@@ -29,6 +30,10 @@ import Foreign.Ptr
 import Foreign.Storable
 
 import Data.Const.Unsafe
+
+constPtr :: APtr p => p a -> ConstPtr a
+constPtr = constant
+{-# inline constPtr #-}
 
 peekAt :: forall p a. (Storable a, APtr p) => p a -> IO a
 peekAt = gcoerceWith (unsafePtrCoercion @p @a) (coerce (peek @a))
