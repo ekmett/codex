@@ -44,23 +44,23 @@ library
     vector
 
   exposed-modules:
-    Glow,
-    Glow.Attribute,
-    Glow.Block,
-    Glow.Buffer,
-    Glow.Draw,
-    Glow.Error,
-    Glow.Framebuffer,
-    Glow.Image,
-    Glow.Object,
-    Glow.Pixel,
-    Glow.Program,
-    Glow.ProgramPipeline,
-    Glow.Renderbuffer,
-    Glow.Sampler,
-    Glow.Shader,
-    Glow.Texture,
-    Glow.Types,
-    Glow.Uniform,
-    Glow.Version,
+    Glow
+    Glow.Attribute
+    Glow.Block
+    Glow.Buffer
+    Glow.Draw
+    Glow.Error
+    Glow.Framebuffer
+    Glow.Image
+    Glow.Object
+    Glow.Pixel
+    Glow.Program
+    Glow.ProgramPipeline
+    Glow.Renderbuffer
+    Glow.Sampler
+    Glow.Shader
+    Glow.Texture
+    Glow.Types
+    Glow.Uniform
+    Glow.Version
     Glow.VertexArray

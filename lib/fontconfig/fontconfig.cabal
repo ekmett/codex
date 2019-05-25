@@ -39,5 +39,5 @@ library
     template-haskell,
     transformers
   exposed-modules:
-    Font.Config,
+    Font.Config
     Font.Config.Internal

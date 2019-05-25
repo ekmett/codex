@@ -82,10 +82,10 @@ library
 
   if flag(nih)
     exposed-modules:
-      UI.Text.Atlas,
-      UI.Text.Buffer,
-      UI.Text.Color,
-      UI.Text.Font,
+      UI.Text.Atlas
+      UI.Text.Buffer
+      UI.Text.Color
+      UI.Text.Font
       UI.Text.Markup
 
 executable ui
