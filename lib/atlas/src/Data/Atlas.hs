@@ -9,7 +9,7 @@ module Data.Atlas
   ( Atlas
   , new, new_
   -- * Setup
-  , heuristic, Heuristic(..)
+  , Heuristic(..), heuristic
   , allowOOM
   -- * Using a context
   , pack
@@ -24,7 +24,7 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.Primitive
 import Control.Monad.Trans.State.Strict
-import Data.Atlas.Raw
+import Data.Atlas.Internal
 import Data.Foldable (toList)
 import Data.Maybe (fromMaybe)
 import Data.Proxy
