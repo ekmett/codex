@@ -21,16 +21,19 @@ module Foreign.Const.Ptr
   , peekAt
   , peekAtElemOff
   , peekAtByteOff
+
+  -- * const preserving operations
+
   , minusAPtr
+  , castAPtr
+  , plusAPtr
+  , alignAPtr
 
   -- * operations returning const pointers
 
   , nullConstPtr
-  , castAPtr
   , castConstPtr
-  , plusAPtr
   , plusConstPtr
-  , alignAPtr
   , alignConstPtr
   ) where
 
