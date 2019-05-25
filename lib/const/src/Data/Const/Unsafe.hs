@@ -34,12 +34,14 @@ module Data.Const.Unsafe
   , ConstMutVar(..)
   , ConstIORef(..)
   , ConstSTRef(..)
+  , SmallConstArray(..) -- to mirror SmallMutableArray's naming
   , constant, unsafeConstantCoercion -- note, using the symmetry of this coercion is dangerous
   , APtr, unsafePtr, unsafePtrCoercion
   , AForeignPtr, unsafeForeignPtr, unsafeForeignPtrCoercion
   , AnArray, unsafeArray, unsafeArrayCoercion
   , AByteArray, unsafeByteArray, unsafeByteArrayCoercion
   , APrimArray, unsafePrimArray, unsafePrimArrayCoercion
+  , ASmallArray, unsafeSmallArray, unsafeSmallArrayCoercion
   , AMutVar, unsafeMutVar, unsafeMutVarCoercion
   , AnIORef, unsafeIORef, unsafeIORefCoercion
   , AnSTRef, unsafeSTRef, unsafeSTRefCoercion
@@ -51,6 +53,7 @@ import Data.IORef
 import Data.Primitive.Array
 import Data.Primitive.ByteArray
 import Data.Primitive.PrimArray
+import Data.Primitive.SmallArray
 import Data.Primitive.MutVar
 import Data.STRef
 import Data.Type.Coercion
@@ -67,12 +70,15 @@ class (Constable q q, forall a. Coercible (q a) (p a)) => Constable q p | p -> q
 -- this is the safe direction
 constant :: forall p a q. Constable q p => p a -> q a
 constant = coerceWith (sym unsafeConstantCoercion)
+{-# inline constant #-}
 
 unsafeConstantCoercion :: forall p a q. Constable q p => Coercion (q a) (p a)
 unsafeConstantCoercion = Coercion
+{-# inline unsafeConstantCoercion #-}
 
 uncoerceWith :: Coercion a b -> b -> a
 uncoerceWith = coerceWith . sym
+{-# inline uncoerceWith #-}
 
 -- * pointers
 
@@ -84,9 +90,11 @@ type APtr = Constable ConstPtr
 -- note backwards
 unsafePtrCoercion :: forall p a. APtr p => Coercion (Ptr a) (p a)
 unsafePtrCoercion = unsafeConstantCoercion @p @a . Coercion
+{-# inline unsafePtrCoercion #-}
 
 unsafePtr :: forall p a. APtr p => p a -> Ptr a
 unsafePtr = uncoerceWith (unsafePtrCoercion @p)
+{-# inline unsafePtr #-}
 
 -- * foreign pointers
 --
@@ -97,9 +105,11 @@ type AForeignPtr = Constable ConstForeignPtr
 
 unsafeForeignPtrCoercion :: forall p a. AForeignPtr p => Coercion (ForeignPtr a) (p a)
 unsafeForeignPtrCoercion = unsafeConstantCoercion @p @a . Coercion
+{-# inline unsafeForeignPtrCoercion #-}
 
 unsafeForeignPtr :: forall p a. AForeignPtr p => p a -> ForeignPtr a
 unsafeForeignPtr = coerceWith (sym (unsafeForeignPtrCoercion @p))
+{-# inline unsafeForeignPtr #-}
 
 -- Data.Primitive.IORef
 
@@ -110,9 +120,11 @@ type AnIORef = Constable ConstIORef
 
 unsafeIORefCoercion :: forall p a. AnIORef p => Coercion (IORef a) (p a)
 unsafeIORefCoercion = unsafeConstantCoercion @p @a . Coercion
+{-# inline unsafeIORefCoercion #-}
 
 unsafeIORef :: forall p a. AnIORef p => p a -> IORef a
 unsafeIORef = uncoerceWith (unsafeIORefCoercion @p)
+{-# inline unsafeIORef #-}
 
 -- Data.Primitive.Array
 
@@ -123,9 +135,11 @@ type AnArray s = Constable (ConstArray s)
 
 unsafeArrayCoercion :: forall s p a. AnArray s p => Coercion (MutableArray s a) (p a)
 unsafeArrayCoercion = unsafeConstantCoercion @p @a . Coercion
+{-# inline unsafeArrayCoercion #-}
 
 unsafeArray :: forall s p a. AnArray s p => p a -> MutableArray s a
 unsafeArray = uncoerceWith (unsafeArrayCoercion @s @p)
+{-# inline unsafeArray #-}
 
 -- Data.Primitive.ByteArray
 
@@ -141,9 +155,11 @@ type AByteArray = Constable ConstByteArray
 
 unsafeByteArrayCoercion :: forall p s. AByteArray p => Coercion (MutableByteArray s) (p s)
 unsafeByteArrayCoercion = unsafeConstantCoercion @p @s. Coercion
+{-# inline unsafeByteArrayCoercion #-}
 
 unsafeByteArray :: forall s p. AByteArray p => p s -> MutableByteArray s
 unsafeByteArray = uncoerceWith (unsafeByteArrayCoercion @p @s)
+{-# inline unsafeByteArray #-}
 
 -- Data.Primitive.PrimArray
 
@@ -158,9 +174,26 @@ type APrimArray s = Constable (ConstPrimArray s)
 
 unsafePrimArrayCoercion :: forall s p a. APrimArray s p => Coercion (MutablePrimArray s a) (p a)
 unsafePrimArrayCoercion = unsafeConstantCoercion @p @a . Coercion
+{-# inline unsafePrimArrayCoercion #-}
 
 unsafePrimArray :: forall s p a. APrimArray s p => p a -> MutablePrimArray s a
 unsafePrimArray = uncoerceWith (unsafePrimArrayCoercion @s @p)
+{-# inline unsafePrimArray #-}
+
+-- Data.Primitive.SmallArray
+
+newtype SmallConstArray s a = SmallConstArray { unsafeSmallConstArraySmallMutableArray :: SmallMutableArray s a } deriving Eq
+instance Constable (SmallConstArray s) (SmallMutableArray s)
+instance Constable (SmallConstArray s) (SmallConstArray s)
+type ASmallArray s = Constable (SmallConstArray s)
+
+unsafeSmallArrayCoercion :: forall s p a. ASmallArray s p => Coercion (SmallMutableArray s a) (p a)
+unsafeSmallArrayCoercion = unsafeConstantCoercion @p @a . Coercion
+{-# inline unsafeSmallArrayCoercion #-}
+
+unsafeSmallArray :: forall s p a. ASmallArray s p => p a -> SmallMutableArray s a
+unsafeSmallArray = uncoerceWith (unsafeSmallArrayCoercion @s @p)
+{-# inline unsafeSmallArray #-}
 
 -- Data.Primitive.MutVar
 
@@ -171,9 +204,11 @@ type AMutVar s = Constable (ConstMutVar s)
 
 unsafeMutVarCoercion :: forall s p a. AMutVar s p => Coercion (MutVar s a) (p a)
 unsafeMutVarCoercion = unsafeConstantCoercion @p @a . Coercion
+{-# inline unsafeMutVarCoercion #-}
 
 unsafeMutVar :: forall s p a. AMutVar s p => p a -> MutVar s a
 unsafeMutVar = uncoerceWith (unsafeMutVarCoercion @s @p)
+{-# inline unsafeMutVar #-}
 
 -- Data.STRef
 
@@ -184,6 +219,9 @@ type AnSTRef s = Constable (ConstSTRef s)
 
 unsafeSTRefCoercion :: forall s p a. AnSTRef s p => Coercion (STRef s a) (p a)
 unsafeSTRefCoercion = unsafeConstantCoercion @p @a . Coercion
+{-# inline unsafeSTRefCoercion #-}
 
 unsafeSTRef :: forall s p a. AnSTRef s p => p a -> STRef s a
 unsafeSTRef = uncoerceWith (unsafeSTRefCoercion @s @p)
+{-# inline unsafeSTRef #-}
+

@@ -41,6 +41,7 @@ library
     Data.Const.Primitive.ByteArray
     Data.Const.Primitive.PrimArray
     Data.Const.Primitive.MutVar
+    Data.Const.Primitive.SmallArray
     Foreign.Const.C.String
     Foreign.Const.Concurrent
     Foreign.Const.ForeignPtr
