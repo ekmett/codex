@@ -26,7 +26,7 @@ import Data.Coerce
 import Data.Type.Coercion
 import Foreign.Const.Unsafe
 import Foreign.Ptr
-import Foreign.Storable
+import Foreign.Storable -- why is this marked Trustworthy?
 
 peek' :: forall p a. (Storable a, APtr p) => p a -> IO a
 peek' = gcoerceWith (unsafePtrCoercion @p @a) (coerce (peek @a))

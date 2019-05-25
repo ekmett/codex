@@ -27,10 +27,11 @@ library
   ghc-options:
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
     -Wredundant-constraints -Widentities -Wmissing-export-lists
-  build-depends: base >= 4.11 && < 5, primitive
+  build-depends: base >= 4.11 && < 5, primitive >= 0.7
   exposed-modules:
     Foreign.Const
     Foreign.Const.ForeignPtr
     Foreign.Const.Ptr
     Foreign.Const.Unsafe
     Data.Primitive.Const.Array
+    Data.Primitive.Const.ByteArray

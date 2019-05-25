@@ -4,6 +4,7 @@
 {-# language TypeApplications #-}
 {-# language ConstraintKinds #-}
 {-# language TypeFamilies #-}
+{-# language Trustworthy #-}
 {-# language RankNTypes #-}
 module Foreign.Const.ForeignPtr
   ( ConstForeignPtr
