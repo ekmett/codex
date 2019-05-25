@@ -2,6 +2,7 @@
 {-# language ForeignFunctionInterface #-}
 {-# language LambdaCase #-}
 {-# language ViewPatterns #-}
+{-# language DeriveDataTypeable #-}
 {-# language RecordWildCards #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneDeriving #-}
@@ -33,6 +34,7 @@ module Data.Atlas.Internal
   ) where
 
 import Control.Lens
+import Data.Data (Data)
 import Data.Default
 import Foreign.C.Types
 import Foreign.ForeignPtr
@@ -46,6 +48,7 @@ import GHC.Arr
 
 -- opaque. TODO: use ForeignPtr
 newtype Atlas s = Atlas { getAtlas :: ForeignPtr (Atlas s) }
+  deriving (Eq,Ord,Show,Data)
 
 withAtlas :: Atlas s -> (Ptr (Atlas s) -> IO r) -> IO r
 withAtlas = withForeignPtr . getAtlas
