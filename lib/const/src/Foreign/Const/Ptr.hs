@@ -5,6 +5,13 @@
 {-# language TypeFamilies #-}
 {-# language Trustworthy #-}
 
+-- |
+-- Copyright :  (c) 2019 Edward Kmett
+-- License   :  BSD-2-Clause OR Apache-2.0
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+
 module Foreign.Const.Ptr
   ( ConstPtr
   , constPtr
@@ -19,8 +26,11 @@ module Foreign.Const.Ptr
   -- * operations returning const pointers
 
   , nullConstPtr
+  , castAPtr
   , castConstPtr
+  , plusAPtr
   , plusConstPtr
+  , alignAPtr
   , alignConstPtr
   ) where
 
@@ -51,13 +61,25 @@ nullConstPtr :: ConstPtr a
 nullConstPtr = ConstPtr nullPtr
 {-# inline nullConstPtr #-}
 
+castAPtr :: forall p a b. APtr p => p a -> p b
+castAPtr = gcoerceWith (unsafePtrCoercion @p @a) $ gcoerceWith (unsafePtrCoercion @p @b) $ coerce (castPtr @a @b)
+{-# inline castAPtr #-}
+
 castConstPtr :: forall p a b. APtr p => p a -> ConstPtr b
 castConstPtr = gcoerceWith (unsafePtrCoercion @p @a) $ coerce (castPtr @a @b)
 {-# inline castConstPtr #-}
 
+plusAPtr :: forall p a b. APtr p => p a -> Int -> p b
+plusAPtr = gcoerceWith (unsafePtrCoercion @p @a) $ gcoerceWith (unsafePtrCoercion @p @b) $ coerce (plusPtr @a @b)
+{-# inline plusAPtr #-}
+
 plusConstPtr :: forall p a b. APtr p => p a -> Int -> ConstPtr b
 plusConstPtr = gcoerceWith (unsafePtrCoercion @p @a) $ coerce (plusPtr @a @b)
 {-# inline plusConstPtr #-}
+
+alignAPtr :: forall p a. APtr p => p a -> Int -> p a
+alignAPtr = gcoerceWith (unsafePtrCoercion @p @a) $ coerce (alignPtr @a)
+{-# inline alignAPtr #-}
 
 alignConstPtr :: forall p a. APtr p => p a -> Int -> ConstPtr a
 alignConstPtr = gcoerceWith (unsafePtrCoercion @p @a) $ coerce (alignPtr @a)

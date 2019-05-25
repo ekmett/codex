@@ -39,3 +39,4 @@ library
     Data.Primitive.Const.MutVar
     Foreign.Const.ForeignPtr
     Foreign.Const.Ptr
+    Foreign.Marshal.Const.Array
