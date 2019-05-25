@@ -24,7 +24,6 @@ module Foreign.Const.Ptr
 
 import Data.Coerce
 import Data.Type.Coercion
-import Foreign.Const.Internal
 import Foreign.Const.Unsafe
 import Foreign.Ptr
 import Foreign.Storable
@@ -41,14 +40,14 @@ peekByteOff' = gcoerceWith (unsafePtrCoercion @p @b) $ coerce (peekByteOff @a @b
 nullConstPtr :: ConstPtr a 
 nullConstPtr = ConstPtr nullPtr
 
-castConstPtr :: APtr p => p a -> ConstPtr b
-castConstPtr = ConstPtr #. castPtr . unsafePtr
+castConstPtr :: forall p a b. APtr p => p a -> ConstPtr b
+castConstPtr = gcoerceWith (unsafePtrCoercion @p @a) $ coerce (castPtr @a @b)
 
-plusConstPtr :: APtr p => p a -> Int -> ConstPtr a
-plusConstPtr p = ConstPtr #. plusPtr (unsafePtr p)
+plusConstPtr :: forall p a b. APtr p => p a -> Int -> ConstPtr b
+plusConstPtr = gcoerceWith (unsafePtrCoercion @p @a) $ coerce (plusPtr @a @b)
 
-alignConstPtr :: APtr p => p a -> Int -> ConstPtr a
-alignConstPtr p = ConstPtr #. alignPtr (unsafePtr p)
+alignConstPtr :: forall p a. APtr p => p a -> Int -> ConstPtr a
+alignConstPtr = gcoerceWith (unsafePtrCoercion @p @a) $ coerce (alignPtr @a)
 
 minusPtr' :: forall p q a b. (APtr p, APtr q) => p a -> q b -> Int
 minusPtr' = gcoerceWith (unsafePtrCoercion @p @a) $ gcoerceWith (unsafePtrCoercion @q @b) $ coerce (minusPtr @a @b)
