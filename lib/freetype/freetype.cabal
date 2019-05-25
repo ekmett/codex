@@ -154,4 +154,4 @@ library
   build-tool-depends: hsc2hs:hsc2hs
   ghc-options: -Wall
   cc-options: -Wno-macro-redefined
-  pkg-depends: freetype2
+  pkgconfig-depends: freetype2
