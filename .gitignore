@@ -23,3 +23,10 @@ cabal.project.local~
 level0*/*app_db.db
 level0*/result
 test/ed*txt
+config.mk
+objs/vc2010/
+*~
+*.[ao]
+*.swp
+dist/
+cabal-dev/
