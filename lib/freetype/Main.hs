@@ -48,28 +48,28 @@ main = do
   library <- alloca $ \libraryptr -> do
     putStr "Library ptr: "
     print libraryptr
-    runFreeType $ ft_Init_FreeType libraryptr
+    runFreeType $ _FT_Init_FreeType libraryptr
     peek libraryptr
 
   face <- alloca $ \faceptr -> do
     putStr "Face ptr: "
     print faceptr
     withCString filename $ \str -> do
-      runFreeType $ ft_New_Face library str 0 faceptr
+      runFreeType $ _FT_New_Face library str 0 faceptr
       peek faceptr
 
   image <- A.newArray
     ((0,0), (fromIntegral display_height - 1, fromIntegral display_width - 1)) 0
     :: IO (IOUArray (Int, Int) Int)
 
-  runFreeType $ ft_Set_Char_Size face (50*64) 0 100 0
+  runFreeType $ _FT_Set_Char_Size face (50*64) 0 100 0
   forM_ text $ \c -> do
     withForeignPtr matrix $ \mp ->
       withForeignPtr pen $ \pp -> do
-        ft_Set_Transform face mp pp
+        _FT_Set_Transform face mp pp
         slot <- peek $ glyph face
         runFreeType $
-          ft_Load_Char face (fromIntegral . fromEnum $ c) ft_LOAD_RENDER
+          _FT_Load_Char face (fromIntegral . fromEnum $ c) FT_LOAD_RENDER
         numFaces <- peek $ num_faces face
         putStrLn $ "face->num_faces = " ++ show numFaces
         v <- peek $ advance slot
@@ -88,8 +88,8 @@ main = do
         unless (b_right >= display_width || b_bottom >= display_height) $
           drawBitmap b image left b_top
   showImage image
-  runFreeType $ ft_Done_Face face
-  runFreeType $ ft_Done_FreeType library
+  runFreeType $ _FT_Done_Face face
+  runFreeType $ _FT_Done_FreeType library
 
 drawBitmap :: FT_Bitmap -> IOUArray (Int, Int) Int
            -> FT_Int -> FT_Int -> IO ()
