@@ -1,8 +1,7 @@
 cabal-version: 2.2
 name: const
 version: 0
-synopsis: Constant pointers
-description: Constant pointers
+synopsis: Read-only mutable primitives
 homepage: https://github.com/ekmett/ui#readme
 license: BSD-2-Clause OR Apache-2.0
 license-file: LICENSE.md
@@ -12,10 +11,15 @@ copyright: Copyright (c) 2019 Edward Kmett
 stability: experimental
 category: FFI
 build-type: Simple
+description:
+  Read-only mutable primitives.
+  .
+  This can be used for more accurate FFI bindings
+  or simply to indicate more cleanly in your code
+  what you are and aren't allowed to modify.
 extra-doc-files:
   README.md,
   CHANGELOG.md
-  TODO.md
 
 source-repository head
   type: git
@@ -38,6 +42,7 @@ library
     Data.Const.Primitive.PrimArray
     Data.Const.Primitive.MutVar
     Foreign.Const.C.String
+    Foreign.Const.Concurrent
     Foreign.Const.ForeignPtr
     Foreign.Const.Ptr
     Foreign.Const.Marshal.Array

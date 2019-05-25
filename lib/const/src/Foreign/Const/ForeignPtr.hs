@@ -5,7 +5,6 @@
 {-# language ConstraintKinds #-}
 {-# language TypeFamilies #-}
 {-# language Trustworthy #-}
-{-# language RankNTypes #-}
 
 -- |
 -- Copyright :  (c) 2019 Edward Kmett
@@ -36,15 +35,10 @@ module Foreign.Const.ForeignPtr
   , finalizeAForeignPtr
   , touchAForeignPtr
 
-  -- * @Foreign.Concurrent@-style finalizers
-
-  , newConstForeignPtrConcurrent
-  , addAForeignPtrFinalizerConcurrent
   ) where
 
 import Data.Coerce
 import Data.Type.Coercion
-import qualified Foreign.Concurrent as Concurrent
 import Foreign.Const.Ptr
 import Foreign.ForeignPtr
 import Foreign.Ptr
@@ -95,11 +89,3 @@ plusConstForeignPtr :: forall fp a b. AForeignPtr fp => fp a -> Int -> ConstFore
 plusConstForeignPtr = gcoerceWith (unsafeForeignPtrCoercion @fp @a) $ coerce $ plusForeignPtr @a @b
 {-# inline plusConstForeignPtr #-}
 
--- | Analogous to Foreign.Concurrent.newForeignPtr
-newConstForeignPtrConcurrent :: forall p a. APtr p => p a -> IO () -> IO (ConstForeignPtr a)
-newConstForeignPtrConcurrent = gcoerceWith (unsafePtrCoercion @p @a) $ coerce $ Concurrent.newForeignPtr @a
-{-# inline newConstForeignPtrConcurrent #-}
-
-addAForeignPtrFinalizerConcurrent :: forall fp a. AForeignPtr fp => fp a -> IO () -> IO ()
-addAForeignPtrFinalizerConcurrent = gcoerceWith (unsafeForeignPtrCoercion @fp @a) $ coerce $ Concurrent.addForeignPtrFinalizer @a
-{-# inline addAForeignPtrFinalizerConcurrent #-}
