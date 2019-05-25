@@ -1,0 +1,54 @@
+cabal-version: 2.2
+name: freetype-glow
+version: 0
+synopsis: Low-level wrappings around the 'freetype-gl' library using 'glow'
+description:  Low-level wrappings around the 'freetype-gl' library using 'glow'
+homepage: https://github.com/ekmett/ui#readme
+license: BSD-2-Clause OR Apache-2.0
+license-file: LICENSE.md
+author: Edward Kmett
+maintainer: Edward Kmett <ekmett@gmail.com>
+copyright: Copyright (c) 2019 Edward Kmett
+stability: experimental
+category: Graphics
+build-type: Simple
+extra-doc-files:
+  README.md,
+  CHANGELOG.md
+
+extra-source-files:
+  freetype-gl/font-manager.h
+  freetype-gl/markup.h
+  freetype-gl/opengl.h
+  freetype-gl/text-buffer.h
+  freetype-gl/texture-atlas.h
+  freetype-gl/texture-font.h
+  freetype-gl/utf8-utils.h
+  freetype-gl/vec234.h
+  freetype-gl/vector.h
+  freetype-gl/vertex-attribute.h
+  freetype-gl/vertex-buffer.h
+
+source-repository head
+  type: git
+  location: https://github.com/ekmett/ui
+
+library
+  hs-source-dirs: src
+  default-language: Haskell2010
+  ghc-options:
+    -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+    -Wredundant-constraints -Widentities -Wmissing-export-lists
+  build-depends:
+    base >= 4.11 && < 5,
+    gl, 
+    glow
+
+  exposed-modules:
+    Glow.Freetype.Atlas
+    Glow.Freetype.Internal
+    -- Glow.Freetype.Buffer
+    -- Glow.Freetype.Color
+    -- Glow.Freetype.Font
+    -- Glow.Freetype.Markup
+

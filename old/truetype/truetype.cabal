@@ -1,0 +1,38 @@
+cabal-version: 2.2
+name: truetype
+version: 0
+synopsis: Truetype font manipulation
+description: Truetype font manipulation via @stb_truetype.h@.
+homepage: https://github.com/ekmett/ui#readme
+license: BSD-2-Clause OR Apache-2.0
+license-file: LICENSE.md
+author: Edward Kmett
+maintainer: Edward Kmett <ekmett@gmail.com>
+copyright: Copyright (c) 2019 Edward Kmett
+stability: experimental
+category: Graphics
+build-type: Simple
+extra-doc-files:
+  README.md,
+  CHANGELOG.md
+
+source-repository head
+  type: git
+  location: https://github.com/ekmett/ui
+
+library
+  hs-source-dirs: src
+  include-dirs: cbits
+  c-sources: cbits/stb_truetype.c
+  default-language: Haskell2010
+  build-tool-depends: hsc2hs:hsc2hs
+  ghc-options:
+    -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+    -Wredundant-constraints -Widentities -Wmissing-export-lists
+  build-depends:
+    atlas >= 0 && < 0.1, 
+    base >= 4.11 && < 5,
+    data-default
+  exposed-modules:
+    Font.Truetype
+    Font.Truetype.Internal
