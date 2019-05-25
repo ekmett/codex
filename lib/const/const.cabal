@@ -29,11 +29,13 @@ library
     -Wredundant-constraints -Widentities -Wmissing-export-lists
   build-depends: base >= 4.11 && < 5, primitive >= 0.7
   exposed-modules:
-    Foreign.Const
-    Foreign.Const.ForeignPtr
-    Foreign.Const.Ptr
-    Foreign.Const.Unsafe
+    Data.Const
+    Data.Const.IORef
+    Data.Const.STRef
+    Data.Const.Unsafe
     Data.Primitive.Const.Array
     Data.Primitive.Const.ByteArray
     Data.Primitive.Const.PrimArray
     Data.Primitive.Const.MutVar
+    Foreign.Const.ForeignPtr
+    Foreign.Const.Ptr

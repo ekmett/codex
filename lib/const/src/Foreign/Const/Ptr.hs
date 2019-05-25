@@ -3,19 +3,20 @@
 {-# language FlexibleContexts #-}
 {-# language ConstraintKinds #-}
 {-# language TypeFamilies #-}
+{-# language Trustworthy #-}
 
 module Foreign.Const.Ptr
   ( ConstPtr
   , APtr
 
   -- * const-agnostic operations
-  , peek'
-  , peekElemOff'
-  , peekByteOff'
+  , peekAt
+  , peekAtElemOff
+  , peekAtByteOff
   , minusAPtr
 
   -- * operations returning const pointers
-  --
+
   , nullConstPtr
   , castConstPtr
   , plusConstPtr
@@ -24,30 +25,39 @@ module Foreign.Const.Ptr
 
 import Data.Coerce
 import Data.Type.Coercion
-import Foreign.Const.Unsafe
 import Foreign.Ptr
-import Foreign.Storable -- why is this marked Trustworthy?
+import Foreign.Storable
 
-peek' :: forall p a. (Storable a, APtr p) => p a -> IO a
-peek' = gcoerceWith (unsafePtrCoercion @p @a) (coerce (peek @a))
+import Data.Const.Unsafe
 
-peekElemOff' :: forall p a. (Storable a, APtr p) => p a -> Int -> IO a
-peekElemOff' = gcoerceWith (unsafePtrCoercion @p @a) $ coerce (peekElemOff @a)
+peekAt :: forall p a. (Storable a, APtr p) => p a -> IO a
+peekAt = gcoerceWith (unsafePtrCoercion @p @a) (coerce (peek @a))
+{-# inline peekAt #-}
 
-peekByteOff' :: forall p a b. (Storable a, APtr p) => p b -> Int -> IO a
-peekByteOff' = gcoerceWith (unsafePtrCoercion @p @b) $ coerce (peekByteOff @a @b)
+peekAtElemOff :: forall p a. (Storable a, APtr p) => p a -> Int -> IO a
+peekAtElemOff = gcoerceWith (unsafePtrCoercion @p @a) $ coerce (peekElemOff @a)
+{-# inline peekAtElemOff #-}
+
+peekAtByteOff :: forall p a b. (Storable a, APtr p) => p b -> Int -> IO a
+peekAtByteOff = gcoerceWith (unsafePtrCoercion @p @b) $ coerce (peekByteOff @a @b)
+{-# inline peekAtByteOff #-}
 
 nullConstPtr :: ConstPtr a 
 nullConstPtr = ConstPtr nullPtr
+{-# inline nullConstPtr #-}
 
 castConstPtr :: forall p a b. APtr p => p a -> ConstPtr b
 castConstPtr = gcoerceWith (unsafePtrCoercion @p @a) $ coerce (castPtr @a @b)
+{-# inline castConstPtr #-}
 
 plusConstPtr :: forall p a b. APtr p => p a -> Int -> ConstPtr b
 plusConstPtr = gcoerceWith (unsafePtrCoercion @p @a) $ coerce (plusPtr @a @b)
+{-# inline plusConstPtr #-}
 
 alignConstPtr :: forall p a. APtr p => p a -> Int -> ConstPtr a
 alignConstPtr = gcoerceWith (unsafePtrCoercion @p @a) $ coerce (alignPtr @a)
+{-# inline alignConstPtr #-}
 
 minusAPtr :: forall p q a b. (APtr p, APtr q) => p a -> q b -> Int
 minusAPtr = gcoerceWith (unsafePtrCoercion @p @a) $ gcoerceWith (unsafePtrCoercion @q @b) $ coerce (minusPtr @a @b)
+{-# inline minusAPtr #-}
