@@ -36,3 +36,4 @@ library
     Data.Primitive.Const.Array
     Data.Primitive.Const.ByteArray
     Data.Primitive.Const.PrimArray
+    Data.Primitive.Const.MutVar
