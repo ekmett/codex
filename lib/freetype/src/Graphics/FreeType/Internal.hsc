@@ -5,87 +5,87 @@ import Foreign
 import Foreign.C.Types
 import Foreign.C.String
 
-import Graphics.FreeType.Internal.PrimitiveTypes
-import Graphics.FreeType.Internal.Library
-import Graphics.FreeType.Internal.Face
-import Graphics.FreeType.Internal.Matrix
-import Graphics.FreeType.Internal.Vector
-import Graphics.FreeType.Internal.Glyph
-import Graphics.FreeType.Internal.GlyphSlot
-import Graphics.FreeType.Internal.OpenArgs
-import Graphics.FreeType.Internal.SizeRequest
-import Graphics.FreeType.Internal.CharMap
-import Graphics.FreeType.Internal.Outline
-import Graphics.FreeType.Internal.Memory
-import Graphics.FreeType.Internal.BBox
-import Graphics.FreeType.Internal.Bitmap
-import Graphics.FreeType.Internal.RasterParams
-import Graphics.FreeType.Internal.Size
+import Graphics.FreeType.Library
+import Graphics.FreeType.Face
+import Graphics.FreeType.Matrix
+import Graphics.FreeType.Vector
+import Graphics.FreeType.Glyph
+import Graphics.FreeType.GlyphSlot
+import Graphics.FreeType.OpenArgs
+import Graphics.FreeType.SizeRequest
+import Graphics.FreeType.CharMap
+import Graphics.FreeType.Outline
+import Graphics.FreeType.Memory
+import Graphics.FreeType.BBox
+import Graphics.FreeType.Bitmap
+import Graphics.FreeType.RasterParams
+import Graphics.FreeType.Size
+import Graphics.FreeType.Types
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
-foreign import ccall "FT_Activate_Size" _FT_Activate_Size :: FT_Size -> IO FT_Error
-foreign import ccall "FT_Attach_File" _FT_Attach_File :: FT_Face -> CString -> IO FT_Error
-foreign import ccall "FT_Attach_Stream" _FT_Attach_Stream :: FT_Face -> Ptr FT_Open_Args -> IO FT_Error
-foreign import ccall "FT_Done_Face" _FT_Done_Face :: FT_Face -> IO FT_Error
-foreign import ccall "FT_Done_FreeType" _FT_Done_FreeType :: FT_Library -> IO FT_Error
-foreign import ccall "FT_Done_Glyph" _FT_Done_Glyph :: FT_Glyph -> IO ()
-foreign import ccall "FT_Done_Size" _FT_Done_Size :: FT_Size -> IO FT_Error
+foreign import ccall "FT_Activate_Size" activateSize :: Size -> IO Error
+foreign import ccall "FT_Attach_File" attachFile :: Face -> CString -> IO Error
+foreign import ccall "FT_Attach_Stream" attachStream :: Face -> Ptr OpenArgs -> IO Error
+foreign import ccall "FT_Done_Face" doneFace :: Face -> IO Error
+foreign import ccall "FT_Done_FreeType" doneFreeType :: Library -> IO Error
+foreign import ccall "FT_Done_Glyph" doneGlyph :: Glyph -> IO ()
+foreign import ccall "FT_Done_Size" doneSize :: Size -> IO Error
 -- | This is just here for completeness,
 -- TrueType hinting is no longer patented
-foreign import ccall "FT_Face_CheckTrueTypePatents" _FT_Face_CheckTrueTypePatents :: FT_Face -> IO FT_Bool
-foreign import ccall "FT_Face_GetCharVariantIndex" _FT_Face_GetCharVariantIndex :: FT_Face -> FT_ULong -> FT_ULong -> IO FT_UInt
-foreign import ccall "FT_Face_GetCharVariantIsDefault" _FT_Face_GetCharVariantIsDefault :: FT_Face -> FT_ULong -> FT_ULong -> IO FT_Int
-foreign import ccall "FT_Face_GetCharsOfVariant" _FT_Face_GetCharsOfVariant :: FT_Face -> FT_ULong -> IO (Ptr FT_UInt32)
-foreign import ccall "FT_Face_GetVariantSelectors" _FT_Face_GetVariantSelectors :: FT_Face -> IO (Ptr FT_UInt32)
-foreign import ccall "FT_Face_GetVariantsOfChar" _FT_Face_GetVariantsOfChar :: FT_Face -> FT_ULong -> IO (Ptr FT_UInt32)
+foreign import ccall "FT_Face_CheckTrueTypePatents" faceCheckTrueTypePatents :: Face -> IO FT_Bool
+foreign import ccall "FT_Face_GetCharVariantIndex" faceGetCharVariantIndex :: Face -> CULong -> CULong -> IO CUInt
+foreign import ccall "FT_Face_GetCharVariantIsDefault" faceGetCharVariantIsDefault :: Face -> CULong -> CULong -> IO CInt
+foreign import ccall "FT_Face_GetCharsOfVariant" faceGetCharsOfVariant :: Face -> CULong -> IO (Ptr Word32)
+foreign import ccall "FT_Face_GetVariantSelectors" faceGetVariantSelectors :: Face -> IO (Ptr Word32)
+foreign import ccall "FT_Face_GetVariantsOfChar" faceGetVariantsOfChar :: Face -> CULong -> IO (Ptr Word32)
 -- | This is just here for completeness,
 -- TrueType hinting is no longer patented
-foreign import ccall "FT_Face_SetUnpatentedHinting" _FT_Face_SetUnpatentedHinting :: FT_Face -> FT_Bool -> IO FT_Bool
-foreign import ccall "FT_Get_Char_Index" _FT_Get_Char_Index :: FT_Face -> FT_ULong -> IO FT_UInt
-foreign import ccall "FT_Get_Charmap_Index" _FT_Get_Charmap_Index :: FT_CharMap -> IO FT_Int
-foreign import ccall "FT_Get_FSType_Flags" _FT_Get_FSType_Flags :: FT_Face -> IO FT_UShort
-foreign import ccall "FT_Get_First_Char" _FT_Get_First_Char :: FT_Face -> Ptr FT_UInt -> IO FT_ULong 
-foreign import ccall "FT_Get_Glyph" _FT_Get_Glyph :: FT_GlyphSlot -> Ptr FT_Glyph -> IO FT_Error
-foreign import ccall "FT_Get_Glyph_Name" _FT_Get_Glyph_Name :: FT_Face -> FT_UInt -> FT_Pointer -> FT_UInt -> IO FT_Error
-foreign import ccall "FT_Get_Kerning" _FT_Get_Kerning :: FT_Face -> FT_UInt -> FT_UInt -> FT_UInt -> Ptr FT_Vector -> IO FT_Error
-foreign import ccall "FT_Get_Name_Index" _FT_Get_Name_Index :: FT_Face -> CString -> IO FT_UInt
-foreign import ccall "FT_Get_Next_Char" _FT_Get_Next_Char :: FT_Face -> FT_ULong -> Ptr FT_UInt -> IO FT_ULong
-foreign import ccall "FT_Get_Postscript_Name" _FT_Get_Postscript_Name :: FT_Face -> IO CString
-foreign import ccall "FT_Get_SubGlyph_Info" _FT_Get_SubGlyph_Info :: FT_GlyphSlot -> FT_UInt -> Ptr FT_Int -> Ptr FT_UInt -> Ptr FT_Int -> Ptr FT_Int -> Ptr FT_Matrix -> IO FT_Error
-foreign import ccall "FT_Get_Track_Kerning" _FT_Get_Track_Kerning :: FT_Face -> FT_Fixed -> FT_Int -> Ptr FT_Fixed -> IO FT_Error
-foreign import ccall "FT_Glyph_To_Bitmap" _FT_Glyph_To_Bitmap :: Ptr FT_Glyph  -> FT_Render_Mode -> Ptr FT_Vector -> FT_Bool -> IO FT_Error
-foreign import ccall "FT_Init_FreeType" _FT_Init_FreeType :: Ptr FT_Library -> IO FT_Error
-foreign import ccall "FT_Library_Version" _FT_Library_Version :: FT_Library -> Ptr FT_Int -> Ptr FT_Int -> Ptr FT_Int -> IO ()
-foreign import ccall "FT_Load_Char" _FT_Load_Char :: FT_Face -> FT_ULong -> FT_Int32 -> IO FT_Error
-foreign import ccall "FT_Load_Glyph" _FT_Load_Glyph :: FT_Face -> FT_UInt -> FT_Int32 -> IO FT_Error
-foreign import ccall "FT_New_Face" _FT_New_Face :: FT_Library  -> CString -> FT_Long -> Ptr FT_Face -> IO FT_Error
-foreign import ccall "FT_New_Memory_Face" _FT_New_Memory_Face :: FT_Library -> FT_Bytes -> FT_Long -> FT_Long -> Ptr FT_Face -> IO FT_Error
-foreign import ccall "FT_New_Size" _FT_New_Size :: FT_Face -> Ptr FT_Size -> IO FT_Error
-foreign import ccall "FT_Open_Face" _FT_Open_Face :: FT_Library -> Ptr FT_Open_Args -> FT_Long -> Ptr FT_Face -> IO FT_Error
-foreign import ccall "FT_Outline_Check" _FT_Outline_Check :: Ptr FT_Outline -> IO FT_Error
-foreign import ccall "FT_Outline_Copy" _FT_Outline_Copy :: Ptr FT_Outline -> Ptr FT_Outline -> IO FT_Error
-foreign import ccall "FT_Outline_Decompose" _FT_Outline_Decompose :: Ptr FT_Outline -> Ptr FT_Outline_Funcs -> Ptr a -> IO FT_Error
-foreign import ccall "FT_Outline_Done" _FT_Outline_Done :: FT_Library -> Ptr FT_Outline -> IO FT_Error
-foreign import ccall "FT_Outline_Done_Internal" _FT_Outline_Done_Internal :: FT_Memory -> Ptr FT_Outline -> IO FT_Error
-foreign import ccall "FT_Outline_Embolden" _FT_Outline_Embolden :: Ptr FT_Outline -> FT_Pos -> IO FT_Error
-foreign import ccall "FT_Outline_Get_BBox" _FT_Outline_Get_BBox :: Ptr FT_Outline -> Ptr FT_BBox -> IO FT_Error
-foreign import ccall "FT_Outline_Get_Bitmap" _FT_Outline_Get_Bitmap :: FT_Library -> Ptr FT_Outline -> Ptr FT_Bitmap -> IO FT_Error
-foreign import ccall "FT_Outline_Get_CBox" _FT_Outline_Get_CBox :: Ptr FT_Outline -> Ptr FT_BBox -> IO ()
-foreign import ccall "FT_Outline_Get_Orientation" _FT_Outline_Get_Orientation :: Ptr FT_Outline -> IO FT_Orientation
-foreign import ccall "FT_Outline_New" _FT_Outline_New :: FT_Library -> FT_UInt -> FT_Int -> Ptr FT_Outline -> IO FT_Error
-foreign import ccall "FT_Outline_New_Internal" _FT_Outline_New_Internal :: FT_Memory -> FT_UInt -> FT_Int -> Ptr FT_Outline -> IO FT_Error
-foreign import ccall "FT_Outline_Render" _FT_Outline_Render :: FT_Library -> Ptr FT_Outline -> Ptr FT_Raster_Params -> IO FT_Error
-foreign import ccall "FT_Outline_Reverse" _FT_Outline_Reverse :: Ptr FT_Outline -> IO ()
-foreign import ccall "FT_Outline_Transform" _FT_Outline_Transform :: Ptr FT_Outline -> Ptr FT_Matrix -> IO ()
-foreign import ccall "FT_Outline_Translate" _FT_Outline_Translate :: Ptr FT_Outline -> FT_Pos -> FT_Pos -> IO ()
-foreign import ccall "FT_Reference_Face" _FT_Reference_Face :: FT_Face -> IO FT_Error
-foreign import ccall "FT_Render_Glyph" _FT_Render_Glyph :: FT_GlyphSlot -> FT_Render_Mode -> IO FT_Error
-foreign import ccall "FT_Request_Size" _FT_Request_Size :: FT_Face -> FT_Size_Request -> IO FT_Error
-foreign import ccall "FT_Select_Charmap" _FT_Select_Charmap :: FT_Face -> FT_Encoding -> IO FT_Error
-foreign import ccall "FT_Select_Size" _FT_Select_Size :: FT_Face -> FT_Int -> IO FT_Error
-foreign import ccall "FT_Set_Char_Size" _FT_Set_Char_Size :: FT_Face -> FT_F26Dot6 -> FT_F26Dot6 -> FT_UInt -> FT_UInt    -> IO FT_Error
-foreign import ccall "FT_Set_Charmap" _FT_Set_Charmap :: FT_Face -> FT_CharMap -> IO FT_Error
-foreign import ccall "FT_Set_Pixel_Sizes" _FT_Set_Pixel_Sizes :: FT_Face -> FT_UInt -> FT_UInt -> IO FT_Error
-foreign import ccall "FT_Set_Transform" _FT_Set_Transform :: FT_Face -> Ptr FT_Matrix -> Ptr FT_Vector -> IO ()
+foreign import ccall "FT_Face_SetUnpatentedHinting" faceSetUnpatentedHinting :: Face -> FT_Bool -> IO FT_Bool
+foreign import ccall "FT_Get_Char_Index" getCharIndex :: Face -> CULong -> IO CUInt
+foreign import ccall "FT_Get_Charmap_Index" getCharmapIndex :: CharMap -> IO CInt
+foreign import ccall "FT_Get_FSType_Flags" getFSTypeFlags :: Face -> IO CUShort
+foreign import ccall "FT_Get_First_Char" getFirstChar :: Face -> Ptr CUInt -> IO CULong 
+foreign import ccall "FT_Get_Glyph" getGlyph :: GlyphSlot -> Ptr Glyph -> IO Error
+foreign import ccall "FT_Get_Glyph_Name" getGlyphName :: Face -> CUInt -> Ptr () -> CUInt -> IO Error
+foreign import ccall "FT_Get_Kerning" getKerning :: Face -> CUInt -> CUInt -> CUInt -> Ptr Vector -> IO Error
+foreign import ccall "FT_Get_Name_Index" getNameIndex :: Face -> CString -> IO CUInt
+foreign import ccall "FT_Get_Next_Char" getNextChar :: Face -> CULong -> Ptr CUInt -> IO CULong
+foreign import ccall "FT_Get_Postscript_Name" getPostscriptName :: Face -> IO CString
+foreign import ccall "FT_Get_SubGlyph_Info" getSubGlyphInfo :: GlyphSlot -> CUInt -> Ptr CInt -> Ptr CUInt -> Ptr CInt -> Ptr CInt -> Ptr Matrix -> IO Error
+foreign import ccall "FT_Get_Track_Kerning" getTrackKerning :: Face -> Fixed -> CInt -> Ptr Fixed -> IO Error
+foreign import ccall "FT_Glyph_To_Bitmap" glyphToBitmap :: Ptr Glyph  -> RenderMode -> Ptr Vector -> FT_Bool -> IO Error
+foreign import ccall "FT_Init_FreeType" initFreeType :: Ptr Library -> IO Error
+foreign import ccall "FT_Library_Version" libraryVersion :: Library -> Ptr CInt -> Ptr CInt -> Ptr CInt -> IO ()
+foreign import ccall "FT_Load_Char" loadChar :: Face -> CULong -> Int32 -> IO Error
+foreign import ccall "FT_Load_Glyph" loadGlyph :: Face -> CUInt -> Int32 -> IO Error
+foreign import ccall "FT_New_Face" newFace :: Library  -> CString -> CLong -> Ptr Face -> IO Error
+foreign import ccall "FT_New_Memory_Face" newMemoryFace :: Library -> Bytes -> CLong -> CLong -> Ptr Face -> IO Error
+foreign import ccall "FT_New_Size" newSize :: Face -> Ptr Size -> IO Error
+foreign import ccall "FT_Open_Face" openFace :: Library -> Ptr OpenArgs -> CLong -> Ptr Face -> IO Error
+foreign import ccall "FT_Outline_Check" outlineCheck :: Ptr Outline -> IO Error
+foreign import ccall "FT_Outline_Copy" outlineCopy :: Ptr Outline -> Ptr Outline -> IO Error
+foreign import ccall "FT_Outline_Decompose" outlineDecompose :: Ptr Outline -> Ptr OutlineFuncs -> Ptr a -> IO Error
+foreign import ccall "FT_Outline_Done" outlineDone :: Library -> Ptr Outline -> IO Error
+foreign import ccall "FT_Outline_Done_Internal" outlineDoneInternal :: Memory -> Ptr Outline -> IO Error
+foreign import ccall "FT_Outline_Embolden" outlineEmbolden :: Ptr Outline -> Pos -> IO Error
+foreign import ccall "FT_Outline_Get_BBox" outlineGetBBox :: Ptr Outline -> Ptr BBox -> IO Error
+foreign import ccall "FT_Outline_Get_Bitmap" outlineGetBitmap :: Library -> Ptr Outline -> Ptr Bitmap -> IO Error
+foreign import ccall "FT_Outline_Get_CBox" outlineGetCBox :: Ptr Outline -> Ptr BBox -> IO ()
+foreign import ccall "FT_Outline_Get_Orientation" outlineGetOrientation :: Ptr Outline -> IO Orientation
+foreign import ccall "FT_Outline_New" outlineNew :: Library -> CUInt -> CInt -> Ptr Outline -> IO Error
+foreign import ccall "FT_Outline_New_Internal" outlineNewInternal :: Memory -> CUInt -> CInt -> Ptr Outline -> IO Error
+foreign import ccall "FT_Outline_Render" outlineRender :: Library -> Ptr Outline -> Ptr RasterParams -> IO Error
+foreign import ccall "FT_Outline_Reverse" outlineReverse :: Ptr Outline -> IO ()
+foreign import ccall "FT_Outline_Transform" outlineTransform :: Ptr Outline -> Ptr Matrix -> IO ()
+foreign import ccall "FT_Outline_Translate" outlineTranslate :: Ptr Outline -> Pos -> Pos -> IO ()
+foreign import ccall "FT_Reference_Face" referenceFace :: Face -> IO Error
+foreign import ccall "FT_Render_Glyph" renderGlyph :: GlyphSlot -> RenderMode -> IO Error
+foreign import ccall "FT_Request_Size" requestSize :: Face -> SizeRequest -> IO Error
+foreign import ccall "FT_Select_Charmap" selectCharmap :: Face -> Encoding -> IO Error
+foreign import ccall "FT_Select_Size" selectSize :: Face -> CInt -> IO Error
+foreign import ccall "FT_Set_Char_Size" setCharSize :: Face -> F26Dot6 -> F26Dot6 -> CUInt -> CUInt -> IO Error
+foreign import ccall "FT_Set_Charmap" setCharmap :: Face -> CharMap -> IO Error
+foreign import ccall "FT_Set_Pixel_Sizes" setPixelSizes :: Face -> CUInt -> CUInt -> IO Error
+foreign import ccall "FT_Set_Transform" setTransform :: Face -> Ptr Matrix -> Ptr Vector -> IO ()
