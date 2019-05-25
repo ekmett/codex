@@ -12,7 +12,7 @@ module Foreign.Const.Ptr
   , peek'
   , peekElemOff'
   , peekByteOff'
-  , minusPtr'
+  , minusAPtr
 
   -- * operations returning const pointers
   --
@@ -49,5 +49,5 @@ plusConstPtr = gcoerceWith (unsafePtrCoercion @p @a) $ coerce (plusPtr @a @b)
 alignConstPtr :: forall p a. APtr p => p a -> Int -> ConstPtr a
 alignConstPtr = gcoerceWith (unsafePtrCoercion @p @a) $ coerce (alignPtr @a)
 
-minusPtr' :: forall p q a b. (APtr p, APtr q) => p a -> q b -> Int
-minusPtr' = gcoerceWith (unsafePtrCoercion @p @a) $ gcoerceWith (unsafePtrCoercion @q @b) $ coerce (minusPtr @a @b)
+minusAPtr :: forall p q a b. (APtr p, APtr q) => p a -> q b -> Int
+minusAPtr = gcoerceWith (unsafePtrCoercion @p @a) $ gcoerceWith (unsafePtrCoercion @q @b) $ coerce (minusPtr @a @b)

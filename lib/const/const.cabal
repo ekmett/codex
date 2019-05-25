@@ -35,3 +35,4 @@ library
     Foreign.Const.Unsafe
     Data.Primitive.Const.Array
     Data.Primitive.Const.ByteArray
+    Data.Primitive.Const.PrimArray
