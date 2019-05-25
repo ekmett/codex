@@ -1,7 +1,7 @@
 cabal-version: 2.2
 name: freetype
 version: 0
-author: Jason Dagit <dagitj@gmail.com>
+author: Edward Kmett <ekmett@gmail.com> and Jason Dagit <dagitj@gmail.com>
 maintainer: Edward Kmett <ekmett@gmail.com>
 copyright: (C) Edward Kmett 2019, (C) Jason Dagit 2011
 synopsis: Haskell binding for FreeType 2 library
@@ -101,7 +101,7 @@ flag examples
   description: Build example programs
   default: False
 
-executable freetype-example1
+executable freetype-example
   main-is: Main.hs
   default-language: Haskell2010
   build-depends:
@@ -109,49 +109,43 @@ executable freetype-example1
     freetype,
     array
 
-  if flag(examples)
-    buildable: True
-  else
-    buildable: False
-
 library
   default-language: Haskell2010
-  exposed-modules:
-    Graphics.Rendering.FreeType.Internal
-    Graphics.Rendering.FreeType.Internal.BBox
-    Graphics.Rendering.FreeType.Internal.Bitmap
-    Graphics.Rendering.FreeType.Internal.BitmapGlyph
-    Graphics.Rendering.FreeType.Internal.BitmapSize
-    Graphics.Rendering.FreeType.Internal.CharMap
-    Graphics.Rendering.FreeType.Internal.Driver
-    Graphics.Rendering.FreeType.Internal.Face
-    Graphics.Rendering.FreeType.Internal.FaceType
-    Graphics.Rendering.FreeType.Internal.Generic
-    Graphics.Rendering.FreeType.Internal.Glyph
-    Graphics.Rendering.FreeType.Internal.GlyphMetrics
-    Graphics.Rendering.FreeType.Internal.GlyphSlot
-    Graphics.Rendering.FreeType.Internal.Library
-    Graphics.Rendering.FreeType.Internal.Matrix
-    Graphics.Rendering.FreeType.Internal.Memory
-    Graphics.Rendering.FreeType.Internal.Module
-    Graphics.Rendering.FreeType.Internal.OpenArgs
-    Graphics.Rendering.FreeType.Internal.Outline
-    Graphics.Rendering.FreeType.Internal.OutlineGlyph
-    Graphics.Rendering.FreeType.Internal.Parameter
-    Graphics.Rendering.FreeType.Internal.PrimitiveTypes
-    Graphics.Rendering.FreeType.Internal.RasterParams
-    Graphics.Rendering.FreeType.Internal.Renderer
-    Graphics.Rendering.FreeType.Internal.Size
-    Graphics.Rendering.FreeType.Internal.SizeMetrics
-    Graphics.Rendering.FreeType.Internal.SizeRequest
-    Graphics.Rendering.FreeType.Internal.Stream
-    Graphics.Rendering.FreeType.Internal.Span
-    Graphics.Rendering.FreeType.Internal.SubGlyph
-    Graphics.Rendering.FreeType.Internal.Vector
-
+  hs-source-dirs: src
   build-depends: base > 4.11 && < 5
-
   build-tool-depends: hsc2hs:hsc2hs
   ghc-options: -Wall
-  cc-options: -Wno-macro-redefined
   pkgconfig-depends: freetype2
+  exposed-modules:
+    Graphics.FreeType.Internal
+    Graphics.FreeType.Internal.BBox
+    Graphics.FreeType.Internal.Bitmap
+    Graphics.FreeType.Internal.BitmapGlyph
+    Graphics.FreeType.Internal.BitmapSize
+    Graphics.FreeType.Internal.CharMap
+    Graphics.FreeType.Internal.Driver
+    Graphics.FreeType.Internal.Face
+    Graphics.FreeType.Internal.FaceType
+    Graphics.FreeType.Internal.Generic
+    Graphics.FreeType.Internal.Glyph
+    Graphics.FreeType.Internal.GlyphMetrics
+    Graphics.FreeType.Internal.GlyphSlot
+    Graphics.FreeType.Internal.Library
+    Graphics.FreeType.Internal.Matrix
+    Graphics.FreeType.Internal.Memory
+    Graphics.FreeType.Internal.Module
+    Graphics.FreeType.Internal.OpenArgs
+    Graphics.FreeType.Internal.Outline
+    Graphics.FreeType.Internal.OutlineGlyph
+    Graphics.FreeType.Internal.Parameter
+    Graphics.FreeType.Internal.PrimitiveTypes
+    Graphics.FreeType.Internal.RasterParams
+    Graphics.FreeType.Internal.Renderer
+    Graphics.FreeType.Internal.Size
+    Graphics.FreeType.Internal.SizeMetrics
+    Graphics.FreeType.Internal.SizeRequest
+    Graphics.FreeType.Internal.Stream
+    Graphics.FreeType.Internal.Span
+    Graphics.FreeType.Internal.SubGlyph
+    Graphics.FreeType.Internal.Vector
+

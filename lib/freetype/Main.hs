@@ -2,13 +2,13 @@ module Main where
 
 import Control.Monad
 import System.Environment
-import Graphics.Rendering.FreeType.Internal as FT
-import Graphics.Rendering.FreeType.Internal.Matrix as M
-import Graphics.Rendering.FreeType.Internal.Vector as V
-import Graphics.Rendering.FreeType.Internal.GlyphSlot as GS
-import Graphics.Rendering.FreeType.Internal.PrimitiveTypes as PT
-import Graphics.Rendering.FreeType.Internal.Face as F
-import Graphics.Rendering.FreeType.Internal.Bitmap as B
+import Graphics.FreeType.Internal as FT
+import Graphics.FreeType.Internal.Matrix as M
+import Graphics.FreeType.Internal.Vector as V
+import Graphics.FreeType.Internal.GlyphSlot as GS
+import Graphics.FreeType.Internal.PrimitiveTypes as PT
+import Graphics.FreeType.Internal.Face as F
+import Graphics.FreeType.Internal.Bitmap as B
 
 import Foreign
 import Foreign.Marshal
