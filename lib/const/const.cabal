@@ -41,3 +41,4 @@ library
     Foreign.Const.ForeignPtr
     Foreign.Const.Ptr
     Foreign.Const.Marshal.Array
+    Foreign.Const.Marshal.Utils
