@@ -1,3 +1,5 @@
+{-# language ScopedTypeVariables #-}
+{-# language TypeApplications #-}
 {-# language FlexibleContexts #-}
 {-# language ConstraintKinds #-}
 {-# language TypeFamilies #-}
@@ -20,19 +22,21 @@ module Foreign.Const.Ptr
   , alignConstPtr
   ) where
 
+import Data.Coerce
+import Data.Type.Coercion
 import Foreign.Const.Internal
 import Foreign.Const.Unsafe
 import Foreign.Ptr
 import Foreign.Storable
 
-peek' :: (Storable a, APtr p) => p a -> IO a
-peek' = peek . unsafePtr
+peek' :: forall p a. (Storable a, APtr p) => p a -> IO a
+peek' = gcoerceWith (unsafePtrCoercion @p @a) (coerce (peek @a))
 
-peekElemOff' :: (Storable a, APtr p) => p a -> Int -> IO a
-peekElemOff' = peekElemOff . unsafePtr
+peekElemOff' :: forall p a. (Storable a, APtr p) => p a -> Int -> IO a
+peekElemOff' = gcoerceWith (unsafePtrCoercion @p @a) $ coerce (peekElemOff @a)
 
-peekByteOff' :: (Storable a, APtr p) => p a -> Int -> IO a
-peekByteOff' = peekByteOff . unsafePtr
+peekByteOff' :: forall p a b. (Storable a, APtr p) => p b -> Int -> IO a
+peekByteOff' = gcoerceWith (unsafePtrCoercion @p @b) $ coerce (peekByteOff @a @b)
 
 nullConstPtr :: ConstPtr a 
 nullConstPtr = ConstPtr nullPtr
@@ -46,5 +50,5 @@ plusConstPtr p = ConstPtr #. plusPtr (unsafePtr p)
 alignConstPtr :: APtr p => p a -> Int -> ConstPtr a
 alignConstPtr p = ConstPtr #. alignPtr (unsafePtr p)
 
-minusPtr' :: (APtr p, APtr q) => p a -> q b -> Int
-minusPtr' p q = minusPtr (unsafePtr p) (unsafePtr q)
+minusPtr' :: forall p q a b. (APtr p, APtr q) => p a -> q b -> Int
+minusPtr' = gcoerceWith (unsafePtrCoercion @p @a) $ gcoerceWith (unsafePtrCoercion @q @b) $ coerce (minusPtr @a @b)
