@@ -26,7 +26,7 @@ import Linear (V2 (..))
 import Linear.Affine (_Point)
 import qualified SDL
 
-import Glow
+import Graphics.Glow
 import UI.Shaders
 
 data UI = UI
