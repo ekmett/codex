@@ -3,22 +3,23 @@ module Main where
 import Control.Monad
 import System.Environment
 import Graphics.FreeType.Internal as FT
-import Graphics.FreeType.Internal.Matrix as M
-import Graphics.FreeType.Internal.Vector as V
-import Graphics.FreeType.Internal.GlyphSlot as GS
-import Graphics.FreeType.Internal.PrimitiveTypes as PT
-import Graphics.FreeType.Internal.Face as F
-import Graphics.FreeType.Internal.Bitmap as B
+import Graphics.FreeType.Matrix as M
+import Graphics.FreeType.Vector as V
+import Graphics.FreeType.GlyphSlot as GS
+import Graphics.FreeType.Types as PT
+import Graphics.FreeType.Face as F
+import Graphics.FreeType.Bitmap as B
 
 import Foreign
 import Foreign.Marshal
 import Foreign.C.String
+import Foreign.C.Types
 
 import System.Exit
 
 import Data.Array.IO as A
 
-runFreeType :: IO FT_Error -> IO ()
+runFreeType :: IO Error -> IO ()
 runFreeType m = do
   r <- m
   unless (r == 0) $ fail $ "FreeType Error:" ++ show r
@@ -30,13 +31,13 @@ main = do
       angle  = (25 / 360) * pi * 2
   matrix <- mallocForeignPtr
   pen    <- mallocForeignPtr
-  withForeignPtr matrix $ \p-> poke p (FT_Matrix
+  withForeignPtr matrix $ \p-> poke p (Matrix
         { xx = round $   cos angle * 0x10000
         , xy = round $ -(sin angle * 0x10000)
         , yx = round $   sin angle * 0x10000
         , yy = round $   cos angle * 0x10000
         })
-  withForeignPtr pen $ \p -> poke p (FT_Vector
+  withForeignPtr pen $ \p -> poke p (Vector
         { x = 300 * 64
         , y = (display_height - 200) * 64
         })
@@ -48,28 +49,28 @@ main = do
   library <- alloca $ \libraryptr -> do
     putStr "Library ptr: "
     print libraryptr
-    runFreeType $ _FT_Init_FreeType libraryptr
+    runFreeType $ initFreeType libraryptr
     peek libraryptr
 
   face <- alloca $ \faceptr -> do
     putStr "Face ptr: "
     print faceptr
     withCString filename $ \str -> do
-      runFreeType $ _FT_New_Face library str 0 faceptr
+      runFreeType $ newFace library str 0 faceptr
       peek faceptr
 
   image <- A.newArray
     ((0,0), (fromIntegral display_height - 1, fromIntegral display_width - 1)) 0
     :: IO (IOUArray (Int, Int) Int)
 
-  runFreeType $ _FT_Set_Char_Size face (50*64) 0 100 0
+  runFreeType $ setCharSize face (50*64) 0 100 0
   forM_ text $ \c -> do
     withForeignPtr matrix $ \mp ->
       withForeignPtr pen $ \pp -> do
-        _FT_Set_Transform face mp pp
+        setTransform face mp pp
         slot <- peek $ glyph face
         runFreeType $
-          _FT_Load_Char face (fromIntegral . fromEnum $ c) FT_LOAD_RENDER
+          loadChar face (fromIntegral . fromEnum $ c) LOAD_RENDER
         numFaces <- peek $ num_faces face
         putStrLn $ "face->num_faces = " ++ show numFaces
         v <- peek $ advance slot
@@ -77,8 +78,7 @@ main = do
         numGlyphs <- peek $ num_glyphs face
         putStrLn $ "numGlyphs = " ++ show numGlyphs
         pen' <- peek pp
-        poke pp $ FT_Vector { x = x v + x pen'
-                            , y = y v + y pen' }
+        poke pp $ Vector { x = x v + x pen', y = y v + y pen' }
         b <- peek $ bitmap slot
         left <- peek $ bitmap_left slot
         top  <- peek $ bitmap_top slot
@@ -88,11 +88,11 @@ main = do
         unless (b_right >= display_width || b_bottom >= display_height) $
           drawBitmap b image left b_top
   showImage image
-  runFreeType $ _FT_Done_Face face
-  runFreeType $ _FT_Done_FreeType library
+  runFreeType $ doneFace face
+  runFreeType $ doneFreeType library
 
-drawBitmap :: FT_Bitmap -> IOUArray (Int, Int) Int
-           -> FT_Int -> FT_Int -> IO ()
+drawBitmap :: Bitmap -> IOUArray (Int, Int) Int
+           -> CInt -> CInt -> IO ()
 drawBitmap bitmap image x y = do
   let xMax = x + width bitmap
       yMax = y + rows bitmap
