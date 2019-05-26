@@ -212,6 +212,7 @@ import Data.Coerce
 import Data.Data (Data)
 import Data.Default (Default(..))
 import qualified Data.Map as Map
+import Data.String
 import Foreign.C
 import Foreign.Marshal.Unsafe
 import qualified Language.C.Inline as C
@@ -219,12 +220,15 @@ import qualified Language.C.Inline.Context as C
 import qualified Language.C.Inline.HaskellIdentifier as C
 import qualified Language.C.Types as C
 import qualified Language.Haskell.TH as TH
+import Text.Read
 
 #include <hb.h>
 
 newtype Blob = Blob { getConfig :: ForeignPtr Blob } deriving (Eq, Ord, Show, Data)
 
-newtype Tag = Tag Word32 deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+newtype Tag = Tag Word32 deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
+{-# complete Tag #-}
+{-# complete TAG #-}
 
 w2c :: Word32 -> Char
 w2c = toEnum . fromIntegral
@@ -257,10 +261,29 @@ pattern TAG_MAX = #const HB_TAG_MAX
 pattern TAG_MAX_SIGNED :: Tag
 pattern TAG_MAX_SIGNED = #const HB_TAG_MAX_SIGNED
 
+instance Show Tag where
+  showsPrec e (TAG a b c d) = showsPrec e [a,b,c,d]
+
+instance Read Tag where
+  readPrec = fromString <$> step readPrec
+
 instance Default Tag where
   def = TAG_NONE
 
-newtype Script = Script Word32 deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+instance IsString Tag where
+  fromString [] = TAG ' ' ' ' ' ' ' '
+  fromString [a] = TAG a ' ' ' ' ' '
+  fromString [a,b] = TAG a b ' ' ' '
+  fromString [a,b,c] = TAG a b c ' '
+  fromString (a:b:c:d:_) = TAG a b c d
+
+newtype Script = Script Word32 deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
+
+instance Show Script where
+  showsPrec e (Script w) = showsPrec e (Tag w)
+
+instance Read Script where
+  readPrec = fromString <$> step readPrec
 
 pattern SCRIPT_COMMON :: Script
 pattern SCRIPT_INHERITED :: Script
@@ -612,6 +635,10 @@ C.context $ C.baseCtx <> mempty
   }
 
 C.include "<hb.h>"
+
+-- damnit ffi
+instance IsString Script where
+  fromString (fromString -> tag) = [C.pure|hb_script_t { hb_script_from_iso15924_tag($(hb_tag_t tag)) }|]
 
 instance Default Blob where
   def = unsafeLocalState $ [C.exp|hb_blob_t * { hb_blob_get_empty() }|] >>= fmap Blob . newForeignPtr_ 
