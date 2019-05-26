@@ -24,21 +24,25 @@ flag freetype
   default: True
   manual: True
 
-library
-  hs-source-dirs: src
-  build-tool-depends: hsc2hs:hsc2hs
+common base
   default-language: Haskell2010
-  pkgconfig-depends: harfbuzz
-  extra-libraries: harfbuzz
+  build-depends:
+    base >= 4.11 && < 5,
+    const,
+    data-default,
   ghc-options:
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
     -Wredundant-constraints -Widentities -Wmissing-export-lists
+
+library
+  import: base
+  hs-source-dirs: src
+  build-tool-depends: hsc2hs:hsc2hs
+  pkgconfig-depends: harfbuzz
+  extra-libraries: harfbuzz
   build-depends:
-    base >= 4.11 && < 5,
     bytestring,
-    const,
     containers >= 0.6,
-    data-default,
     inline-c,
     StateVar,
     template-haskell,
@@ -53,13 +57,11 @@ library
     Graphics.Harfbuzz.Internal
 
 test-suite spec
+  import: base
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   hs-source-dirs: test
   build-depends:
-    base,
-    const,
-    data-default,
     harfbuzz,
     hspec,
     tasty,
