@@ -25,6 +25,9 @@ module Graphics.Harfbuzz
   , Direction(..)
   , direction_to_string, direction_from_string
 
+  , Script(..)
+  , script_from_iso15924_tag, script_to_iso15924_tag
+  , script_get_horizontal_direction
   -- * internals
   , foreignBlob
   , _hb_blob_destroy
@@ -113,6 +116,15 @@ direction_from_string bs = unsafeLocalState $
 
 direction_to_string :: Direction -> Strict.ByteString
 direction_to_string t = unsafeLocalState $ [C.exp|const char * { hb_direction_to_string($(hb_direction_t t)) }|] >>= Strict.packCString -- we don't own it, don't destroy it
+
+script_from_iso15924_tag :: Tag -> Script
+script_from_iso15924_tag tag = [C.pure|hb_script_t { hb_script_from_iso15924_tag ($(hb_tag_t tag)) }|]
+
+script_to_iso15924_tag :: Script -> Tag
+script_to_iso15924_tag script = [C.pure|hb_tag_t { hb_script_to_iso15924_tag ($(hb_script_t script)) }|]
+
+script_get_horizontal_direction :: Script -> Direction
+script_get_horizontal_direction script = [C.pure|hb_direction_t { hb_script_get_horizontal_direction($(hb_script_t script)) }|]
 
 -- * Finalization
 
