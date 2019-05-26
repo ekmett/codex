@@ -66,20 +66,14 @@ main = do
     ((0,0), (fromIntegral display_height - 1, fromIntegral display_width - 1)) 0
     :: IO (IOUArray (Int, Int) Int32)
 
-  runFreeType $ setCharSize face (50*64) 0 96 0
+  runFreeType $ setCharSize face (50*32) 0 72 0
   forM_ text $ \c -> do
     withForeignPtr matrix $ \mp ->
       withForeignPtr pen $ \pp -> do
         setTransform face mp pp
         slot <- peek $ glyph face
-        runFreeType $
-          loadChar face (fromIntegral . fromEnum $ c) LOAD_RENDER
-        numFaces <- peek $ num_faces face
-        putStrLn $ "face->num_faces = " ++ show numFaces
+        runFreeType $ loadChar face (fromIntegral . fromEnum $ c) LOAD_RENDER
         v <- peek $ advance slot
-        putStrLn $ "advance: " ++ show v
-        numGlyphs <- peek $ num_glyphs face
-        putStrLn $ "numGlyphs = " ++ show numGlyphs
         pen' <- peek pp
         poke pp $ v + pen'
         b <- peek $ bitmap slot
