@@ -19,6 +19,7 @@ module Graphics.Harfbuzz.Internal
   ( Blob(..)
   , Tag
     ( Tag
+    , TAG
     , TAG_NONE
     , TAG_MAX
     , TAG_MAX_SIGNED
@@ -204,8 +205,8 @@ module Graphics.Harfbuzz.Internal
   , harfbuzzCtx
   ) where
 
-import Data.ByteString as Strict
-import Data.ByteString.Internal as Strict
+import qualified Data.ByteString as Strict
+import qualified Data.ByteString.Internal as Strict
 import Foreign
 import Data.Coerce
 import Data.Data (Data)
@@ -224,6 +225,28 @@ import qualified Language.Haskell.TH as TH
 newtype Blob = Blob { getConfig :: ForeignPtr Blob } deriving (Eq, Ord, Show, Data)
 
 newtype Tag = Tag Word32 deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+
+w2c :: Word32 -> Char
+w2c = toEnum . fromIntegral
+
+c2w :: Char -> Word32
+c2w = fromIntegral . fromEnum
+
+untag :: Tag -> (Char, Char, Char, Char)
+untag (Tag w) =
+  ( w2c (unsafeShiftR w 24 .&. 0xff)
+  , w2c (unsafeShiftR w 16 .&. 0xff)
+  , w2c (unsafeShiftR w 8 .&. 0xff)
+  , w2c (w .&. 0xff)
+  )
+
+pattern TAG :: Char -> Char -> Char -> Char -> Tag
+pattern TAG a b c d <- (untag -> (a,b,c,d)) where
+  TAG a b c d = Tag $
+    unsafeShiftL (c2w a .&. 0xff) 24 .|.
+    unsafeShiftL (c2w b .&. 0xff) 16 .|.
+    unsafeShiftL (c2w c .&. 0xff) 8  .|.
+    (c2w d .&. 0xff)
 
 pattern TAG_NONE :: Tag
 pattern TAG_NONE = #const HB_TAG_NONE
