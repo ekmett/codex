@@ -1,14 +1,10 @@
+{-# language DuplicateRecordFields #-}
 module Main where
 
 import Control.Monad
 import System.Environment
 import Graphics.FreeType.Internal as FT
-import Graphics.FreeType.Matrix as M
-import Graphics.FreeType.Vector as V
-import Graphics.FreeType.GlyphSlot as GS
-import Graphics.FreeType.Types as PT
-import Graphics.FreeType.Face as F
-import Graphics.FreeType.Bitmap as B
+import Graphics.FreeType.Types as FT
 
 import Foreign
 import Foreign.Marshal
@@ -78,7 +74,7 @@ main = do
         numGlyphs <- peek $ num_glyphs face
         putStrLn $ "numGlyphs = " ++ show numGlyphs
         pen' <- peek pp
-        poke pp $ Vector { x = x v + x pen', y = y v + y pen' }
+        poke pp $ v + pen'
         b <- peek $ bitmap slot
         left <- peek $ bitmap_left slot
         top  <- peek $ bitmap_top slot
