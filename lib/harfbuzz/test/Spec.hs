@@ -39,7 +39,11 @@ spec = do
            _ <- blob_create_sub_blob x 2 2
            blob_is_immutable x
       task `shouldReturn` True
+  describe "hb_tag_t" $ do
+    it "TAG matches" $ (case script_to_iso15924_tag SCRIPT_HEBREW of TAG a b c d -> (a,b,c,d); _ -> undefined) `shouldBe` ('H','e','b','r')
+    it "TAG constructs" $ script_from_iso15924_tag (TAG 'H' 'e' 'b' 'r') == SCRIPT_HEBREW
   describe "hb_script_t" $ do
+    it "compares" $ (SCRIPT_HEBREW == SCRIPT_TAMIL) `shouldBe` False
     it "has Hebrew" $ do script_to_string SCRIPT_HEBREW `shouldBe` "Hebr"
     it "has Tamil" $ do script_to_string SCRIPT_TAMIL `shouldBe` "Taml"
     it "has Braille" $ do script_to_string SCRIPT_BRAILLE `shouldBe` "Brai"
