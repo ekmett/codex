@@ -17,7 +17,12 @@
 -- As an internal module, I don't consider this module as supported by the PVP. Be careful.
 module Graphics.Harfbuzz.Internal
   ( Blob(..)
-  , Tag(..)
+  , Tag
+    ( Tag
+    , TAG_NONE
+    , TAG_MAX
+    , TAG_MAX_SIGNED
+    )
   , Script
     ( Script
     , SCRIPT_COMMON
@@ -219,6 +224,18 @@ import qualified Language.Haskell.TH as TH
 newtype Blob = Blob { getConfig :: ForeignPtr Blob } deriving (Eq, Ord, Show, Data)
 
 newtype Tag = Tag Word32 deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+
+pattern TAG_NONE :: Tag
+pattern TAG_NONE = #const HB_TAG_NONE
+
+pattern TAG_MAX:: Tag
+pattern TAG_MAX = #const HB_TAG_MAX
+
+pattern TAG_MAX_SIGNED :: Tag
+pattern TAG_MAX_SIGNED = #const HB_TAG_MAX_SIGNED
+
+instance Default Tag where
+  def = TAG_NONE
 
 newtype Script = Script Word32 deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 
