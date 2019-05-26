@@ -23,7 +23,11 @@ module Graphics.Fontconfig.Internal
   , ObjectSet(..)
   , Pattern(..)
   , FontSet(..)
-  , SetName(..)
+  , SetName
+    ( SetName
+    , SetSystem
+    , SetApplication
+    )
   , Stat(..), statCreate
   , Cache(..)
   , Range(..)
@@ -33,12 +37,40 @@ module Graphics.Fontconfig.Internal
   , Face(..)
   , Matrix(..)
   , Value(..)
+
   -- * Results
   , StrList
-  , FcBool(..)
-  , MatchKind(..)
-  , Spacing(..)
-  , LangResult(..)
+  , ValueBinding
+    ( ValueBinding
+    , ValueBindingWeak
+    , ValueBindingStrong
+    , ValueBindingSame
+    )
+  , FcBool
+    ( FcFalse
+    , FcTrue
+    , FcDontCare
+    )
+  , MatchKind
+    ( MatchKind
+    , MatchPattern
+    , MatchFont
+    , MatchScan
+    )
+  , Spacing
+    ( Spacing
+    , MONO
+    , DUAL
+    , PROPORTIONAL
+    , CHARCELL
+    )
+  , LangResult
+    ( LangResult
+    , LangEqual
+    , LangDifferentCountry
+    , LangDifferentTerritory
+    , LangDifferentLang
+    )
   , marshal, unmarshal, unmarshal'
   , Result(..), CResult, getResult
   , AllocationFailed(..)
@@ -60,7 +92,6 @@ import Foreign.C
 import Foreign.ForeignPtr
 import Foreign.Ptr
 import Foreign.Storable
-import GHC.Arr (Ix)
 import GHC.Generics (Generic)
 import qualified Language.C.Inline as C
 import qualified Language.C.Inline.Context as C
@@ -68,9 +99,8 @@ import qualified Language.C.Inline.HaskellIdentifier as C
 import qualified Language.C.Types as C
 import qualified Language.Haskell.TH as TH
 #if USE_FREETYPE
-import Graphics.Freetype.Internal
+import Graphics.FreeType.Types (Face(..))
 #endif
-
 
 newtype Config = Config { getConfig :: Maybe (ForeignPtr Config) } deriving (Eq, Ord, Show, Data)
 newtype ObjectSet = ObjectSet { getObjectSet :: ForeignPtr ObjectSet } deriving (Eq, Ord, Show, Data)
@@ -89,7 +119,7 @@ newtype Face = Face { getFace :: ForeignPtr Face } deriving (Eq,Ord,Show,Data)
 
 newtype Matrix = Matrix { getMatrix:: ForeignPtr Matrix } deriving (Eq,Ord,Show,Data) -- TODO use a struct and store it
 
-newtype SetName = SetName CInt deriving (Eq,Ord,Show,Read,Enum,Num,Integral,Storable)
+newtype SetName = SetName CInt deriving newtype (Eq,Ord,Show,Read,Enum,Num,Real,Integral,Storable)
 
 pattern SetSystem :: SetName
 pattern SetApplication :: SetName
@@ -97,7 +127,7 @@ pattern SetApplication :: SetName
 pattern SetSystem = #const FcSetSystem
 pattern SetApplication = #const FcSetSystem
 
-newtype FcBool = FcBool CInt deriving (Eq,Ord,Show,Read,Enum,Num,Integral,Storable)
+newtype FcBool = FcBool CInt deriving newtype (Eq,Ord,Show,Read,Enum,Num,Real,Integral,Storable)
 
 pattern FcFalse :: FcBool
 pattern FcTrue :: FcBool
@@ -107,8 +137,7 @@ pattern FcFalse = #const FcFalse
 pattern FcTrue = #const FcTrue
 pattern FcDontCare = #const FcDontCare
 
-data MatchKind = MatchPattern | MatchFont | MatchScan
-  deriving (Eq,Ord,Show,Read,Enum,Num,Integral,Storable)
+newtype MatchKind = MatchKind CInt deriving newtype (Eq,Ord,Show,Read,Enum,Num,Real,Integral,Storable)
 
 pattern MatchPattern :: MatchKind
 pattern MatchFont :: MatchKind
@@ -118,7 +147,7 @@ pattern MatchPattern = #const FcMatchPattern
 pattern MatchFont = #const FcMatchFont 
 pattern MatchScan = #const FcMatchScan 
 
-newtype LangResult = LangResult CInt
+newtype LangResult = LangResult CInt deriving newtype (Eq,Ord,Show,Read,Enum,Num,Real,Integral,Storable)
 
 pattern LangEqual :: LangResult
 pattern LangDifferentCountry :: LangResult
@@ -130,8 +159,7 @@ pattern LangDifferentCountry = #const FcLangDifferentCountry
 pattern LangDifferentTerritory = #const FcLangDifferentTerritory
 pattern LangDifferentLang = #const FcLangDifferentLang
 
-newtype ValueBinding = ValueBinding CInt
-  deriving (Eq,Ord,Show,Read,Enum,Num,Integral,Storable)
+newtype ValueBinding = ValueBinding CInt deriving newtype (Eq,Ord,Show,Read,Enum,Num,Real,Integral,Storable)
 
 pattern ValueBindingWeak :: ValueBinding
 pattern ValueBindingStrong :: ValueBinding
@@ -141,8 +169,7 @@ pattern ValueBindingWeak = #const FcValueBindingWeak
 pattern ValueBindingStrong = #const FcValueBindingStrong
 pattern ValueBindingSame = #const FcValueBindingSame
 
-newtype Spacing = Spacing CInt
-  deriving (Eq,Ord,Show,Read,Enum,Num,Integral,Storable)
+newtype Spacing = Spacing CInt deriving newtype (Eq,Ord,Show,Read,Enum,Num,Real,Integral,Storable)
 
 pattern MONO :: Spacing
 pattern DUAL :: Spacing
@@ -176,7 +203,7 @@ C.context $ C.baseCtx <> mempty
     [ (C.TypeName "FcValue", [t| Value |])
     , (C.TypeName "FcMatrix", [t| Matrix |])
     , (C.TypeName "FcCharSet", [t| CharSet |])
-    , (C.TypeName "FT_Face", [t| Face |])
+    , (C.Struct "FT_FaceRec_", [t| Face |])
     , (C.TypeName "FcLangSet", [t| LangSet |])
     , (C.TypeName "FcRange", [t| Range |])
     , (C.TypeName "FcChar8", [t| CUChar |])
@@ -207,7 +234,7 @@ instance Storable Value where
     ValueBool (marshal -> b) -> [C.block|void { FcValue*v = $(FcValue*v); v->type = FcTypeBool;    v->u.b = $(int b); }|]
     ValueMatrix (unsafePtr -> m) -> [C.block|void { FcValue*v = $(FcValue*v); v->type = FcTypeMatrix; v->u.m = $(const FcMatrix * m); }|]
     ValueCharSet (unsafePtr -> c) -> [C.block|void { FcValue*v = $(FcValue*v); v->type = FcTypeCharSet; v->u.c = $(const FcCharSet * c); }|]
-    ValueFTFace (unsafePtr -> f) -> [C.block|void { FcValue*v = $(FcValue*v); v->type = FcTypeVoid; v->u.f = (void*)($(const FT_Face *f));}|]
+    ValueFace (unsafePtr -> f) -> [C.block|void { FcValue*v = $(FcValue*v); v->type = FcTypeVoid; v->u.f = (void*)($(const struct FT_FaceRec_ *f));}|]
     ValueLangSet (unsafePtr -> l) -> [C.block|void { FcValue*v = $(FcValue*v); v->type = FcTypeLangSet; v->u.l = $(const FcLangSet * l); }|]
     ValueRange (unsafePtr -> r) -> [C.block|void { FcValue*v = $(FcValue*v); v->type = FcTypeRange; v->u.r = $(const FcRange * r); }|]
   peek v = [C.exp|int { $(FcValue*v)->type } |] >>= \case
@@ -218,7 +245,7 @@ instance Storable Value where
     (#const FcTypeBool) -> ValueBool . unmarshal' <$> [C.exp|int { $(FcValue*v)->u.b }|]
     (#const FcTypeMatrix) -> ValueMatrix . ConstPtr  <$> [C.exp|const FcMatrix * { $(FcValue*v)->u.m }|]
     (#const FcTypeCharSet) -> ValueCharSet . ConstPtr <$> [C.exp|const FcCharSet * { $(FcValue*v)->u.c }|]
-    (#const FcTypeFTFace) -> ValueFace . ConstPtr <$> [C.exp|const FT_Face * { (const FT_Face*)($(FcValue*v)->u.f) }|]
+    (#const FcTypeFTFace) -> ValueFace . ConstPtr <$> [C.exp|const struct FT_FaceRec_ * { (const struct FT_FaceRec_ *)($(FcValue*v)->u.f) }|]
     (#const FcTypeLangSet) -> ValueLangSet . ConstPtr <$> [C.exp|const FcLangSet * { $(FcValue*v)->u.l }|]
     (#const FcTypeRange) -> ValueRange . ConstPtr <$> [C.exp|const FcRange * { $(FcValue*v)->u.r }|]
     _ -> pure ValueUnknown
@@ -337,7 +364,7 @@ fontconfigCtx = mempty
     , (C.TypeName "FcChar32", [t| CUInt |])
     , (C.TypeName "FcCharSet", [t| CharSet |])
     , (C.TypeName "FcLangSet", [t| LangSet |])
-    , (C.TypeName "FT_Face", [t| Face |])
+    , (C.Struct "FT_FaceRec_", [t| Face |])
     , (C.TypeName "FcStrSet", [t| StrSet |])
     , (C.TypeName "FcValue", [t| Value |])
     , (C.TypeName "FcStrList", [t| StrList |])
@@ -355,7 +382,7 @@ fontconfigCtx = mempty
     , ("strset",      anti (ptr (C.TypeName "FcStrSet")) [t| StrSet |] [| withSelf |])
     , ("pattern",     anti (ptr (C.TypeName "FcPattern")) [t| Pattern |] [| withSelf |])
     , ("matrix",      anti (ptr (C.TypeName "FcMatrix")) [t| Matrix |] [| withSelf |])
-    , ("face",        anti (ptr (C.TypeName "FT_Face")) [t| Face |] [| withSelf |])
+    , ("face",        anti (ptr (C.Struct "FT_FaceRec_")) [t| Face |] [| withSelf |])
     , ("range",       anti (ptr (C.TypeName "FcRange")) [t| Range |] [| withSelf |])
     , ("value",       anti (ptr (C.TypeName "FcValue")) [t| Value |] [| with |])
     , ("stat",        anti (ptr (C.Struct "stat")) [t| Stat |] [| withSelf |])
