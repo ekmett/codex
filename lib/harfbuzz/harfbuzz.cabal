@@ -51,3 +51,16 @@ library
   exposed-modules:
     Graphics.Harfbuzz
     Graphics.Harfbuzz.Internal
+
+test-suite spec
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  hs-source-dirs: test
+  build-depends:
+    base,
+    const,
+    data-default,
+    harfbuzz,
+    hspec,
+    tasty,
+    tasty-hspec
