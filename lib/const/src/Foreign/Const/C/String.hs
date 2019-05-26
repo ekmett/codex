@@ -35,20 +35,8 @@ module Foreign.Const.C.String
 import Data.Coerce
 import Data.Type.Coercion
 import Foreign.C.String
-import Foreign.C.Types
 
 import Data.Const.Unsafe
-
-type family Unapply s :: * -> * where
-  Unapply (p CChar) = p
-
-type ConstCString = ConstPtr CChar
-type ConstCStringLen = (ConstCString, Int)
-type ConstCWString = ConstPtr CWchar
-type ConstCWStringLen = (ConstCWString, Int)
-
-type ACWString s = (s ~ Unapply s CWchar, APtr (Unapply s))
-type ACString s = (s ~ Unapply s CChar, APtr (Unapply s))
 
 constCString :: ACString s => s -> ConstCString
 constCString = constant
@@ -81,14 +69,6 @@ peekACWString = gcoerceWith (unsafeCWStringCoercion @s) $ coerce peekCWString
 peekACWStringLen :: forall s. ACWString s => (s,Int) -> IO String
 peekACWStringLen = gcoerceWith (unsafeCWStringCoercion @s) $ coerce peekCWStringLen
 {-# inline peekACWStringLen #-}
-
-unsafeCStringCoercion :: forall s. ACString s => Coercion CString s 
-unsafeCStringCoercion = unsafePtrCoercion @(Unapply s) @CChar
-{-# inline unsafeCStringCoercion #-}
-
-unsafeCWStringCoercion :: forall s. ACWString s => Coercion CWString s 
-unsafeCWStringCoercion = unsafePtrCoercion @(Unapply s) @CWchar
-{-# inline unsafeCWStringCoercion #-}
 
 withConstCAString :: forall a. String -> (ConstCString -> IO a) -> IO a
 withConstCAString = coerce (withCAString @a)

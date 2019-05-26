@@ -35,6 +35,10 @@ module Data.Const.Unsafe
   , ConstIORef(..)
   , ConstSTRef(..)
   , SmallConstArray(..) -- to mirror SmallMutableArray's naming
+  , ConstCString
+  , ConstCStringLen
+  , ConstCWString
+  , ConstCWStringLen
   , constant, unsafeConstantCoercion -- note, using the symmetry of this coercion is dangerous
   , APtr, unsafePtr, unsafePtrCoercion
   , AForeignPtr, unsafeForeignPtr, unsafeForeignPtrCoercion
@@ -45,6 +49,8 @@ module Data.Const.Unsafe
   , AMutVar, unsafeMutVar, unsafeMutVarCoercion
   , AnIORef, unsafeIORef, unsafeIORefCoercion
   , AnSTRef, unsafeSTRef, unsafeSTRefCoercion
+  , ACString, unsafeCStringCoercion
+  , ACWString, unsafeCWStringCoercion
   ) where
 
 import Data.Coerce
@@ -57,6 +63,8 @@ import Data.Primitive.SmallArray
 import Data.Primitive.MutVar
 import Data.STRef
 import Data.Type.Coercion
+import Foreign.C.String
+import Foreign.C.Types
 import Foreign.Ptr
 import Foreign.ForeignPtr
 import Foreign.Storable
@@ -225,3 +233,23 @@ unsafeSTRef :: forall s p a. AnSTRef s p => p a -> STRef s a
 unsafeSTRef = uncoerceWith (unsafeSTRefCoercion @s @p)
 {-# inline unsafeSTRef #-}
 
+-- * Cstrings
+--
+type family Unapply s :: * -> * where
+  Unapply (p CChar) = p
+
+type ConstCString = ConstPtr CChar
+type ConstCStringLen = (ConstCString, Int)
+type ConstCWString = ConstPtr CWchar
+type ConstCWStringLen = (ConstCWString, Int)
+
+type ACWString s = (s ~ Unapply s CWchar, APtr (Unapply s))
+type ACString s = (s ~ Unapply s CChar, APtr (Unapply s))
+
+unsafeCStringCoercion :: forall s. ACString s => Coercion CString s
+unsafeCStringCoercion = unsafePtrCoercion @(Unapply s) @CChar
+{-# inline unsafeCStringCoercion #-}
+
+unsafeCWStringCoercion :: forall s. ACWString s => Coercion CWString s
+unsafeCWStringCoercion = unsafePtrCoercion @(Unapply s) @CWchar
+{-# inline unsafeCWStringCoercion #-}
