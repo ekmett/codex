@@ -16,17 +16,11 @@ foreign import ccall "FT_Done_Face" doneFace :: Face -> IO Error
 foreign import ccall "FT_Done_FreeType" doneFreeType :: Library -> IO Error
 foreign import ccall "FT_Done_Glyph" doneGlyph :: Glyph -> IO ()
 foreign import ccall "FT_Done_Size" doneSize :: Size -> IO Error
--- | This is just here for completeness,
--- TrueType hinting is no longer patented
-foreign import ccall "FT_Face_CheckTrueTypePatents" faceCheckTrueTypePatents :: Face -> IO FT_Bool
 foreign import ccall "FT_Face_GetCharVariantIndex" faceGetCharVariantIndex :: Face -> CULong -> CULong -> IO CUInt
 foreign import ccall "FT_Face_GetCharVariantIsDefault" faceGetCharVariantIsDefault :: Face -> CULong -> CULong -> IO CInt
 foreign import ccall "FT_Face_GetCharsOfVariant" faceGetCharsOfVariant :: Face -> CULong -> IO (Ptr Word32)
 foreign import ccall "FT_Face_GetVariantSelectors" faceGetVariantSelectors :: Face -> IO (Ptr Word32)
 foreign import ccall "FT_Face_GetVariantsOfChar" faceGetVariantsOfChar :: Face -> CULong -> IO (Ptr Word32)
--- | This is just here for completeness,
--- TrueType hinting is no longer patented
-foreign import ccall "FT_Face_SetUnpatentedHinting" faceSetUnpatentedHinting :: Face -> FT_Bool -> IO FT_Bool
 foreign import ccall "FT_Get_Char_Index" getCharIndex :: Face -> CULong -> IO CUInt
 foreign import ccall "FT_Get_Charmap_Index" getCharmapIndex :: CharMap -> IO CInt
 foreign import ccall "FT_Get_FSType_Flags" getFSTypeFlags :: Face -> IO CUShort
