@@ -1,4 +1,3 @@
-{-# LANGUAGE ForeignFunctionInterface #-}
 module Graphics.FreeType.Internal where
 
 import Foreign
