@@ -1,0 +1,34 @@
+cabal-version: 2.2
+name: weak
+version: 0
+synopsis: Weak pointer extas
+homepage: https://github.com/ekmett/codex#readme
+license: BSD-2-Clause OR Apache-2.0
+license-file: LICENSE.md
+author: Edward Kmett
+maintainer: Edward Kmett <ekmett@gmail.com>
+copyright: Copyright (c) 2019 Edward Kmett
+stability: experimental
+category: Graphics
+build-type: Simple
+description:
+  Weak pointer support for ForeignPtrs.
+extra-doc-files:
+  README.md,
+  CHANGELOG.md
+
+source-repository head
+  type: git
+  location: https://github.com/ekmett/codex
+
+common base
+
+library
+  build-depends: base >= 4.11 && < 5
+  hs-source-dirs: src
+  ghc-options:
+    -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+    -Wredundant-constraints -Widentities -Wmissing-export-lists
+  default-language: Haskell2010
+  exposed-modules:
+    System.Mem.Weak.ForeignPtr
