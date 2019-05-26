@@ -17,12 +17,21 @@
 -- As an internal module, I don't consider this module as supported by the PVP. Be careful.
 module Graphics.Harfbuzz.Internal
   ( Blob(..)
+  , Tag(..)
   , MemoryMode
     ( MemoryMode
     , MEMORY_MODE_DUPLICATE
     , MEMORY_MODE_READONLY
     , MEMORY_MODE_WRITABLE
     , MEMORY_MODE_READONLY_MAY_MAKE_WRITABLE
+    )
+  , Direction
+    ( Direction
+    , DIRECTION_INVALID
+    , DIRECTION_LTR
+    , DIRECTION_RTL
+    , DIRECTION_BTT
+    , DIRECTION_TTB
     )
   -- * internals
   , withSelf
@@ -50,6 +59,22 @@ import qualified Language.Haskell.TH as TH
 
 newtype Blob = Blob { getConfig :: ForeignPtr Blob } deriving (Eq, Ord, Show, Data)
 
+newtype Tag = Tag Word32 deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+
+newtype Direction = Direction Word32  deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+
+pattern DIRECTION_INVALID :: Direction
+pattern DIRECTION_LTR :: Direction
+pattern DIRECTION_RTL :: Direction
+pattern DIRECTION_TTB :: Direction
+pattern DIRECTION_BTT :: Direction
+
+pattern DIRECTION_INVALID = #const HB_DIRECTION_INVALID
+pattern DIRECTION_LTR = #const HB_DIRECTION_LTR
+pattern DIRECTION_RTL = #const HB_DIRECTION_RTL
+pattern DIRECTION_TTB = #const HB_DIRECTION_TTB
+pattern DIRECTION_BTT = #const HB_DIRECTION_BTT
+
 newtype MemoryMode = MemoryMode CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 
 pattern MEMORY_MODE_DUPLICATE :: MemoryMode
@@ -65,6 +90,8 @@ pattern MEMORY_MODE_READONLY_MAY_MAKE_WRITABLE = #const HB_MEMORY_MODE_READONLY_
 C.context $ C.baseCtx <> mempty
   { C.ctxTypesTable = Map.fromList
     [ (C.TypeName "hb_blob_t", [t| Blob |])
+    , (C.TypeName "hb_tag_t", [t| Tag |])
+    , (C.TypeName "hb_direction_t", [t| Direction |])
     ]
   }
 
@@ -119,6 +146,8 @@ harfbuzzCtx = mempty
     [ (C.TypeName "hb_blob_t", [t| Blob |])
     , (C.TypeName "hb_bool_t", [t| CInt |])
     , (C.TypeName "hb_memory_mode_t", [t| MemoryMode |])
+    , (C.TypeName "hb_tag_t", [t| Tag |])
+    , (C.TypeName "hb_direction_t", [t| Direction |])
     ]
   , C.ctxAntiQuoters = Map.fromList
     [ ("ustr",        anti (C.Ptr [C.CONST] (C.TypeSpecifier mempty (C.Char (Just C.Unsigned)))) [t| CUChar |] [| withCUString |])
