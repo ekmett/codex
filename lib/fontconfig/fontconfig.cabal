@@ -20,6 +20,10 @@ source-repository head
   type: git
   location: https://github.com/ekmett/ui
 
+flag freetype
+  default: True
+  manual: True
+
 library
   hs-source-dirs: src
   build-tool-depends: hsc2hs:hsc2hs
@@ -38,6 +42,11 @@ library
     StateVar,
     template-haskell,
     transformers
+
+  if flag(freetype)
+    build-depends: freetype
+    cpp-options: -DUSE_FREETYPE
+
   exposed-modules:
     Graphics.Font.Config
     Graphics.Font.Config.Internal
