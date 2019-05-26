@@ -26,9 +26,9 @@ runFreeType m = do
 
 main :: IO ()
 main = do
-  let display_width  = 640
-      display_height = 480
-      angle  = (25 / 360) * pi * 2
+  let display_width  = 320
+      display_height = 240
+      angle  = (0 / 360) * pi * 2
   matrix <- mallocForeignPtr
   pen    <- mallocForeignPtr
   withForeignPtr matrix $ \p-> poke p (Matrix
@@ -38,7 +38,7 @@ main = do
         , yy = round $   cos angle * 0x10000
         })
   withForeignPtr pen $ \p -> poke p (Vector
-        { x = 300 * 64
+        { x = 20
         , y = (display_height - 200) * 64
         })
   (filename:text:_) <- getArgs
@@ -91,8 +91,7 @@ main = do
   runFreeType $ doneFace face
   runFreeType $ doneFreeType library
 
-drawBitmap :: Bitmap -> IOUArray (Int, Int) Int
-           -> CInt -> CInt -> IO ()
+drawBitmap :: Bitmap -> IOUArray (Int, Int) Int -> CInt -> CInt -> IO ()
 drawBitmap bitmap image x y = do
   let xMax = x + width bitmap
       yMax = y + rows bitmap
