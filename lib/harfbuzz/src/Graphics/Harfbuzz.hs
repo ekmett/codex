@@ -2,7 +2,7 @@
 {-# language ViewPatterns #-}
 {-# language TemplateHaskell #-}
 {-# language ForeignFunctionInterface #-}
-module Graphics.Harfbuzz 
+module Graphics.Harfbuzz
   ( Blob
   , blob_create
   , blob_create_from_file
@@ -11,9 +11,19 @@ module Graphics.Harfbuzz
   , blob_get_length
   , blob_is_immutable
   , blob_make_immutable
-  , withBlobData 
+  , blob_reference
+  , blob_destroy
+  , withBlobData
+  , withBlobDataWritable
+  -- blob_set_user_data
 
   , MemoryMode(..)
+
+  , Tag(..)
+  , tag_from_string, tag_to_string
+
+  , Direction(..)
+  , direction_to_string, direction_from_string
 
   -- * internals
   , foreignBlob
@@ -24,9 +34,12 @@ import Control.Monad.IO.Class
 import Data.Const
 import Data.Functor
 import Data.ByteString as Strict
+-- import Data.ByteString.Short as Short
+import Foreign.C.String
 import Foreign.Const.C.String
 import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
+import Foreign.Marshal.Unsafe
 import Foreign.Marshal.Utils
 import Foreign.Ptr
 import Foreign.Storable
@@ -42,7 +55,7 @@ blob_create :: MonadIO m => Strict.ByteString -> MemoryMode -> m Blob
 blob_create bs mode = liftIO $ do
   (cstr, fromIntegral -> len) <- newByteStringCStringLen bs
   [C.block|hb_blob_t * {
-    char * s = $(char * cstr); 
+    char * s = $(char * cstr);
     return hb_blob_create(s,$(unsigned int len),$(hb_memory_mode_t mode),s,free);
   }|] >>= foreignBlob
 
@@ -64,12 +77,42 @@ blob_is_immutable b = liftIO $ [C.exp|hb_bool_t { hb_blob_is_immutable($blob:b) 
 blob_make_immutable :: MonadIO m => Blob -> m ()
 blob_make_immutable b = liftIO [C.block|void { hb_blob_make_immutable($blob:b); }|]
 
+blob_reference :: MonadIO m => Blob -> m ()
+blob_reference b = liftIO [C.block|void { hb_blob_reference($blob:b); }|]
+
+blob_destroy :: MonadIO m => Blob -> m ()
+blob_destroy b = liftIO [C.block|void { hb_blob_destroy($blob:b); }|]
+
 -- | hb_blob_get_data is unsafe under ForeignPtr management, this is safe
 withBlobData :: Blob -> (ConstCStringLen -> IO r) -> IO r
 withBlobData bfp k = withSelf bfp $ \bp -> alloca $ \ip -> do
   s <- [C.exp|const char * { hb_blob_get_data($(hb_blob_t * bp),$(unsigned int * ip)) }|]
   i <- peek ip
   k (constant s, fromIntegral i)
+
+withBlobDataWritable :: Blob -> (CStringLen -> IO r) -> IO r
+withBlobDataWritable bfp k = withSelf bfp $ \bp -> alloca $ \ip -> do
+  s <- [C.exp|char * { hb_blob_get_data_writable($(hb_blob_t * bp),$(unsigned int * ip)) }|]
+  i <- peek ip
+  k (s, fromIntegral i)
+
+-- * 4 character tags
+
+tag_from_string :: Strict.ByteString -> Tag
+tag_from_string bs = unsafeLocalState $
+  Strict.useAsCStringLen (Strict.take 4 bs) $ \(cstr,fromIntegral -> l) -> [C.exp|hb_tag_t { hb_tag_from_string($(const char * cstr),$(int l)) }|]
+
+tag_to_string :: Tag -> Strict.ByteString
+tag_to_string t = unsafeLocalState $ allocaBytes 4 $ \buf -> do
+  [C.exp|void { hb_tag_to_string($(hb_tag_t t),$(char * buf)) }|]
+  Strict.packCStringLen (buf,4)
+
+direction_from_string :: Strict.ByteString -> Direction
+direction_from_string bs = unsafeLocalState $
+  Strict.useAsCStringLen bs $ \(cstr,fromIntegral -> l) -> [C.exp|hb_direction_t { hb_direction_from_string($(const char * cstr),$(int l)) }|]
+
+direction_to_string :: Direction -> Strict.ByteString
+direction_to_string t = unsafeLocalState $ [C.exp|const char * { hb_direction_to_string($(hb_direction_t t)) }|] >>= Strict.packCString -- we don't own it, don't destroy it
 
 -- * Finalization
 

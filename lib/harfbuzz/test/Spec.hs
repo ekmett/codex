@@ -16,7 +16,7 @@ spec =
       (blob_create "hello" MEMORY_MODE_READONLY >>= blob_get_length) `shouldReturn` 5
     it "readonly is not immutable" $ do
       (blob_create "hello" MEMORY_MODE_READONLY >>= blob_is_immutable) `shouldReturn` False
-    it "but make_immutable makes things immutable" $ do
+    it "make_immutable makes things immutable" $ do
       let task = do
            x <- blob_create "hello" MEMORY_MODE_READONLY
            blob_make_immutable x
@@ -31,8 +31,14 @@ spec =
       let task = do
            x <- blob_create "hello" MEMORY_MODE_WRITABLE
            y <- blob_create_sub_blob x 2 2
-           withBlobData y packACStringLen
-      task `shouldReturn` "ll"
+           (,) <$> withBlobData x packACStringLen <*> withBlobData y packACStringLen
+      task `shouldReturn` ("hello","ll")
+    it "forming a sub_blob renders the parent immutable" $ do
+      let task = do
+           x <- blob_create "hello" MEMORY_MODE_WRITABLE
+           _ <- blob_create_sub_blob x 2 2
+           blob_is_immutable x
+      task `shouldReturn` True
 
 main :: IO ()
 main = do
