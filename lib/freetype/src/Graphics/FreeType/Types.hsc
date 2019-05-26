@@ -10,6 +10,24 @@ import Foreign.C.Types
 #include FT_IMAGE_H
 #include FT_OUTLINE_H
 
+data DriverRec_
+type Driver = Ptr DriverRec_
+
+data FaceRec_
+type Face = Ptr FaceRec_
+
+data LibraryRec_
+type Library = Ptr LibraryRec_
+
+data ModuleRec_
+type Module = Ptr ModuleRec_
+
+data RendererRec_
+type Renderer = Ptr RendererRec_
+
+data SubGlyphRec_
+type SubGlyph = Ptr SubGlyphRec_
+
 pattern LOAD_DEFAULT :: Int32
 pattern LOAD_DEFAULT = #const FT_LOAD_DEFAULT
 

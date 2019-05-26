@@ -122,30 +122,24 @@ library
     Graphics.FreeType.BitmapGlyph
     Graphics.FreeType.BitmapSize
     Graphics.FreeType.CharMap
-    Graphics.FreeType.Driver
     Graphics.FreeType.Face
-    Graphics.FreeType.FaceType
     Graphics.FreeType.Generic
     Graphics.FreeType.Glyph
     Graphics.FreeType.GlyphMetrics
     Graphics.FreeType.GlyphSlot
     Graphics.FreeType.Internal
-    Graphics.FreeType.Library
     Graphics.FreeType.Matrix
     Graphics.FreeType.Memory
-    Graphics.FreeType.Module
     Graphics.FreeType.OpenArgs
     Graphics.FreeType.Outline
     Graphics.FreeType.OutlineGlyph
     Graphics.FreeType.Parameter
     Graphics.FreeType.RasterParams
-    Graphics.FreeType.Renderer
     Graphics.FreeType.Size
     Graphics.FreeType.SizeMetrics
     Graphics.FreeType.SizeRequest
     Graphics.FreeType.Stream
     Graphics.FreeType.Span
-    Graphics.FreeType.SubGlyph
     Graphics.FreeType.Types
     Graphics.FreeType.Vector
 

@@ -4,7 +4,6 @@ import Foreign
 import Foreign.C.Types
 import Foreign.C.String
 
-import Graphics.FreeType.Library
 import Graphics.FreeType.Face
 import Graphics.FreeType.Matrix
 import Graphics.FreeType.Vector

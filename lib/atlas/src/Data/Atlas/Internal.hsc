@@ -119,7 +119,6 @@ deriving instance Ord (f Pt) => Ord (Box f)
 deriving instance Read (f Pt) => Read (Box f)
 deriving instance Show (f Pt) => Show (Box f)
 
-
 pokePts :: (a -> Box t) -> Ptr Rect -> [a] -> IO ()
 pokePts f ptr vals0 = go vals0 0 where
   go ((f -> Box _ (Pt w h)):vals) !i = do
