@@ -4,20 +4,6 @@ import Foreign
 import Foreign.C.Types
 import Foreign.C.String
 
-import Graphics.FreeType.Face
-import Graphics.FreeType.Matrix
-import Graphics.FreeType.Vector
-import Graphics.FreeType.Glyph
-import Graphics.FreeType.GlyphSlot
-import Graphics.FreeType.OpenArgs
-import Graphics.FreeType.SizeRequest
-import Graphics.FreeType.CharMap
-import Graphics.FreeType.Outline
-import Graphics.FreeType.Memory
-import Graphics.FreeType.BBox
-import Graphics.FreeType.Bitmap
-import Graphics.FreeType.RasterParams
-import Graphics.FreeType.Size
 import Graphics.FreeType.Types
 
 #include <ft2build.h>

@@ -117,29 +117,5 @@ library
   ghc-options: -Wall
   pkgconfig-depends: freetype2
   exposed-modules:
-    Graphics.FreeType.BBox
-    Graphics.FreeType.Bitmap
-    Graphics.FreeType.BitmapGlyph
-    Graphics.FreeType.BitmapSize
-    Graphics.FreeType.CharMap
-    Graphics.FreeType.Face
-    Graphics.FreeType.Generic
-    Graphics.FreeType.Glyph
-    Graphics.FreeType.GlyphMetrics
-    Graphics.FreeType.GlyphSlot
     Graphics.FreeType.Internal
-    Graphics.FreeType.Matrix
-    Graphics.FreeType.Memory
-    Graphics.FreeType.OpenArgs
-    Graphics.FreeType.Outline
-    Graphics.FreeType.OutlineGlyph
-    Graphics.FreeType.Parameter
-    Graphics.FreeType.RasterParams
-    Graphics.FreeType.Size
-    Graphics.FreeType.SizeMetrics
-    Graphics.FreeType.SizeRequest
-    Graphics.FreeType.Stream
-    Graphics.FreeType.Span
     Graphics.FreeType.Types
-    Graphics.FreeType.Vector
-
