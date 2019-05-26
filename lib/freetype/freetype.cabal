@@ -102,17 +102,18 @@ flag examples
   default: False
 
 executable freetype-example
-  main-is: Main.hs
   default-language: Haskell2010
-  build-depends:
-    base >= 4.11 && < 5,
-    freetype,
-    array
+  build-depends: array, base, freetype
+  main-is: Main.hs
 
 library
   default-language: Haskell2010
+  build-depends:
+    base > 4.11 && < 5,
+    containers,
+    inline-c,
+    template-haskell
   hs-source-dirs: src
-  build-depends: base > 4.11 && < 5
   build-tool-depends: hsc2hs:hsc2hs
   ghc-options: -Wall
   pkgconfig-depends: freetype2
