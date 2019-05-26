@@ -210,7 +210,7 @@ import System.IO
 
 import Graphics.Font.Config.Internal
 
-C.context $ C.baseCtx <> C.fptrCtx <> fontConfigCtx
+C.context $ C.baseCtx <> C.fptrCtx <> fontconfigCtx
 C.include "<fontconfig/fontconfig.h>"
 
 #ifdef USE_FREETYPE

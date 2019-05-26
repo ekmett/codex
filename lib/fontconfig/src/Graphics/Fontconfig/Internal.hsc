@@ -43,7 +43,7 @@ module Graphics.Fontconfig.Internal
   , Result(..), CResult, getResult
   , AllocationFailed(..)
   -- * inline-c
-  , fontConfigCtx
+  , fontconfigCtx
   -- * utilities
   , withSelf, withMaybeSelf, withSelfMaybe
   , check, cbool, boolc, peekCUString
@@ -317,13 +317,13 @@ anti cTy hsTyQ with = C.SomeAntiQuoter C.AntiQuoter
     return (cId, cTy, hId)
   , C.aqMarshaller = \_purity _cTypes _cTy cId -> do
     hsTy <- [t| Ptr $hsTyQ |]
-    hsExp <- getHsVariable "fontConfigCtx" cId
+    hsExp <- getHsVariable "fontconfigCtx" cId
     hsExp' <- [| $with (coerce $(pure hsExp)) |]
     return (hsTy, hsExp')
   }
 
-fontConfigCtx :: C.Context
-fontConfigCtx = mempty
+fontconfigCtx :: C.Context
+fontconfigCtx = mempty
   { C.ctxTypesTable = Map.fromList
     [ (C.TypeName "FcConfig", [t| Config |])
     , (C.TypeName "FcFontSet", [t| FontSet|])
