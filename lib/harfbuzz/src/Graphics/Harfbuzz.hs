@@ -28,6 +28,7 @@ module Graphics.Harfbuzz
   , Script(..)
   , script_from_iso15924_tag, script_to_iso15924_tag
   , script_get_horizontal_direction
+  , script_from_string, script_to_string
   -- * internals
   , foreignBlob
   , _hb_blob_destroy
@@ -110,12 +111,16 @@ tag_to_string t = unsafeLocalState $ allocaBytes 4 $ \buf -> do
   [C.exp|void { hb_tag_to_string($(hb_tag_t t),$(char * buf)) }|]
   Strict.packCStringLen (buf,4)
 
+-- * directions
+
 direction_from_string :: Strict.ByteString -> Direction
 direction_from_string bs = unsafeLocalState $
   Strict.useAsCStringLen bs $ \(cstr,fromIntegral -> l) -> [C.exp|hb_direction_t { hb_direction_from_string($(const char * cstr),$(int l)) }|]
 
 direction_to_string :: Direction -> Strict.ByteString
 direction_to_string t = unsafeLocalState $ [C.exp|const char * { hb_direction_to_string($(hb_direction_t t)) }|] >>= Strict.packCString -- we don't own it, don't destroy it
+
+-- * scripts
 
 script_from_iso15924_tag :: Tag -> Script
 script_from_iso15924_tag tag = [C.pure|hb_script_t { hb_script_from_iso15924_tag ($(hb_tag_t tag)) }|]
@@ -125,6 +130,12 @@ script_to_iso15924_tag script = [C.pure|hb_tag_t { hb_script_to_iso15924_tag ($(
 
 script_get_horizontal_direction :: Script -> Direction
 script_get_horizontal_direction script = [C.pure|hb_direction_t { hb_script_get_horizontal_direction($(hb_script_t script)) }|]
+
+script_from_string :: Strict.ByteString -> Script
+script_from_string = script_from_iso15924_tag . tag_from_string
+
+script_to_string :: Script -> Strict.ByteString
+script_to_string = tag_to_string . script_to_iso15924_tag
 
 -- * Finalization
 
