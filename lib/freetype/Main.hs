@@ -93,7 +93,7 @@ drawBitmap bitmap image x y = do
       yMax = y + rows bitmap
   forM_ (zip [ x .. xMax - 1] [0 .. ]) $ \(i,p) ->
     forM_ (zip [ y .. yMax - 1] [0 .. ]) $ \(j,q) -> do
-      let index = q * width bitmap + p
+      let index = q * pitch bitmap + p
       v <- readArray image (fromIntegral j, fromIntegral i) :: IO Int
       b <- peek $ (buffer bitmap) `plusPtr` fromIntegral index
       writeArray image (fromIntegral j, fromIntegral i) $ v .|. b
