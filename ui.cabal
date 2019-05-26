@@ -27,9 +27,9 @@ flag embed
   Description: Embed shaders and other resources in the binary where possible
   Default: False
 
-flag nih
-  Description: Build other people's stuff
-  Default: False
+flag gratuitous
+  Description: Build the rest of my stuff
+  Default: True
 
 common base
   build-depends: base >= 4.11 && < 5
@@ -42,20 +42,18 @@ common common
   import: base
   build-depends:
     adjunctions,
+    atlas,
     bytestring,
     containers,
     data-default,
     distributive,
     file-embed >= 0.0.11 && < 0.1,
-    fontconfig,
-    freetype,
     gl,
     glow,
     JuicyPixels,
     lens,
     linear,
     mtl,
-    atlas,
     primitive,
     sdl2,
     StateVar,
@@ -63,8 +61,13 @@ common common
     transformers,
     vector
 
-  if flag(nih)
-    build-depends: bindings-freetype-gl
+  if flag(gratuitous)
+    build-depends:
+      const,
+      fontconfig,
+      freetype,
+      harfbuzz,
+      weak
 
   if flag(embed)
     cpp-options: -DEMBED
@@ -80,14 +83,6 @@ library
     UI,
     UI.HKD,
     UI.Shaders
-
-  if flag(nih)
-    exposed-modules:
-      UI.Text.Atlas
-      UI.Text.Buffer
-      UI.Text.Color
-      UI.Text.Font
-      UI.Text.Markup
 
 executable ui
   import: base, threaded
