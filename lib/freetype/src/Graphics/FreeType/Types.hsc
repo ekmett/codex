@@ -34,11 +34,14 @@ type FT_Bool = CUChar
 data DriverRec_
 type Driver = Ptr DriverRec_
 
-data FaceRec_
-type Face = Ptr FaceRec_
+--data FaceRec_
+--type Face = Ptr FaceRec_
+newtype Face = Face { getFace :: ForeignPtr Face }
 
-data LibraryRec_
-type Library = Ptr LibraryRec_
+-- data LibraryRec_
+-- type Library = Ptr LibraryRec_
+
+newtype Library = Library { getLibrary :: ForeignPtr Library }
 
 data ModuleRec_
 type Module = Ptr ModuleRec_
@@ -454,123 +457,123 @@ platform_id = #ptr FT_CharMapRec, platform_id
 encoding_id :: CharMap -> Ptr CUShort
 encoding_id = #ptr FT_CharMapRec, encoding_id
 
-num_faces :: Face -> Ptr CLong
+num_faces :: Ptr Face -> Ptr CLong
 num_faces = #ptr struct FT_FaceRec_, num_faces
 
-face_index :: Face -> Ptr CLong
+face_index :: Ptr Face -> Ptr CLong
 face_index = #ptr struct FT_FaceRec_, face_index
 
-face_flags :: Face -> Ptr CLong
+face_flags :: Ptr Face -> Ptr CLong
 face_flags = #ptr struct FT_FaceRec_, face_flags
 
-style_flags :: Face -> Ptr CLong
+style_flags :: Ptr Face -> Ptr CLong
 style_flags = #ptr struct FT_FaceRec_, style_flags
 
-num_glyphs :: Face -> Ptr CLong
+num_glyphs :: Ptr Face -> Ptr CLong
 num_glyphs = #ptr struct FT_FaceRec_, num_glyphs
 
-family_name :: Face -> Ptr CString
+family_name :: Ptr Face -> Ptr CString
 family_name = #ptr struct FT_FaceRec_, family_name
 
-style_name :: Face -> Ptr CString
+style_name :: Ptr Face -> Ptr CString
 style_name = #ptr struct FT_FaceRec_, style_name
 
-num_fixed_sizes :: Face -> Ptr CInt
+num_fixed_sizes :: Ptr Face -> Ptr CInt
 num_fixed_sizes = #ptr struct FT_FaceRec_, num_fixed_sizes
 
-available_sizes :: Face -> Ptr (Ptr BitmapSize)
+available_sizes :: Ptr Face -> Ptr (Ptr BitmapSize)
 available_sizes = #ptr struct FT_FaceRec_, available_sizes
 
-num_charmaps :: Face -> Ptr CInt
+num_charmaps :: Ptr Face -> Ptr CInt
 num_charmaps = #ptr struct FT_FaceRec_, num_charmaps
 
-charmaps :: Face -> Ptr (Ptr CharMap)
+charmaps :: Ptr Face -> Ptr (Ptr CharMap)
 charmaps = #ptr struct FT_FaceRec_, charmaps
 
 class HasGeneric t where
   generic :: t -> Ptr Generic
 
-instance HasGeneric Face where
+instance HasGeneric (Ptr Face) where
   generic = #ptr struct FT_FaceRec_, generic
 
-bbox :: Face -> Ptr BBox
+bbox :: Ptr Face -> Ptr BBox
 bbox = #ptr struct FT_FaceRec_, bbox
 
-units_per_EM :: Face -> Ptr CUShort
+units_per_EM :: Ptr Face -> Ptr CUShort
 units_per_EM = #ptr struct FT_FaceRec_, units_per_EM
 
-ascender :: Face -> Ptr CShort
+ascender :: Ptr Face -> Ptr CShort
 ascender = #ptr struct FT_FaceRec_, ascender
 
-descender :: Face -> Ptr CShort
+descender :: Ptr Face -> Ptr CShort
 descender = #ptr struct FT_FaceRec_, descender
 
-height :: Face -> Ptr CShort
+height :: Ptr Face -> Ptr CShort
 height = #ptr struct FT_FaceRec_, height
 
-max_advance_width :: Face -> Ptr CShort
+max_advance_width :: Ptr Face -> Ptr CShort
 max_advance_width = #ptr struct FT_FaceRec_, max_advance_width
 
-max_advance_height :: Face -> Ptr CShort
+max_advance_height :: Ptr Face -> Ptr CShort
 max_advance_height = #ptr struct FT_FaceRec_, max_advance_height
 
-underline_position :: Face -> Ptr CShort
+underline_position :: Ptr Face -> Ptr CShort
 underline_position = #ptr struct FT_FaceRec_, underline_position
 
-underline_thickness :: Face -> Ptr CShort
+underline_thickness :: Ptr Face -> Ptr CShort
 underline_thickness = #ptr struct FT_FaceRec_, underline_thickness
 
-glyph :: Face -> Ptr GlyphSlot
+glyph :: Ptr Face -> Ptr GlyphSlot
 glyph = #ptr struct FT_FaceRec_, glyph
 
 class HasSize size t | t -> size where
   size :: t -> Ptr size
 
-instance HasSize Size Face where
+instance HasSize Size (Ptr Face) where
   size = #ptr struct FT_FaceRec_, size
 
-charmap :: Face -> Ptr CharMap
+charmap :: Ptr Face -> Ptr CharMap
 charmap = #ptr struct FT_FaceRec_, charmap
 
-has :: FaceFlag -> Face -> IO Bool
+has :: FaceFlag -> Ptr Face -> IO Bool
 has flag fc = do
   f <- peek $ face_flags fc
   return $ 0 /= (f .&. fromIntegral flag)
 
-_HAS_HORIZONTAL :: Face -> IO Bool
+_HAS_HORIZONTAL :: Ptr Face -> IO Bool
 _HAS_HORIZONTAL = has FACE_FLAG_HORIZONTAL
 
-_HAS_VERTICAL :: Face -> IO Bool
+_HAS_VERTICAL :: Ptr Face -> IO Bool
 _HAS_VERTICAL = has FACE_FLAG_VERTICAL
 
-_HAS_KERNING :: Face -> IO Bool
+_HAS_KERNING :: Ptr Face -> IO Bool
 _HAS_KERNING = has FACE_FLAG_KERNING
 
-_IS_SCALABLE :: Face -> IO Bool
+_IS_SCALABLE :: Ptr Face -> IO Bool
 _IS_SCALABLE = has FACE_FLAG_SCALABLE
 
-_IS_SFNT :: Face -> IO Bool
+_IS_SFNT :: Ptr Face -> IO Bool
 _IS_SFNT = has FACE_FLAG_SFNT
 
-_IS_FIXED_WIDTH :: Face -> IO Bool
+_IS_FIXED_WIDTH :: Ptr Face -> IO Bool
 _IS_FIXED_WIDTH = has FACE_FLAG_FIXED_WIDTH
 
-_HAS_FIXED_SIZES :: Face -> IO Bool
+_HAS_FIXED_SIZES :: Ptr Face -> IO Bool
 _HAS_FIXED_SIZES = has FACE_FLAG_FIXED_SIZES
 
-_HAS_FAST_GLYPHS :: Face -> IO Bool
+_HAS_FAST_GLYPHS :: Ptr Face -> IO Bool
 _HAS_FAST_GLYPHS = has FACE_FLAG_FAST_GLYPHS
 
-_HAS_GLYPH_NAMES :: Face -> IO Bool
+_HAS_GLYPH_NAMES :: Ptr Face -> IO Bool
 _HAS_GLYPH_NAMES = has FACE_FLAG_GLYPH_NAMES
 
-_HAS_MULTIPLE_MASTERS :: Face -> IO Bool
+_HAS_MULTIPLE_MASTERS :: Ptr Face -> IO Bool
 _HAS_MULTIPLE_MASTERS = has FACE_FLAG_MULTIPLE_MASTERS
 
-_IS_CID_KEYED :: Face -> IO Bool
+_IS_CID_KEYED :: Ptr Face -> IO Bool
 _IS_CID_KEYED = has FACE_FLAG_CID_KEYED
 
-_IS_TRICKY :: Face -> IO Bool
+_IS_TRICKY :: Ptr Face -> IO Bool
 _IS_TRICKY = has FACE_FLAG_TRICKY
 
 pattern STYLE_FLAG_ITALIC :: CLong
