@@ -14,29 +14,36 @@ import Foreign.C.Types
 import System.Exit
 
 import Data.Array.IO as A
+import Data.Int
 
 runFreeType :: IO Error -> IO ()
 runFreeType m = do
   r <- m
   unless (r == 0) $ fail $ "FreeType Error:" ++ show r
 
+mallocWith :: Storable a => a -> IO (ForeignPtr a)
+mallocWith a = do
+  fp <- mallocForeignPtr
+  withForeignPtr fp $ \p -> poke p a
+  pure fp
+
 main :: IO ()
 main = do
   let display_width  = 320
       display_height = 240
       angle  = (0 / 360) * pi * 2
-  matrix <- mallocForeignPtr
-  pen    <- mallocForeignPtr
-  withForeignPtr matrix $ \p-> poke p (Matrix
-        { xx = round $   cos angle * 0x10000
-        , xy = round $ -(sin angle * 0x10000)
-        , yx = round $   sin angle * 0x10000
-        , yy = round $   cos angle * 0x10000
-        })
-  withForeignPtr pen $ \p -> poke p (Vector
-        { x = 20
-        , y = (display_height - 200) * 64
-        })
+
+  matrix <- mallocWith $ Matrix
+    { xx = round $   cos angle * 0x10000
+    , xy = round $ -(sin angle * 0x10000)
+    , yx = round $   sin angle * 0x10000
+    , yy = round $   cos angle * 0x10000
+    }
+  pen <- mallocWith $ Vector
+    { x = 20
+    , y = (display_height - 200) * 64
+    }
+
   (filename:text:_) <- getArgs
 
   putStrLn $ concat ["Loading file: ", filename]
@@ -57,9 +64,9 @@ main = do
 
   image <- A.newArray
     ((0,0), (fromIntegral display_height - 1, fromIntegral display_width - 1)) 0
-    :: IO (IOUArray (Int, Int) Int)
+    :: IO (IOUArray (Int, Int) Int32)
 
-  runFreeType $ setCharSize face (50*64) 0 100 0
+  runFreeType $ setCharSize face (50*64) 0 96 0
   forM_ text $ \c -> do
     withForeignPtr matrix $ \mp ->
       withForeignPtr pen $ \pp -> do
@@ -76,29 +83,29 @@ main = do
         pen' <- peek pp
         poke pp $ v + pen'
         b <- peek $ bitmap slot
-        left <- peek $ bitmap_left slot
-        top  <- peek $ bitmap_top slot
+        left <- fromIntegral <$> peek (bitmap_left slot)
+        top  <- fromIntegral <$> peek (bitmap_top slot)
         let b_top = fromIntegral display_height - top
-            b_right = left + width b
-            b_bottom = fromIntegral . fromEnum $ b_top + rows b
+            b_right = left + fromIntegral (width b)
+            b_bottom = fromIntegral $ b_top + fromIntegral (rows b)
         unless (b_right >= display_width || b_bottom >= display_height) $
-          drawBitmap b image left b_top
+          drawBitmap b image left $ fromIntegral b_top
   showImage image
   runFreeType $ doneFace face
   runFreeType $ doneFreeType library
 
-drawBitmap :: Bitmap -> IOUArray (Int, Int) Int -> CInt -> CInt -> IO ()
+drawBitmap :: Bitmap -> IOUArray (Int, Int) Int32 -> Int32 -> Int32 -> IO ()
 drawBitmap bitmap image x y = do
-  let xMax = x + width bitmap
-      yMax = y + rows bitmap
+  let xMax = x + fromIntegral (width bitmap)
+      yMax = y + fromIntegral (rows bitmap)
   forM_ (zip [ x .. xMax - 1] [0 .. ]) $ \(i,p) ->
     forM_ (zip [ y .. yMax - 1] [0 .. ]) $ \(j,q) -> do
       let index = q * pitch bitmap + p
-      v <- readArray image (fromIntegral j, fromIntegral i) :: IO Int
-      b <- peek $ (buffer bitmap) `plusPtr` fromIntegral index
-      writeArray image (fromIntegral j, fromIntegral i) $ v .|. b
+      v <- readArray image (fromIntegral j, fromIntegral i) :: IO Int32
+      b <- peek (buffer bitmap `plusPtr` fromIntegral index :: Ptr Word8)
+      writeArray image (fromIntegral j, fromIntegral i) $ v .|. fromIntegral b
 
-showImage :: IOUArray (Int, Int) Int -> IO ()
+showImage :: IOUArray (Int, Int) Int32 -> IO ()
 showImage image = do
   ((hmin,wmin), (hmax,wmax)) <- getBounds image
   forM_ [ hmin .. hmax - 1 ] $ \i -> do
@@ -107,9 +114,9 @@ showImage image = do
       putc v
     putChar '\n'
   where
-  putc :: Int -> IO ()
+  putc :: Int32 -> IO ()
   putc c
-    | c == 0    = putChar '0'
+    | c == 0    = putChar ' '
     | c < 128   = putChar '+'
     | otherwise = putChar '*'
 
