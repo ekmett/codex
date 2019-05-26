@@ -2,19 +2,20 @@
 module Main where
 
 import Control.Monad
-import System.Environment
-import Graphics.FreeType.Internal as FT
-import Graphics.FreeType.Types as FT
-
+import Data.Array.IO as A
+import Data.Char
+import Data.Int
+import Data.Ix
+import Data.List
+import Data.Traversable
 import Foreign
 import Foreign.Marshal
 import Foreign.C.String
 import Foreign.C.Types
-
+import Graphics.FreeType.Internal as FT
+import Graphics.FreeType.Types as FT
+import System.Environment
 import System.Exit
-
-import Data.Array.IO as A
-import Data.Int
 
 runFreeType :: IO Error -> IO ()
 runFreeType m = do
@@ -29,9 +30,11 @@ mallocWith a = do
 
 main :: IO ()
 main = do
+  (filename:degrees:text:_) <- getArgs
+
   let display_width  = 320
       display_height = 240
-      angle  = (0 / 360) * pi * 2
+      angle  = (Prelude.read degrees / 360) * pi * 2
 
   matrix <- mallocWith $ Matrix
     { xx = round $   cos angle * 0x10000
@@ -44,7 +47,6 @@ main = do
     , y = (display_height - 200) * 64
     }
 
-  (filename:text:_) <- getArgs
 
   putStrLn $ concat ["Loading file: ", filename]
   putStrLn $ concat ["Drawing text: ", text]
@@ -66,7 +68,7 @@ main = do
     ((0,0), (fromIntegral display_height - 1, fromIntegral display_width - 1)) 0
     :: IO (IOUArray (Int, Int) Int32)
 
-  runFreeType $ setCharSize face (50*32) 0 72 0
+  runFreeType $ setCharSize face (50*64) 0 72 0
   forM_ text $ \c -> do
     withForeignPtr matrix $ \mp ->
       withForeignPtr pen $ \pp -> do
@@ -82,35 +84,38 @@ main = do
         let b_top = fromIntegral display_height - top
             b_right = left + fromIntegral (width b)
             b_bottom = fromIntegral $ b_top + fromIntegral (rows b)
-        unless (b_right >= display_width || b_bottom >= display_height) $
-          drawBitmap b image left $ fromIntegral b_top
-  showImage image
+        drawBitmap b image left $ fromIntegral b_top
+  showImage image >>= pretty
   runFreeType $ doneFace face
   runFreeType $ doneFreeType library
+
+pretty :: [String] -> IO ()
+pretty = putStr . unlines . fmap (dropWhileEnd isSpace) . dropWhile (all isSpace) . dropWhileEnd (all isSpace)
 
 drawBitmap :: Bitmap -> IOUArray (Int, Int) Int32 -> Int32 -> Int32 -> IO ()
 drawBitmap bitmap image x y = do
   let xMax = x + fromIntegral (width bitmap)
       yMax = y + fromIntegral (rows bitmap)
+  bounds <- getBounds image
   forM_ (zip [ x .. xMax - 1] [0 .. ]) $ \(i,p) ->
     forM_ (zip [ y .. yMax - 1] [0 .. ]) $ \(j,q) -> do
       let index = q * pitch bitmap + p
-      v <- readArray image (fromIntegral j, fromIntegral i) :: IO Int32
-      b <- peek (buffer bitmap `plusPtr` fromIntegral index :: Ptr Word8)
-      writeArray image (fromIntegral j, fromIntegral i) $ v .|. fromIntegral b
+      let pt = (fromIntegral j, fromIntegral i)
+      when (bounds `inRange` pt) $ do
+        v <- readArray image pt
+        b <- peek (buffer bitmap `plusPtr` fromIntegral index :: Ptr Word8)
+        writeArray image pt $ v .|. fromIntegral b
 
-showImage :: IOUArray (Int, Int) Int32 -> IO ()
+showImage :: IOUArray (Int, Int) Int32 -> IO [String]
 showImage image = do
   ((hmin,wmin), (hmax,wmax)) <- getBounds image
-  forM_ [ hmin .. hmax - 1 ] $ \i -> do
-    forM_ [ wmin .. wmax - 1 ] $ \j -> do
-      v <- readArray image (i,j)
-      putc v
-    putChar '\n'
-  where
-  putc :: Int32 -> IO ()
-  putc c
-    | c == 0    = putChar ' '
-    | c < 128   = putChar '+'
-    | otherwise = putChar '*'
+  for [ hmin .. hmax - 1 ] $ \i ->
+    for [ wmin .. wmax - 1 ] $ \j ->
+      ch <$> readArray image (i,j)
+ where
+  ch :: Int32 -> Char
+  ch c
+    | c == 0    = ' '
+    | c < 128   = '+'
+    | otherwise = '*'
 
