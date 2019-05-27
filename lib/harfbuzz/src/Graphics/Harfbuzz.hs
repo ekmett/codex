@@ -35,6 +35,7 @@ module Graphics.Harfbuzz
   , buffer_add_utf8 -- UTF8 encoded ByteString
   , buffer_append
   , buffer_guess_segment_properties
+  , buffer_normalize_glyphs
 
   -- statevars
   , buffer_direction
@@ -45,6 +46,8 @@ module Graphics.Harfbuzz
   , buffer_segment_properties
   , buffer_content_type
   , buffer_unicode_funcs
+  , buffer_invisible_glyph
+  , buffer_replacement_codepoint
 
   , BufferFlags(..)
   , BufferContentType(..)
@@ -282,6 +285,9 @@ buffer_append buffer source (fromIntegral -> start) (fromIntegral -> end) = lift
 buffer_guess_segment_properties :: MonadIO m => Buffer -> m ()
 buffer_guess_segment_properties b = liftIO [C.block|void { hb_buffer_guess_segment_properties($buffer:b); }|]
 
+buffer_normalize_glyphs :: MonadIO m => Buffer -> m ()
+buffer_normalize_glyphs b = liftIO [C.block|void { hb_buffer_normalize_glyphs($buffer:b); }|]
+
 -- * buffer statevars
 
 buffer_direction :: Buffer -> StateVar Direction
@@ -330,6 +336,16 @@ buffer_unicode_funcs :: Buffer -> StateVar UnicodeFuncs
 buffer_unicode_funcs b = StateVar g s where
   g = [C.exp|hb_unicode_funcs_t * { hb_buffer_get_unicode_funcs($buffer:b) }|] >>= foreignUnicodeFuncs
   s v = [C.block|void { hb_buffer_set_unicode_funcs($buffer:b,$unicode-funcs:v); }|]
+
+buffer_invisible_glyph :: Buffer -> StateVar Char
+buffer_invisible_glyph b = StateVar g s where
+  g = [C.exp|hb_codepoint_t { hb_buffer_get_invisible_glyph($buffer:b) }|]
+  s v = [C.block|void { hb_buffer_set_invisible_glyph($buffer:b,$(hb_codepoint_t v)); }|]
+
+buffer_replacement_codepoint :: Buffer -> StateVar Char
+buffer_replacement_codepoint b = StateVar g s where
+  g = [C.exp|hb_codepoint_t { hb_buffer_get_replacement_codepoint($buffer:b) }|]
+  s v = [C.block|void { hb_buffer_set_replacement_codepoint($buffer:b,$(hb_codepoint_t v)); }|]
 
 -- * 4 character tags
 
