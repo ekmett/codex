@@ -44,6 +44,9 @@ module Graphics.Harfbuzz.Internal
   , BUFFER_FLAG_REMOVE_DEFAULT_IGNORABLES
   , BUFFER_FLAG_DO_NOT_INSERT_DOTTED_CIRCLE
   )
+, Char
+  ( BUFFER_REPLACEMENT_CODEPOINT_DEFAULT
+  )
 , Direction
   ( Direction
   , DIRECTION_INVALID, DIRECTION_LTR, DIRECTION_RTL, DIRECTION_BTT, DIRECTION_TTB
@@ -51,6 +54,11 @@ module Graphics.Harfbuzz.Internal
 , direction_to_string, direction_from_string
 , Feature(..)
 , feature_to_string, feature_from_string
+, GlyphFlags
+  ( GlyphFlags
+  , GLYPH_FLAG_UNSAFE_TO_BREAK
+  , GLYPH_FLAG_DEFINED
+  )
 , Language
   ( Language
   , LANGUAGE_INVALID
@@ -250,16 +258,13 @@ newtype Blob = Blob (ForeignPtr Blob) deriving (Eq, Ord, Show, Data)
 
 newtype Buffer = Buffer (ForeignPtr Buffer) deriving (Eq, Ord, Show, Data)
 
-newtype Language = Language (Ptr Language) deriving (Eq, Ord, Data, Storable) -- we never manage
+newtype BufferClusterLevel = BufferClusterLevel CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 
-newtype UnicodeFuncs = UnicodeFuncs (ForeignPtr UnicodeFuncs) deriving (Eq, Ord, Show, Data)
+newtype BufferContentType = BufferContentType CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 
-data OpaqueKey deriving Data
-newtype Key a = Key (ForeignPtr OpaqueKey) deriving (Eq, Ord, Show, Data)
+newtype BufferFlags = BufferFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
 
-newtype Tag = Tag Word32 deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
-{-# complete Tag #-}
-{-# complete TAG #-}
+newtype Direction = Direction Word32  deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
 
 data Feature = Feature
   { feature_tag :: {-# unpack #-} !Tag
@@ -281,20 +286,18 @@ instance Storable Feature where
     (#poke hb_feature_t, start) p feature_start
     (#poke hb_feature_t, end) p feature_end
 
-data Variation = Variation
-  { variation_tag :: {-# unpack #-} !Tag
-  , variation_value :: {-# unpack #-} !Float
-  } deriving (Eq,Ord)
+newtype GlyphFlags = GlyphFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
 
-instance Storable Variation where
-  sizeOf _ = #size hb_variation_t
-  alignment _ = #alignment hb_variation_t
-  peek p = Variation
-    <$> (#peek hb_variation_t, tag) p
-    <*> (#peek hb_variation_t, value) p
-  poke p Variation{..} = do
-    (#poke hb_variation_t, tag) p variation_tag
-    (#poke hb_variation_t, value) p variation_value
+data OpaqueKey deriving Data
+newtype Key a = Key (ForeignPtr OpaqueKey) deriving (Eq, Ord, Show, Data)
+
+newtype Language = Language (Ptr Language) deriving (Eq, Ord, Data, Storable) -- we never manage
+
+newtype MemoryMode = MemoryMode CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+
+newtype Script = Script Word32 deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
+instance Show Script where showsPrec e (Script w) = showsPrec e (Tag w)
+instance Read Script where readPrec = fromString <$> step readPrec
 
 data SegmentProperties = SegmentProperties
   { segment_properties_direction :: {-# unpack #-} !Direction
@@ -313,6 +316,10 @@ instance Storable SegmentProperties where
     (#poke hb_segment_properties_t, direction) p segment_properties_direction
     (#poke hb_segment_properties_t, script) p segment_properties_script
     (#poke hb_segment_properties_t, language) p segment_properties_language
+
+newtype Tag = Tag Word32 deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
+{-# complete Tag #-}
+{-# complete TAG #-}
 
 w2c :: Word32 -> Char
 w2c = toEnum . fromIntegral
@@ -336,11 +343,8 @@ pattern TAG a b c d <- (untag -> (a,b,c,d)) where
     unsafeShiftL (c2w c .&. 0xff) 8  .|.
     (c2w d .&. 0xff)
 
-instance Show Tag where
-  showsPrec e (TAG a b c d) = showsPrec e [a,b,c,d]
-
-instance Read Tag where
-  readPrec = fromString <$> step readPrec
+instance Show Tag where showsPrec e (TAG a b c d) = showsPrec e [a,b,c,d]
+instance Read Tag where readPrec = fromString <$> step readPrec
 
 instance IsString Tag where
   fromString [] = TAG ' ' ' ' ' ' ' '
@@ -349,33 +353,40 @@ instance IsString Tag where
   fromString [a,b,c] = TAG a b c ' '
   fromString (a:b:c:d:_) = TAG a b c d
 
-newtype Script = Script Word32 deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
+newtype UnicodeCombiningClass = UnicodeCombiningClass CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 
-instance Show Script where
-  showsPrec e (Script w) = showsPrec e (Tag w)
+type UnicodeCombiningClassFunc a = Ptr UnicodeFuncs -> Char -> Ptr a -> IO UnicodeCombiningClass
 
-instance Read Script where
-  readPrec = fromString <$> step readPrec
+type UnicodeComposeFunc a = Ptr UnicodeFuncs -> Char -> Char -> Ptr Char -> Ptr a -> IO CInt -- hb_bool_tt
 
-newtype Direction = Direction Word32  deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
+type UnicodeDecomposeFunc a = Ptr UnicodeFuncs -> Char -> Ptr Char -> Ptr Char -> Ptr a -> IO CInt -- hb_bool_t
 
-newtype MemoryMode = MemoryMode CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
-
-newtype BufferFlags = BufferFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
-newtype BufferClusterLevel = BufferClusterLevel CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
-newtype BufferContentType = BufferContentType CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+newtype UnicodeFuncs = UnicodeFuncs (ForeignPtr UnicodeFuncs) deriving (Eq, Ord, Show, Data)
 
 newtype UnicodeGeneralCategory = UnicodeGeneralCategory CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+
 type UnicodeGeneralCategoryFunc a = Ptr UnicodeFuncs -> Char -> Ptr a -> IO UnicodeGeneralCategory
 
-newtype UnicodeCombiningClass = UnicodeCombiningClass CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
-type UnicodeCombiningClassFunc a = Ptr UnicodeFuncs -> Char -> Ptr a -> IO UnicodeCombiningClass
-type UnicodeComposeFunc a = Ptr UnicodeFuncs -> Char -> Char -> Ptr Char -> Ptr a -> IO CInt -- hb_bool_tt
-type UnicodeDecomposeFunc a = Ptr UnicodeFuncs -> Char -> Ptr Char -> Ptr Char -> Ptr a -> IO CInt -- hb_bool_t
 type UnicodeMirroringFunc a = Ptr UnicodeFuncs -> Char -> Ptr a -> IO Char
+
 type UnicodeScriptFunc a = Ptr UnicodeFuncs -> Char -> Ptr a -> IO Script
 
--- * Startup a crippled inline-c context for use in non-orphan instances
+data Variation = Variation
+  { variation_tag :: {-# unpack #-} !Tag
+  , variation_value :: {-# unpack #-} !Float
+  } deriving (Eq,Ord)
+
+instance Storable Variation where
+  sizeOf _ = #size hb_variation_t
+  alignment _ = #alignment hb_variation_t
+  peek p = Variation
+    <$> (#peek hb_variation_t, tag) p
+    <*> (#peek hb_variation_t, value) p
+  poke p Variation{..} = do
+    (#poke hb_variation_t, tag) p variation_tag
+    (#poke hb_variation_t, value) p variation_value
+
+-- * Startup a crippled inline-c context for use in non-orphan instances below
 
 C.context $ C.baseCtx <> mempty
   { C.ctxTypesTable = Map.fromList
@@ -404,18 +415,6 @@ instance Default Buffer where
   def = unsafeLocalState $ [C.exp|hb_buffer_t * { hb_buffer_get_empty() }|] >>= fmap Buffer . newForeignPtr_
   {-# noinline def #-}
 
--- | Note: @hb_unicode_funcs_get_empty@ not @hb_unicode_funcs_get_default@!
-instance Default UnicodeFuncs where
-  def = unsafeLocalState $ [C.exp|hb_unicode_funcs_t * { hb_unicode_funcs_get_empty() }|] >>= fmap UnicodeFuncs . newForeignPtr_
-  {-# noinline def #-}
-
-instance Default Tag where
-  def = TAG_NONE
-
--- damnit ffi
-instance IsString Script where
-  fromString (fromString -> tag) = [C.pure|hb_script_t { hb_script_from_iso15924_tag($(hb_tag_t tag)) }|]
-
 direction_from_string :: String -> Direction
 direction_from_string s = unsafeLocalState $
   withCStringLen (take 1 s) $ \(cstr,fromIntegral -> l) ->
@@ -425,14 +424,27 @@ direction_to_string :: Direction -> String
 direction_to_string t = unsafeLocalState $
   [C.exp|const char * { hb_direction_to_string($(hb_direction_t t)) }|] >>= peekCString
 
-instance Show Direction where
-  showsPrec d = showsPrec d . direction_to_string
+instance IsString Direction where fromString = direction_from_string
+instance Show Direction where showsPrec d = showsPrec d . direction_to_string
+instance Read Direction where readPrec = direction_from_string <$> step readPrec
 
-instance Read Direction where
-  readPrec = direction_from_string <$> step readPrec
+feature_from_string :: String -> Maybe Feature
+feature_from_string s = unsafeLocalState $
+  withCStringLen s $ \(cstr,fromIntegral -> len) ->
+    alloca $ \feature -> do
+      b <- [C.exp|hb_bool_t { hb_feature_from_string($(const char * cstr),$(int len),$(hb_feature_t * feature)) }|]
+      if cbool b then Just <$> peek feature else pure Nothing
 
-instance IsString Direction where
-  fromString = direction_from_string
+feature_to_string :: Feature -> String
+feature_to_string feature = unsafeLocalState $
+  allocaBytes 128 $ \buf -> do
+    with feature $ \f -> do
+      [C.block|void { hb_feature_to_string($(hb_feature_t * f),$(char * buf),128); }|]
+      peekCString buf
+
+instance IsString Feature where fromString s = fromMaybe (error $ "invalid feature: " ++ s) $ feature_from_string s
+instance Show Feature where showsPrec d = showsPrec d . feature_to_string
+instance Read Feature where readPrec = step readPrec >>= maybe empty pure . feature_from_string
 
 instance IsString Language where
   fromString s = unsafeLocalState $
@@ -452,31 +464,18 @@ language_to_string :: Language -> String
 language_to_string (Language l) = unsafeLocalState (peekCString cstr) where
   cstr = [C.pure|const char * { hb_language_to_string($(hb_language_t l)) }|]
 
+instance IsString Script where
+  fromString (fromString -> tag) = [C.pure|hb_script_t { hb_script_from_iso15924_tag($(hb_tag_t tag)) }|]
+
 deriving instance Show SegmentProperties
 deriving instance Read SegmentProperties
 
-feature_from_string :: String -> Maybe Feature
-feature_from_string s = unsafeLocalState $
-  withCStringLen s $ \(cstr,fromIntegral -> len) ->
-    alloca $ \feature -> do
-      b <- [C.exp|hb_bool_t { hb_feature_from_string($(const char * cstr),$(int len),$(hb_feature_t * feature)) }|]
-      if cbool b then Just <$> peek feature else pure Nothing
+instance Default Tag where def = TAG_NONE
 
-feature_to_string :: Feature -> String
-feature_to_string feature = unsafeLocalState $
-  allocaBytes 128 $ \buf -> do
-    with feature $ \f -> do
-      [C.block|void { hb_feature_to_string($(hb_feature_t * f),$(char * buf),128); }|]
-      peekCString buf
-
-instance IsString Feature where
-  fromString s = fromMaybe (error $ "invalid feature: " ++ s) $ feature_from_string s
-
-instance Show Feature where
-  showsPrec d = showsPrec d . feature_to_string
-
-instance Read Feature where
-  readPrec = step readPrec >>= maybe empty pure . feature_from_string
+-- | Note: @hb_unicode_funcs_get_empty@ not @hb_unicode_funcs_get_default@!
+instance Default UnicodeFuncs where
+  def = unsafeLocalState $ [C.exp|hb_unicode_funcs_t * { hb_unicode_funcs_get_empty() }|] >>= fmap UnicodeFuncs . newForeignPtr_
+  {-# noinline def #-}
 
 variation_from_string :: String -> Maybe Variation
 variation_from_string s = unsafeLocalState $
@@ -492,14 +491,11 @@ variation_to_string variation = unsafeLocalState $
       [C.block|void { hb_variation_to_string($(hb_variation_t * f),$(char * buf),128); }|]
       peekCString buf
 
-instance IsString Variation where
-  fromString s = fromMaybe (error $ "invalid variation: " ++ s) $ variation_from_string s
+instance IsString Variation where fromString s = fromMaybe (error $ "invalid variation: " ++ s) $ variation_from_string s
+instance Show Variation where showsPrec d = showsPrec d . variation_to_string
+instance Read Variation where readPrec = step readPrec >>= maybe empty pure . variation_from_string
 
-instance Show Variation where
-  showsPrec d = showsPrec d . variation_to_string
-
-instance Read Variation where
-  readPrec = step readPrec >>= maybe empty pure . variation_from_string
+-- * helpers
 
 withPtr :: forall a r. Coercible a (Ptr a) => a -> (Ptr a -> IO r) -> IO r
 withPtr = (&) . coerce
@@ -1237,6 +1233,17 @@ pattern UNICODE_COMBINING_CLASS_INVALID = #const HB_UNICODE_COMBINING_CLASS_INVA
   UNICODE_COMBINING_CLASS_IOTA_SUBSCRIPT,
   UNICODE_COMBINING_CLASS_INVALID
  #-}
+
+pattern GLYPH_FLAG_UNSAFE_TO_BREAK :: GlyphFlags
+pattern GLYPH_FLAG_DEFINED :: GlyphFlags
+
+pattern GLYPH_FLAG_UNSAFE_TO_BREAK = #const HB_GLYPH_FLAG_UNSAFE_TO_BREAK
+pattern GLYPH_FLAG_DEFINED = #const HB_GLYPH_FLAG_DEFINED
+
+pattern BUFFER_REPLACEMENT_CODEPOINT_DEFAULT :: Char
+pattern BUFFER_REPLACEMENT_CODEPOINT_DEFAULT <- (fromEnum -> (#const HB_BUFFER_REPLACEMENT_CODEPOINT_DEFAULT)) where
+  BUFFER_REPLACEMENT_CODEPOINT_DEFAULT = toEnum (#const HB_BUFFER_REPLACEMENT_CODEPOINT_DEFAULT)
+
 -- * Inline C context
 
 getHsVariable :: String -> C.HaskellIdentifier -> TH.ExpQ
