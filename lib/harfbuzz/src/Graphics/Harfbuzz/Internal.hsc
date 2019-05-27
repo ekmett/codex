@@ -210,6 +210,7 @@ module Graphics.Harfbuzz.Internal
   , UNICODE_GENERAL_CATEGORY_SPACE_SEPARATOR
   )
 , UnicodeGeneralCategoryFunc
+, UnicodeMirroringFunc
 , Key(..), withKey
 , Variation(..)
 , variation_to_string, variation_from_string
@@ -370,6 +371,7 @@ newtype UnicodeCombiningClass = UnicodeCombiningClass CInt deriving (Eq,Ord,Show
 type UnicodeCombiningClassFunc a = Ptr UnicodeFuncs -> Char -> Ptr a -> IO UnicodeCombiningClass
 type UnicodeComposeFunc a = Ptr UnicodeFuncs -> Char -> Char -> Ptr Char -> Ptr a -> IO CInt
 type UnicodeDecomposeFunc a = Ptr UnicodeFuncs -> Char -> Ptr Char -> Ptr Char -> Ptr a -> IO CInt
+type UnicodeMirroringFunc a = Ptr UnicodeFuncs -> Char -> Ptr a -> IO Char
 
 -- * Startup a crippled inline-c context for use in non-orphan instances
 
@@ -1285,6 +1287,7 @@ harfbuzzCtx = mempty
     , (C.TypeName "hb_unicode_funcs_t", [t| UnicodeFuncs |])
     , (C.TypeName "hb_unicode_general_category_t", [t| UnicodeGeneralCategory |])
     , (C.TypeName "hb_unicode_general_category_func_t", [t| FunPtr (UnicodeGeneralCategoryFunc ()) |])
+    , (C.TypeName "hb_unicode_mirroring_func_t", [t| FunPtr (UnicodeMirroringFunc ()) |])
     , (C.TypeName "hb_user_data_key_t", [t| OpaqueKey |])
     , (C.TypeName "hb_variation_t", [t| Variation |])
     ]
