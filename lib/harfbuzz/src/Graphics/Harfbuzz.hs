@@ -19,6 +19,10 @@ module Graphics.Harfbuzz
 
   , Buffer
   , buffer_create
+  , buffer_reset
+  , buffer_clear_contents
+  , buffer_pre_allocate
+  , buffer_allocation_successful
 
   , Direction(..)
   , direction_to_string, direction_from_string
@@ -122,6 +126,20 @@ withBlobDataWritable bfp k = withSelf bfp $ \bp -> alloca $ \ip -> do
 
 buffer_create :: MonadIO m => m Buffer
 buffer_create = liftIO $ [C.exp|hb_buffer_t * { hb_buffer_create() }|] >>= foreignBuffer
+
+-- | Resets the buffer to its initial status, as if it was just newly created with 'buffer_create'
+buffer_reset :: MonadIO m => Buffer -> m ()
+buffer_reset b = liftIO [C.block|void { hb_buffer_reset($buffer:b); }|]
+
+-- | Similar to 'buffer_reset', but does not clear the Unicode functions and the replacement code point.
+buffer_clear_contents :: MonadIO m => Buffer -> m ()
+buffer_clear_contents b = liftIO [C.block|void { hb_buffer_clear_contents($buffer:b); }|]
+
+buffer_pre_allocate :: MonadIO m => Buffer -> Int -> m ()
+buffer_pre_allocate b (fromIntegral -> size) = liftIO [C.block|void { hb_buffer_pre_allocate($buffer:b,$(unsigned int size)); }|]
+
+buffer_allocation_successful :: MonadIO m => Buffer -> m Bool
+buffer_allocation_successful b = liftIO $ [C.exp|hb_bool_t { hb_buffer_allocation_successful($buffer:b) }|] <&> cbool
 
 instance IsObject Buffer where
   reference b = liftIO [C.block|void { hb_buffer_reference($buffer:b); }|]
