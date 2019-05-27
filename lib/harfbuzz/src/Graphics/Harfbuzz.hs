@@ -22,11 +22,19 @@ module Graphics.Harfbuzz
   , buffer_reset
   , buffer_clear_contents
   , buffer_pre_allocate
+  , buffer_set_length
+  , buffer_get_length
   , buffer_allocation_successful
   , buffer_add
+  -- statevars
+  , buffer_direction
   , buffer_script
   , buffer_language
   , buffer_flags
+  , buffer_cluster_level
+
+  , BufferFlags(..)
+  , BufferClusterLevel(..)
 
   , Direction(..)
   , direction_to_string, direction_from_string
@@ -142,9 +150,17 @@ buffer_reset b = liftIO [C.block|void { hb_buffer_reset($buffer:b); }|]
 buffer_clear_contents :: MonadIO m => Buffer -> m ()
 buffer_clear_contents b = liftIO [C.block|void { hb_buffer_clear_contents($buffer:b); }|]
 
-buffer_pre_allocate :: MonadIO m => Buffer -> Int -> m ()
+buffer_pre_allocate :: MonadIO m => Buffer -> Int -> m Bool
 buffer_pre_allocate b (fromIntegral -> size) = liftIO
-  [C.block|void { hb_buffer_pre_allocate($buffer:b,$(unsigned int size)); }|]
+  [C.exp|hb_bool_t { hb_buffer_pre_allocate($buffer:b,$(unsigned int size)) }|] <&> cbool
+
+buffer_set_length :: MonadIO m => Buffer -> Int -> m Bool
+buffer_set_length b (fromIntegral -> size) = liftIO
+  [C.exp|hb_bool_t { hb_buffer_set_length($buffer:b,$(unsigned int size)) }|] <&> cbool
+
+buffer_get_length :: MonadIO m => Buffer -> m Int
+buffer_get_length b = liftIO $
+  [C.exp|unsigned int { hb_buffer_get_length($buffer:b) }|] <&> fromIntegral
 
 buffer_allocation_successful :: MonadIO m => Buffer -> m Bool
 buffer_allocation_successful b = liftIO $
@@ -153,6 +169,11 @@ buffer_allocation_successful b = liftIO $
 buffer_add :: MonadIO m => Buffer -> Char -> Int -> m ()
 buffer_add buffer codepoint (fromIntegral -> cluster) = liftIO
   [C.block|void { hb_buffer_add($buffer:buffer,$(hb_codepoint_t codepoint),$(unsigned int cluster)); }|]
+
+buffer_direction :: Buffer -> StateVar Direction
+buffer_direction b = StateVar g s where
+  g = [C.exp|hb_direction_t { hb_buffer_get_direction($buffer:b) }|]
+  s v = [C.block|void { hb_buffer_set_direction($buffer:b,$(hb_direction_t v)); }|]
 
 -- | Subsumes @hb_buffer_get_script@ and @hb_buffer_set_script@
 buffer_script :: Buffer -> StateVar Script
@@ -171,6 +192,11 @@ buffer_flags :: Buffer -> StateVar BufferFlags
 buffer_flags b = StateVar g s where
   g = [C.exp|hb_buffer_flags_t { hb_buffer_get_flags($buffer:b) }|]
   s v = [C.block|void { hb_buffer_set_flags($buffer:b,$(hb_buffer_flags_t v)); }|]
+
+buffer_cluster_level :: Buffer -> StateVar BufferClusterLevel
+buffer_cluster_level b = StateVar g s where
+  g = [C.exp|hb_buffer_cluster_level_t { hb_buffer_get_cluster_level($buffer:b) }|]
+  s v = [C.block|void { hb_buffer_set_cluster_level($buffer:b,$(hb_buffer_cluster_level_t v)); }|]
 
 instance IsObject Buffer where
   reference b = liftIO [C.block|void { hb_buffer_reference($buffer:b); }|]
@@ -231,13 +257,6 @@ script_to_string :: Script -> String
 script_to_string = tag_to_string . script_to_iso15924_tag
 
 -- * language
-
-language_from_string :: String -> Language
-language_from_string = fromString
-
-language_to_string :: Language -> String
-language_to_string l = unsafeLocalState (peekCString cstr) where
-  cstr = [C.pure|const char * { hb_language_to_string($language:l) }|]
 
 -- | The first time this is called it calls setLocale, which isn't thread safe.
 --
