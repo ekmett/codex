@@ -5,6 +5,7 @@
 {-# language OverloadedStrings #-}
 {-# language FlexibleContexts #-}
 {-# language TypeApplications #-}
+{-# language RecordWildCards #-}
 {-# language PatternSynonyms #-}
 {-# language TemplateHaskell #-}
 {-# language DeriveFunctor #-}
@@ -20,9 +21,16 @@
 module Graphics.Harfbuzz.Internal
 ( Blob(..)
 , Buffer(..)
-, Tag
-  ( Tag, TAG
-  , TAG_NONE, TAG_MAX, TAG_MAX_SIGNED
+, Direction
+  ( Direction
+  , DIRECTION_INVALID, DIRECTION_LTR, DIRECTION_RTL, DIRECTION_BTT, DIRECTION_TTB
+  )
+, Feature(..)
+, Language(..)
+, MemoryMode
+  ( MemoryMode
+  , MEMORY_MODE_DUPLICATE, MEMORY_MODE_READONLY
+  , MEMORY_MODE_WRITABLE, MEMORY_MODE_READONLY_MAY_MAKE_WRITABLE
   )
 , Script
   ( Script
@@ -63,18 +71,11 @@ module Graphics.Harfbuzz.Internal
   , SCRIPT__MAX_VALUE
   , SCRIPT__MAX_VALUE_SIGNED
   )
-, MemoryMode
-  ( MemoryMode
-  , MEMORY_MODE_DUPLICATE, MEMORY_MODE_READONLY, MEMORY_MODE_WRITABLE, MEMORY_MODE_READONLY_MAY_MAKE_WRITABLE
+, Tag
+  ( Tag, TAG
+  , TAG_NONE, TAG_MAX, TAG_MAX_SIGNED
   )
-, Direction
-  ( Direction
-  , DIRECTION_INVALID, DIRECTION_LTR, DIRECTION_RTL, DIRECTION_BTT, DIRECTION_TTB
-  )
-, Language
-  ( Language
-  )
-  -- * internals
+-- * internals
 , withSelf, withPtr
 , cbool
 , newByteStringCStringLen
@@ -110,6 +111,26 @@ newtype Language = Language { getLanguage :: Ptr Language } deriving (Eq, Ord, S
 newtype Tag = Tag Word32 deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
 {-# complete Tag #-}
 {-# complete TAG #-}
+
+data Feature = Feature
+  { feature_tag :: {-# unpack #-} !Tag
+  , feature_value :: {-# unpack #-} !Word32
+  , feature_start, feature_end :: {-# unpack #-} !CUInt
+  } deriving (Eq,Ord)
+
+instance Storable Feature where
+  sizeOf _ = #size hb_feature_t
+  alignment _ = #alignment hb_feature_t
+  peek p = Feature
+    <$> (#peek hb_feature_t, tag) p
+    <*> (#peek hb_feature_t, value) p
+    <*> (#peek hb_feature_t, start) p
+    <*> (#peek hb_feature_t, end) p
+  poke p Feature{..} = do
+    (#poke hb_feature_t, tag) p feature_tag
+    (#poke hb_feature_t, value) p feature_value
+    (#poke hb_feature_t, start) p feature_start
+    (#poke hb_feature_t, end) p feature_end
 
 w2c :: Word32 -> Char
 w2c = toEnum . fromIntegral
@@ -158,27 +179,29 @@ newtype Direction = Direction Word32  deriving (Eq,Ord,Show,Read,Num,Enum,Real,I
 
 newtype MemoryMode = MemoryMode CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 
+-- * Startup a crippled inline-c context for use in non-orphan instances
 
 C.context $ C.baseCtx <> mempty
   { C.ctxTypesTable = Map.fromList
     [ (C.TypeName "hb_blob_t", [t| Blob |])
     , (C.TypeName "hb_buffer_t", [t| Buffer |])
-    , (C.TypeName "hb_tag_t", [t| Tag |])
-    , (C.TypeName "hb_script_t", [t| Script |])
     , (C.TypeName "hb_direction_t", [t| Direction |])
-    , (C.TypeName "hb_language_impl_t", [t| Language |])
+    , (C.TypeName "hb_feature_t", [t| Feature |])
     , (C.TypeName "hb_language_t", [t| Ptr Language |])
+    , (C.TypeName "hb_language_impl_t", [t| Language |])
+    , (C.TypeName "hb_script_t", [t| Script |])
+    , (C.TypeName "hb_tag_t", [t| Tag |])
     ]
   }
 
 C.include "<hb.h>"
 
 instance Default Blob where
-  def = unsafeLocalState $ [C.exp|hb_blob_t * { hb_blob_get_empty() }|] >>= fmap Blob . newForeignPtr_ 
+  def = unsafeLocalState $ [C.exp|hb_blob_t * { hb_blob_get_empty() }|] >>= fmap Blob . newForeignPtr_
   {-# noinline def #-}
 
 instance Default Buffer where
-  def = unsafeLocalState $ [C.exp|hb_buffer_t * { hb_buffer_get_empty() }|] >>= fmap Buffer . newForeignPtr_ 
+  def = unsafeLocalState $ [C.exp|hb_buffer_t * { hb_buffer_get_empty() }|] >>= fmap Buffer . newForeignPtr_
   {-# noinline def #-}
 
 instance Default Tag where
@@ -197,6 +220,29 @@ instance IsString Language where
   fromString s = unsafeLocalState $
     withCStringLen s $ \(cstr,fromIntegral -> l) ->
       Language <$> [C.exp|hb_language_t { hb_language_from_string($(const char * cstr),$(int l)) }|]
+
+feature_from_string :: String -> Maybe Feature
+feature_from_string s = unsafeLocalState $
+  withCStringLen s $ \(cstr,fromIntegral -> len) ->
+    alloca $ \feature -> do
+      b <- [C.exp|hb_bool_t { hb_feature_from_string($(const char * cstr),$(int len),$(hb_feature_t * feature)) }|]
+      if cbool b then Just <$> peek feature else pure Nothing
+
+feature_to_string :: Feature -> String
+feature_to_string feature = unsafeLocalState $
+  allocaBytes 128 $ \buf -> do
+    with feature $ \f ->
+      [C.block|void { hb_feature_to_string($(hb_feature_t * f),$(char * buf),128); }|]
+      peekCString buf
+
+instance IsString Feature where
+  feature = maybe (error $"invalid feature: " ++ s) . feature_to_string
+
+instance Show Feature where
+  showsPrec d = showsPrec d . feature_to_string
+
+instance Read Feature where
+  readPrec = step readPrec >>= maybe empty pure . feature_from_string
 
 withPtr :: forall a r. Coercible a (Ptr a) => a -> (Ptr a -> IO r) -> IO r
 withPtr = (&) . coerce
@@ -592,18 +638,20 @@ harfbuzzCtx = mempty
     [ (C.TypeName "hb_blob_t", [t| Blob |])
     , (C.TypeName "hb_buffer_t", [t| Buffer |])
     , (C.TypeName "hb_bool_t", [t| CInt |])
-    , (C.TypeName "hb_memory_mode_t", [t| MemoryMode |])
-    , (C.TypeName "hb_tag_t", [t| Tag |])
-    , (C.TypeName "hb_script_t", [t| Script |])
     , (C.TypeName "hb_direction_t", [t| Direction |])
-    , (C.TypeName "hb_language_impl_t", [t| Language |])
+    , (C.TypeName "hb_feature_t", [t| Feature |])
     , (C.TypeName "hb_language_t", [t| Ptr Language |])
+    , (C.TypeName "hb_language_impl_t", [t| Language |])
+    , (C.TypeName "hb_memory_mode_t", [t| MemoryMode |])
+    , (C.TypeName "hb_script_t", [t| Script |])
+    , (C.TypeName "hb_tag_t", [t| Tag |])
     ]
   , C.ctxAntiQuoters = Map.fromList
     [ ("ustr",        anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char (Just C.Unsigned))) [t| CUChar |] [| withCUString |])
     , ("str",         anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char Nothing)) [t| CChar |] [| withCString |])
     , ("blob",        anti (ptr (C.TypeName "hb_blob_t")) [t| Blob |] [| withSelf |])
     , ("buffer",      anti (ptr (C.TypeName "hb_buffer_t")) [t| Buffer |] [| withSelf |])
+    , ("feature",     anti (ptr (C.TypeName "hb_feature_t")) [t| Feature |] [| with |])
     , ("language",    anti (C.TypeSpecifier mempty $ C.TypeName "hb_language_t") [t| Language |] [| withPtr |])
     ]
   } where ptr = C.Ptr [] . C.TypeSpecifier mempty

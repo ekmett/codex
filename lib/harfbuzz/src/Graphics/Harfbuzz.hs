@@ -17,27 +17,31 @@ module Graphics.Harfbuzz
   , withBlobDataWritable
   -- blob_set_user_data
 
-  , MemoryMode(..)
-
-  -- hb_common.h
-  , Tag(..)
-  , tag_from_string, tag_to_string
+  , Buffer
+  , buffer_create
 
   , Direction(..)
   , direction_to_string, direction_from_string
+  , direction_reverse, direction_is_valid
+  , direction_is_backward, direction_is_forward
+  , direction_is_vertical, direction_is_horizontal
+
+  , Feature(..)
+  , feature_to_string, feature_from_string
+
+  , Language(..)
+  , language_from_string, language_to_string
+  , language_get_default
+
+  , MemoryMode(..)
 
   , Script(..)
   , script_from_iso15924_tag, script_to_iso15924_tag
   , script_get_horizontal_direction
   , script_from_string, script_to_string
 
-  , Language(..)
-  , language_from_string, language_to_string
-  , language_get_default
-
-  -- hb_buffer.h
-  , Buffer
-  , buffer_create
+  , Tag(..)
+  , tag_from_string, tag_to_string
 
   -- * internals
   , foreignBlob
@@ -138,6 +142,39 @@ direction_from_string = fromString
 direction_to_string :: Direction -> String
 direction_to_string t = unsafeLocalState $
   [C.exp|const char * { hb_direction_to_string($(hb_direction_t t)) }|] >>= peekCString
+
+direction_reverse :: Direction -> Direction
+direction_reverse d = [C.pure|hb_direction_t { HB_DIRECTION_REVERSE($(hb_direction_t d)) }|]
+
+direction_is_backward :: Direction -> Bool
+direction_is_backward d = cbool [C.pure|int { HB_DIRECTION_IS_BACKWARD($(hb_direction_t d)) }|]
+
+direction_is_forward :: Direction -> Bool
+direction_is_forward d = cbool [C.pure|int { HB_DIRECTION_IS_FORWARD($(hb_direction_t d)) }|]
+
+direction_is_horizontal :: Direction -> Bool
+direction_is_horizontal d = cbool [C.pure|int { HB_DIRECTION_IS_HORIZONTAL($(hb_direction_t d)) }|]
+
+direction_is_vertical :: Direction -> Bool
+direction_is_vertical d = cbool [C.pure|int { HB_DIRECTION_IS_VERTICAL($(hb_direction_t d)) }|]
+
+direction_is_valid :: Direction -> Bool
+direction_is_valid d = cbool [C.pure|int { HB_DIRECTION_IS_VALID($(hb_direction_t d)) }|]
+
+-- * features
+
+feature_from_string :: String -> Maybe Feature
+feature_from_string s = unsafeLocalState $
+  withCStringLen s $ \(cstr,fromIntegral -> len) ->
+    alloca $ \feature -> do
+      b <- [C.exp|hb_bool_t { hb_feature_from_string($(const char * cstr),$(int len),$(hb_feature_t * feature)) }|]
+      if cbool b then Just <$> peek feature else pure Nothing
+
+feature_to_string :: Feature -> String
+feature_to_string f = unsafeLocalState $
+  allocaBytes 128 $ \buf -> do
+    [C.block|void { hb_feature_to_string($feature:f,$(char * buf),128); }|]
+    peekCString buf
 
 -- * scripts
 
