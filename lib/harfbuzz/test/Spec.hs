@@ -77,6 +77,22 @@ spec = do
     it "aalt[3:5]=2" $ do "aalt[3:5]=2" `shouldBe` Feature "aalt" 2 3 5
   describe "hb_variation_t" $ do
     it "parses" $ do "wght=10" `shouldBe` Variation "wght" 10
+  describe "hb_buffer_t" $ do
+    it "create produces an empty buffer" $ do
+      (buffer_create >>= buffer_get_length) `shouldReturn` 0
+    it "can add to a buffer" $ do
+      let task = do
+           x <- buffer_create
+           buffer_add x 'a' 0
+           buffer_get_length x
+      task `shouldReturn` 1
+    it "can be reset" $ do
+      let task = do
+           x <- buffer_create
+           buffer_add x 'a' 0
+           buffer_reset x
+           buffer_get_length x
+      task `shouldReturn` 0
 
 main :: IO ()
 main = do
