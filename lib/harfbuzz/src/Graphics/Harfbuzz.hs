@@ -3,7 +3,9 @@
 {-# language TemplateHaskell #-}
 {-# language ForeignFunctionInterface #-}
 module Graphics.Harfbuzz
-  ( Blob
+  ( IsObject(..)
+  -- hb_blob.h
+  , Blob
   , blob_create
   , blob_create_from_file
   , blob_create_sub_blob
@@ -11,14 +13,13 @@ module Graphics.Harfbuzz
   , blob_get_length
   , blob_is_immutable
   , blob_make_immutable
-  , blob_reference
-  , blob_destroy
   , withBlobData
   , withBlobDataWritable
   -- blob_set_user_data
 
   , MemoryMode(..)
 
+  -- hb_common.h
   , Tag(..)
   , tag_from_string, tag_to_string
 
@@ -29,6 +30,11 @@ module Graphics.Harfbuzz
   , script_from_iso15924_tag, script_to_iso15924_tag
   , script_get_horizontal_direction
   , script_from_string, script_to_string
+
+  -- hb_buffer.h
+  , Buffer
+  , buffer_create
+
   -- * internals
   , foreignBlob
   , _hb_blob_destroy
@@ -55,6 +61,10 @@ C.context $ C.baseCtx <> harfbuzzCtx
 C.include "<stdlib.h>"
 C.include "<hb.h>"
 
+class IsObject t where
+  reference :: MonadIO m => t -> m ()
+  destroy :: MonadIO m => t -> m ()
+
 blob_create :: MonadIO m => Strict.ByteString -> MemoryMode -> m Blob
 blob_create bs mode = liftIO $ do
   (cstr, fromIntegral -> len) <- newByteStringCStringLen bs
@@ -67,6 +77,7 @@ blob_create_from_file :: MonadIO m => FilePath -> m Blob
 blob_create_from_file fp = liftIO $ [C.exp|hb_blob_t * { hb_blob_create_from_file($str:fp) }|] >>= foreignBlob
 
 blob_create_sub_blob :: MonadIO m => Blob -> Int -> Int -> m Blob
+
 blob_create_sub_blob b (fromIntegral -> o) (fromIntegral -> l) = liftIO $ [C.exp|hb_blob_t * { hb_blob_create_sub_blob($blob:b,$(int o),$(int l)) }|] >>= foreignBlob
 
 blob_copy_writable_or_fail :: MonadIO m => Blob -> m (Maybe Blob)
@@ -81,11 +92,9 @@ blob_is_immutable b = liftIO $ [C.exp|hb_bool_t { hb_blob_is_immutable($blob:b) 
 blob_make_immutable :: MonadIO m => Blob -> m ()
 blob_make_immutable b = liftIO [C.block|void { hb_blob_make_immutable($blob:b); }|]
 
-blob_reference :: MonadIO m => Blob -> m ()
-blob_reference b = liftIO [C.block|void { hb_blob_reference($blob:b); }|]
-
-blob_destroy :: MonadIO m => Blob -> m ()
-blob_destroy b = liftIO [C.block|void { hb_blob_destroy($blob:b); }|]
+instance IsObject Blob where
+  reference b = liftIO [C.block|void { hb_blob_reference($blob:b); }|]
+  destroy b = liftIO [C.block|void { hb_blob_destroy($blob:b); }|]
 
 -- | hb_blob_get_data is unsafe under ForeignPtr management, this is safe
 withBlobData :: Blob -> (ConstCStringLen -> IO r) -> IO r
@@ -99,6 +108,13 @@ withBlobDataWritable bfp k = withSelf bfp $ \bp -> alloca $ \ip -> do
   s <- [C.exp|char * { hb_blob_get_data_writable($(hb_blob_t * bp),$(unsigned int * ip)) }|]
   i <- peek ip
   k (s, fromIntegral i)
+
+buffer_create :: MonadIO m => m Buffer
+buffer_create = liftIO $ [C.exp|hb_buffer_t * { hb_buffer_create() }|] >>= foreignBuffer
+
+instance IsObject Buffer where
+  reference b = liftIO [C.block|void { hb_buffer_reference($buffer:b); }|]
+  destroy b = liftIO [C.block|void { hb_buffer_destroy($buffer:b); }|]
 
 -- * 4 character tags
 
@@ -142,4 +158,9 @@ script_to_string = tag_to_string . script_to_iso15924_tag
 foreignBlob :: Ptr Blob -> IO Blob
 foreignBlob = fmap Blob . newForeignPtr _hb_blob_destroy
 
+foreignBuffer :: Ptr Buffer -> IO Buffer
+foreignBuffer = fmap Buffer . newForeignPtr _hb_buffer_destroy
+
 foreign import ccall "hb.h &hb_blob_destroy" _hb_blob_destroy :: FinalizerPtr Blob
+
+foreign import ccall "hb.h &hb_buffer_destroy" _hb_buffer_destroy :: FinalizerPtr Buffer
