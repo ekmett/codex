@@ -46,6 +46,7 @@ library
     inline-c,
     StateVar,
     template-haskell,
+    text,
     transformers
 
   if flag(freetype)

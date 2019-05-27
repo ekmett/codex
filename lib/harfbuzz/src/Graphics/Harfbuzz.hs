@@ -29,6 +29,10 @@ module Graphics.Harfbuzz
   , buffer_reverse_range
   , buffer_reverse_clusters
   , buffer_add
+  , buffer_add_string -- String
+  , buffer_add_text -- Text
+  , buffer_add_latin1 -- Char8.ByteString
+  , buffer_add_utf8 -- UTF8 encoded ByteString
   , buffer_append
   , buffer_guess_segment_properties
 
@@ -110,11 +114,14 @@ module Graphics.Harfbuzz
   ) where
 
 import Control.Monad.IO.Class
+import Data.ByteString (ByteString)
+import qualified Data.ByteString as ByteString
 import Data.Const
 import Data.Functor
-import Data.ByteString as Strict
 import Data.StateVar
 import Data.String
+import Data.Text (Text)
+import qualified Data.Text.Foreign as Text
 import Foreign.C.String
 import Foreign.Const.C.String
 import Foreign.ForeignPtr
@@ -139,7 +146,7 @@ class IsObject t where
   set_user_data :: MonadIO m => t -> Key a -> Ptr a -> FinalizerPtr a -> Bool -> m Bool
   get_user_data :: MonadIO m => t -> Key a -> m (Ptr a)
 
-blob_create :: MonadIO m => Strict.ByteString -> MemoryMode -> m Blob
+blob_create :: MonadIO m => ByteString -> MemoryMode -> m Blob
 blob_create bs mode = liftIO $ do
   (cstr, fromIntegral -> len) <- newByteStringCStringLen bs
   [C.block|hb_blob_t * {
@@ -238,6 +245,34 @@ buffer_reverse_range b (fromIntegral -> start) (fromIntegral -> end) = liftIO
 buffer_add :: MonadIO m => Buffer -> Char -> Int -> m ()
 buffer_add buffer codepoint (fromIntegral -> cluster) = liftIO
   [C.block|void { hb_buffer_add($buffer:buffer,$(hb_codepoint_t codepoint),$(unsigned int cluster)); }|]
+
+buffer_add_string :: MonadIO m => Buffer -> String -> Int -> Int -> m ()
+buffer_add_string buffer text (fromIntegral -> item_offset) (fromIntegral -> item_length) = liftIO $
+  withCWStringLen text $ \(castPtr -> cwstr,fromIntegral -> len) ->
+    [C.block|void {
+      hb_buffer_add_utf16($buffer:buffer,$(const uint16_t * cwstr),$(int len),$(unsigned int item_offset),$(int item_length));
+    }|]
+
+buffer_add_text :: MonadIO m => Buffer -> Text -> Int -> Int -> m ()
+buffer_add_text buffer text (fromIntegral -> item_offset) (fromIntegral -> item_length) = liftIO $
+  Text.withCStringLen text $ \(cstr,fromIntegral -> len) ->
+    [C.block|void {
+      hb_buffer_add_utf8($buffer:buffer,$(const char * cstr),$(int len),$(unsigned int item_offset),$(int item_length));
+    }|]
+
+buffer_add_latin1 :: MonadIO m => Buffer -> ByteString -> Int -> Int -> m ()
+buffer_add_latin1 buffer text (fromIntegral -> item_offset) (fromIntegral -> item_length) = liftIO $
+  ByteString.useAsCStringLen text $ \(castPtr -> cstr,fromIntegral -> len) ->
+    [C.block|void {
+      hb_buffer_add_latin1($buffer:buffer,$(const unsigned char * cstr),$(int len),$(unsigned int item_offset),$(int item_length));
+    }|]
+
+buffer_add_utf8 :: MonadIO m => Buffer -> ByteString -> Int -> Int -> m ()
+buffer_add_utf8 buffer text (fromIntegral -> item_offset) (fromIntegral -> item_length) = liftIO $
+  ByteString.useAsCStringLen text $ \(cstr,fromIntegral -> len) ->
+    [C.block|void {
+      hb_buffer_add_utf8($buffer:buffer,$(const char * cstr),$(int len),$(unsigned int item_offset),$(int item_length));
+    }|]
 
 buffer_append :: MonadIO m => Buffer -> Buffer -> Int -> Int -> m ()
 buffer_append buffer source (fromIntegral -> start) (fromIntegral -> end) = liftIO
@@ -351,7 +386,7 @@ language_get_default = liftIO $
 
 unicode_funcs_create :: MonadIO m => UnicodeFuncs -> m UnicodeFuncs
 unicode_funcs_create parent = liftIO $
-  [C.block|hb_unicode_funcs_t * { 
+  [C.block|hb_unicode_funcs_t * {
     hb_unicode_funcs_t * p = $unicode-funcs:parent;
     hb_unicode_funcs_reference(p);
     return hb_unicode_funcs_create(p);
