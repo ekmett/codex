@@ -78,6 +78,9 @@ module Graphics.Harfbuzz
   , unicode_funcs_get_parent
   , unicode_funcs_is_immutable
   , unicode_funcs_make_immutable
+  , UnicodeGeneralCategory(..)
+  , UnicodeGeneralCategoryFunc
+  , unicode_funcs_set_general_category_func
 
   , Variation(..)
   , variation_from_string, variation_to_string
@@ -113,6 +116,7 @@ import Graphics.Harfbuzz.Internal
 C.context $ C.baseCtx <> harfbuzzCtx
 C.include "<stdlib.h>"
 C.include "<hb.h>"
+C.include "HsFFI.h"
 
 class IsObject t where
   reference :: MonadIO m => t -> m ()
@@ -347,6 +351,16 @@ unicode_funcs_is_immutable b = liftIO $ [C.exp|hb_bool_t { hb_unicode_funcs_is_i
 
 unicode_funcs_make_immutable :: MonadIO m => UnicodeFuncs -> m ()
 unicode_funcs_make_immutable b = liftIO [C.block|void { hb_unicode_funcs_make_immutable($unicode-funcs:b); }|]
+
+foreign import ccall "wrapper" mkUnicodeGeneralCategoryFunc :: (Ptr UnicodeFuncs -> Char -> Ptr a -> IO UnicodeGeneralCategory) -> IO (UnicodeGeneralCategoryFunc a)
+
+unicode_funcs_set_general_category_func :: MonadIO m => UnicodeFuncs -> (Char -> UnicodeGeneralCategory) -> m ()
+unicode_funcs_set_general_category_func uf fun = liftIO $ do
+  f <- castFunPtr <$> mkUnicodeGeneralCategoryFunc (\ _ c _ -> return $ fun c)
+  [C.block|void {
+    hb_unicode_general_category_func_t f = $(hb_unicode_general_category_func_t f);
+    hb_unicode_funcs_set_general_category_func($unicode-funcs:uf,f,f,(hb_destroy_func_t)hs_free_fun_ptr);
+  }|]
 
 key_create :: MonadIO m => m (Key a)
 key_create = liftIO $ Key <$> mallocForeignPtrBytes 1
