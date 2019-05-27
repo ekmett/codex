@@ -26,6 +26,7 @@ module Graphics.Harfbuzz
   , buffer_add
   , buffer_script
   , buffer_language
+  , buffer_flags
 
   , Direction(..)
   , direction_to_string, direction_from_string
@@ -164,6 +165,12 @@ buffer_language :: Buffer -> StateVar Language
 buffer_language b = StateVar g s where
   g = Language <$> [C.exp|hb_language_t { hb_buffer_get_language($buffer:b) }|]
   s v = [C.block|void { hb_buffer_set_language($buffer:b,$language:v); }|]
+
+-- | Subsumes @hb_buffer_get_flags@ and @hb_buffer_set_flags@
+buffer_flags :: Buffer -> StateVar BufferFlags
+buffer_flags b = StateVar g s where
+  g = [C.exp|hb_buffer_flags_t { hb_buffer_get_flags($buffer:b) }|]
+  s v = [C.block|void { hb_buffer_set_flags($buffer:b,$(hb_buffer_flags_t v)); }|]
 
 instance IsObject Buffer where
   reference b = liftIO [C.block|void { hb_buffer_reference($buffer:b); }|]

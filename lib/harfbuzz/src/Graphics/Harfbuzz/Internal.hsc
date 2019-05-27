@@ -21,6 +21,13 @@
 module Graphics.Harfbuzz.Internal
 ( Blob(..)
 , Buffer(..)
+, BufferFlags
+  ( BufferFlags
+  , BUFFER_FLAG_DEFAULT, BUFFER_FLAG_BOT, BUFFER_FLAG_EOT
+  , BUFFER_FLAG_PRESERVE_DEFAULT_IGNORABLES
+  , BUFFER_FLAG_REMOVE_DEFAULT_IGNORABLES
+  , BUFFER_FLAG_DO_NOT_INSERT_DOTTED_CIRCLE
+  )
 , Direction
   ( Direction
   , DIRECTION_INVALID, DIRECTION_LTR, DIRECTION_RTL, DIRECTION_BTT, DIRECTION_TTB
@@ -84,6 +91,7 @@ module Graphics.Harfbuzz.Internal
 ) where
 
 import Control.Applicative
+import Data.Bits
 import qualified Data.ByteString as Strict
 import qualified Data.ByteString.Internal as Strict
 import Data.Coerce
@@ -196,6 +204,8 @@ instance Read Script where
 newtype Direction = Direction Word32  deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 
 newtype MemoryMode = MemoryMode CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+
+newtype BufferFlags = BufferFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
 
 -- * Startup a crippled inline-c context for use in non-orphan instances
 
@@ -652,6 +662,23 @@ pattern SCRIPT_INVALID = #const HB_SCRIPT_INVALID
 pattern SCRIPT__MAX_VALUE = #const _HB_SCRIPT_MAX_VALUE
 pattern SCRIPT__MAX_VALUE_SIGNED = #const _HB_SCRIPT_MAX_VALUE_SIGNED
 
+pattern BUFFER_FLAG_DEFAULT :: BufferFlags
+pattern BUFFER_FLAG_BOT :: BufferFlags
+pattern BUFFER_FLAG_EOT :: BufferFlags
+pattern BUFFER_FLAG_PRESERVE_DEFAULT_IGNORABLES :: BufferFlags
+pattern BUFFER_FLAG_REMOVE_DEFAULT_IGNORABLES :: BufferFlags
+pattern BUFFER_FLAG_DO_NOT_INSERT_DOTTED_CIRCLE :: BufferFlags
+
+pattern BUFFER_FLAG_DEFAULT = #const HB_BUFFER_FLAG_DEFAULT
+pattern BUFFER_FLAG_BOT = #const HB_BUFFER_FLAG_BOT
+pattern BUFFER_FLAG_EOT = #const HB_BUFFER_FLAG_EOT
+pattern BUFFER_FLAG_PRESERVE_DEFAULT_IGNORABLES = #const HB_BUFFER_FLAG_PRESERVE_DEFAULT_IGNORABLES
+pattern BUFFER_FLAG_REMOVE_DEFAULT_IGNORABLES = #const HB_BUFFER_FLAG_REMOVE_DEFAULT_IGNORABLES
+pattern BUFFER_FLAG_DO_NOT_INSERT_DOTTED_CIRCLE = #const HB_BUFFER_FLAG_DO_NOT_INSERT_DOTTED_CIRCLE
+
+instance Default BufferFlags where
+  def = BUFFER_FLAG_DEFAULT
+
 -- * Inline C context
 
 getHsVariable :: String -> C.HaskellIdentifier -> TH.ExpQ
@@ -680,6 +707,7 @@ harfbuzzCtx = mempty
   { C.ctxTypesTable = Map.fromList
     [ (C.TypeName "hb_blob_t", [t| Blob |])
     , (C.TypeName "hb_buffer_t", [t| Buffer |])
+    , (C.TypeName "hb_buffer_flags_t", [t| BufferFlags |])
     , (C.TypeName "hb_bool_t", [t| CInt |])
     , (C.TypeName "hb_direction_t", [t| Direction |])
     , (C.TypeName "hb_feature_t", [t| Feature |])
