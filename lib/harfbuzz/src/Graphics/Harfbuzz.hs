@@ -36,6 +36,16 @@ module Graphics.Harfbuzz
   , buffer_append
   , buffer_guess_segment_properties
   , buffer_normalize_glyphs
+  -- buffer_get_glyph_infos
+  -- buffer_get_glyph_positions
+  -- buffer_serialize_glyphs
+  -- buffer_deserialize_glyphs
+  -- buffer_serialize_format_from_string
+  -- buffer_serialize_format_to_string
+  -- buffer_serialize_list_formats
+  -- buffer_diff
+  -- buffer_set_message_func
+  -- glyph_info_get_glyph_flags
 
   -- statevars
   , buffer_direction
@@ -52,6 +62,7 @@ module Graphics.Harfbuzz
   , BufferFlags(..)
   , BufferContentType(..)
   , BufferClusterLevel(..)
+  , Char(BUFFER_REPLACEMENT_CODEPOINT_DEFAULT)
 
   , Direction(..)
   , direction_to_string, direction_from_string
@@ -78,6 +89,8 @@ module Graphics.Harfbuzz
   , script_from_string, script_to_string
 
   , SegmentProperties(..)
+  -- segment_properties_equal
+  -- segment_properties_hash
 
   , Tag(..)
   , tag_from_string, tag_to_string
