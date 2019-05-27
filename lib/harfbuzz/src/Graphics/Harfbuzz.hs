@@ -91,6 +91,9 @@ module Graphics.Harfbuzz
   , UnicodeComposeFunc
   , unicode_funcs_set_compose_func
   , unicode_compose
+  , UnicodeDecomposeFunc
+  , unicode_funcs_set_decompose_func
+  , unicode_decompose
 
   , Variation(..)
   , variation_from_string, variation_to_string
@@ -115,6 +118,7 @@ import Foreign.C.String
 import Foreign.Const.C.String
 import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
+import Foreign.Marshal.Array
 import Foreign.Marshal.Unsafe
 import Foreign.Marshal.Utils
 import Foreign.Ptr
@@ -370,9 +374,10 @@ unicode_funcs_is_immutable b = liftIO $ [C.exp|hb_bool_t { hb_unicode_funcs_is_i
 unicode_funcs_make_immutable :: MonadIO m => UnicodeFuncs -> m ()
 unicode_funcs_make_immutable b = liftIO [C.block|void { hb_unicode_funcs_make_immutable($unicode-funcs:b); }|]
 
-foreign import ccall "wrapper" mkUnicodeGeneralCategoryFunc :: UnicodeGeneralCategoryFunc a -> IO (FunPtr (UnicodeGeneralCategoryFunc a))
 foreign import ccall "wrapper" mkUnicodeCombiningClassFunc :: UnicodeCombiningClassFunc a -> IO (FunPtr (UnicodeCombiningClassFunc a))
 foreign import ccall "wrapper" mkUnicodeComposeFunc :: UnicodeComposeFunc a -> IO (FunPtr (UnicodeComposeFunc a))
+foreign import ccall "wrapper" mkUnicodeDecomposeFunc :: UnicodeDecomposeFunc a -> IO (FunPtr (UnicodeDecomposeFunc a))
+foreign import ccall "wrapper" mkUnicodeGeneralCategoryFunc :: UnicodeGeneralCategoryFunc a -> IO (FunPtr (UnicodeGeneralCategoryFunc a))
 
 unicode_funcs_set_general_category_func :: MonadIO m => UnicodeFuncs -> (Char -> IO UnicodeGeneralCategory) -> m ()
 unicode_funcs_set_general_category_func uf fun = liftIO $ do
@@ -410,6 +415,24 @@ unicode_compose :: MonadIO m => UnicodeFuncs -> Char -> Char -> m (Maybe Char)
 unicode_compose uf a b = liftIO $ alloca $ \c -> do
   ok <- [C.exp|hb_bool_t { hb_unicode_compose($unicode-funcs:uf,$(hb_codepoint_t a),$(hb_codepoint_t b),$(hb_codepoint_t * c)) }|]
   if cbool ok then Just <$> peek c else pure Nothing
+
+unicode_funcs_set_decompose_func :: MonadIO m => UnicodeFuncs -> (Char -> IO (Maybe (Char,Char))) -> m ()
+unicode_funcs_set_decompose_func uf fun = liftIO $ do
+  (castFunPtr -> f) <- mkUnicodeDecomposeFunc $ \ _ a pb pc _ -> fun a >>= \case
+     Nothing -> pure $ boolc False
+     Just (b,c) -> boolc True <$ (poke pb b *> poke pc c)
+  [C.block|void {
+    hb_unicode_decompose_func_t f = $(hb_unicode_decompose_func_t f);
+    hb_unicode_funcs_set_decompose_func($unicode-funcs:uf,f,f,(hb_destroy_func_t)hs_free_fun_ptr);
+  }|]
+
+unicode_decompose :: MonadIO m => UnicodeFuncs -> Char -> m (Maybe (Char, Char))
+unicode_decompose uf a = liftIO $ allocaArray 2 $ \ pbc -> do
+  ok <- [C.block|hb_bool_t {
+    hb_codepoint_t * pbc = $(hb_codepoint_t * pbc);
+    return hb_unicode_decompose($unicode-funcs:uf,$(hb_codepoint_t a),pbc,pbc+1);
+  }|]
+  if cbool ok then Just <$> ((,) <$> peek pbc <*> peek (advancePtr pbc 1)) else pure Nothing
 
 key_create :: MonadIO m => m (Key a)
 key_create = liftIO $ Key <$> mallocForeignPtrBytes 1
