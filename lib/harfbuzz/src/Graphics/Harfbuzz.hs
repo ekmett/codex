@@ -75,6 +75,19 @@ module Graphics.Harfbuzz
   , face_count
   , face_create
   , face_create_for_tables
+  , face_is_immutable
+  , face_make_immutable
+  , face_builder_create
+  , face_builder_add_table
+  , face_reference_blob
+  , face_reference_table
+  -- face_collect_unicodes
+  -- face_collect_variation_selectors
+  -- face_collect_variation_unicodes
+  -- statevars
+  , face_glyph_count
+  , face_index
+  , face_upem
 
   , Feature(..)
   , feature_to_string, feature_from_string
@@ -97,6 +110,8 @@ module Graphics.Harfbuzz
   , SegmentProperties(..)
   -- segment_properties_equal
   -- segment_properties_hash
+  , Set(..)
+  , set_create
 
   , Tag(..)
   , tag_from_string, tag_to_string
@@ -135,10 +150,14 @@ module Graphics.Harfbuzz
   -- * internals
   , foreignBlob
   , foreignBuffer
+  , foreignFace
+  , foreignSet
   , foreignUnicodeFuncs
 
   , _hb_blob_destroy
   , _hb_buffer_destroy
+  , _hb_set_destroy
+  , _hb_face_destroy
   , _hb_unicode_funcs_destroy
   ) where
 
@@ -182,7 +201,7 @@ key_create_n n = liftIO $ do
     else error "key_create_n: accessing an out of bound key"
 
 class IsObject t where
-  reference :: MonadIO m => t -> m ()
+  reference :: MonadIO m => t -> m (Ptr t)
   destroy :: MonadIO m => t -> m ()
   set_user_data :: MonadIO m => t -> Key a -> Ptr a -> FinalizerPtr a -> Bool -> m Bool
   get_user_data :: MonadIO m => t -> Key a -> m (Ptr a)
@@ -217,7 +236,7 @@ blob_make_immutable :: MonadIO m => Blob -> m ()
 blob_make_immutable b = liftIO [C.block|void { hb_blob_make_immutable($blob:b); }|]
 
 instance IsObject Blob where
-  reference b = liftIO [C.block|void { hb_blob_reference($blob:b); }|]
+  reference b = liftIO [C.exp|hb_blob_t * { hb_blob_reference($blob:b) }|]
   destroy b = liftIO [C.block|void { hb_blob_destroy($blob:b); }|]
   get_user_data b k = liftIO $ [C.exp|void * { hb_blob_get_user_data($blob:b,$key:k) }|] <&> castPtr
   set_user_data b k (castPtr -> v) (castFunPtr -> d) (boolc -> replace) = liftIO $
@@ -239,7 +258,7 @@ withBlobDataWritable bfp k = withSelf bfp $ \bp -> alloca $ \ip -> do
 -- * buffers
 
 instance IsObject Buffer where
-  reference b = liftIO [C.block|void { hb_buffer_reference($buffer:b); }|]
+  reference b = liftIO [C.exp|hb_buffer_t * { hb_buffer_reference($buffer:b) }|]
   destroy b = liftIO [C.block|void { hb_buffer_destroy($buffer:b); }|]
   get_user_data b k = liftIO $ [C.exp|void * { hb_buffer_get_user_data($buffer:b,$key:k) }|] <&> castPtr
   set_user_data b k (castPtr -> v) (castFunPtr -> d) (boolc -> replace) = liftIO $
@@ -404,6 +423,25 @@ direction_is_valid d = cbool [C.pure|int { HB_DIRECTION_IS_VALID($(hb_direction_
 
 -- * font faces
 
+instance IsObject Face where
+  reference b = liftIO [C.exp|hb_face_t * { hb_face_reference($face:b) }|]
+  destroy b = liftIO [C.block|void { hb_face_destroy($face:b); }|]
+  get_user_data b k = liftIO $ [C.exp|void * { hb_face_get_user_data($face:b,$key:k) }|] <&> castPtr
+  set_user_data b k (castPtr -> v) (castFunPtr -> d) (boolc -> replace) = liftIO $
+    [C.exp|hb_bool_t { hb_face_set_user_data($face:b,$key:k,$(void * v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|] <&> cbool
+
+face_builder_create :: MonadIO m => m Face
+face_builder_create = liftIO $ [C.exp|hb_face_t * { hb_face_builder_create() }|] >>= foreignFace
+
+face_builder_add_table :: MonadIO m => Face -> Tag -> Blob -> m Bool
+face_builder_add_table f t b = liftIO $ [C.exp|hb_bool_t { hb_face_builder_add_table($face:f,$(hb_tag_t t),$blob:b) }|] <&> cbool
+
+face_reference_blob :: MonadIO m => Face -> m Blob
+face_reference_blob f = liftIO $ [C.exp|hb_blob_t * { hb_face_reference_blob($face:f) }|] >>= foreignBlob
+
+face_reference_table :: MonadIO m => Face -> Tag -> m Blob
+face_reference_table f t = liftIO $ [C.exp|hb_blob_t * { hb_face_reference_table($face:f,$(hb_tag_t t)) }|] >>= foreignBlob
+
 face_count :: MonadIO m => Blob -> m Int
 face_count b = liftIO $ [C.exp|int { hb_face_count($blob:b) }|] <&> fromIntegral
 
@@ -416,11 +454,34 @@ face_create_for_tables fun = liftIO $ do
   (castFunPtr -> f) <- mkReferenceTableFunc $ \ pface tag _ -> do
     face <- [C.exp|hb_face_t * { hb_face_reference($(hb_face_t * pface)) }|] >>= foreignFace
     b <- fun face tag
-    [C.exp|hb_blob_t * { hb_blob_reference($blob:b) }|]
+    reference b
   [C.block|hb_face_t * {
     hb_reference_table_func_t f = $(hb_reference_table_func_t f);
     return hb_face_create_for_tables(f,f,(hb_destroy_func_t)hs_free_fun_ptr);
   }|] >>= foreignFace
+
+-- | Subsumes @hb_face_get_glyph_count@ and @hb_face_set_glyph_count@
+face_glyph_count :: Face -> StateVar Int
+face_glyph_count f = StateVar g s where
+  g = [C.exp|int { hb_face_get_glyph_count($face:f) }|] <&> fromIntegral
+  s (fromIntegral -> v) = [C.block|void { hb_face_set_glyph_count($face:f,$(unsigned int v)); }|]
+
+-- | Subsumes @hb_face_get_index@ ancd @hb_face_set_index@
+face_index :: Face -> StateVar Int
+face_index f = StateVar g s where
+  g = [C.exp|int { hb_face_get_index($face:f) }|] <&> fromIntegral
+  s (fromIntegral -> v) = [C.block|void { hb_face_set_index($face:f,$(unsigned int v)); }|]
+
+face_upem :: Face -> StateVar Int
+face_upem f = StateVar g s where
+  g = [C.exp|int { hb_face_get_upem($face:f) }|] <&> fromIntegral
+  s (fromIntegral -> v) = [C.block|void { hb_face_set_upem($face:f,$(unsigned int v)); }|]
+
+face_is_immutable :: MonadIO m => Face -> m Bool
+face_is_immutable b = liftIO $ [C.exp|hb_bool_t { hb_face_is_immutable($face:b) }|] <&> cbool
+
+face_make_immutable :: MonadIO m => Face -> m ()
+face_make_immutable b = liftIO [C.block|void { hb_face_make_immutable($face:b); }|]
 
 -- * language
 
@@ -446,6 +507,18 @@ script_from_string = script_from_iso15924_tag . tag_from_string
 
 script_to_string :: Script -> String
 script_to_string = tag_to_string . script_to_iso15924_tag
+
+-- * sets
+--
+instance IsObject Set where
+  reference b = liftIO [C.exp|hb_set_t * { hb_set_reference($set:b) }|]
+  destroy b = liftIO [C.block|void { hb_set_destroy($set:b); }|]
+  get_user_data b k = liftIO $ [C.exp|void * { hb_set_get_user_data($set:b,$key:k) }|] <&> castPtr
+  set_user_data b k (castPtr -> v) (castFunPtr -> d) (boolc -> replace) = liftIO $
+    [C.exp|hb_bool_t { hb_set_set_user_data($set:b,$key:k,$(void * v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|] <&> cbool
+
+set_create :: MonadIO m => m Set
+set_create = liftIO $ [C.exp|hb_set_t * { hb_set_create() }|] >>= foreignSet
 
 -- * 4 character tags
 
@@ -570,7 +643,7 @@ unicode_script :: MonadIO m => UnicodeFuncs -> Char -> m Script
 unicode_script uf a = liftIO [C.exp|hb_script_t { hb_unicode_script($unicode-funcs:uf,$(hb_codepoint_t a)) }|]
 
 instance IsObject UnicodeFuncs where
-  reference uf = liftIO [C.block|void { hb_unicode_funcs_reference($unicode-funcs:uf); }|]
+  reference uf = liftIO [C.exp|hb_unicode_funcs_t * { hb_unicode_funcs_reference($unicode-funcs:uf) }|]
   destroy uf = liftIO [C.block|void { hb_unicode_funcs_destroy($unicode-funcs:uf); }|]
   get_user_data b k = liftIO $ [C.exp|void * { hb_unicode_funcs_get_user_data($unicode-funcs:b,$key:k) }|] <&> castPtr
   set_user_data b k (castPtr -> v) (castFunPtr -> d) (boolc -> replace) = liftIO $
@@ -601,10 +674,14 @@ foreignBuffer = fmap Buffer . newForeignPtr _hb_buffer_destroy
 foreignFace :: Ptr Face -> IO Face
 foreignFace = fmap Face . newForeignPtr _hb_face_destroy
 
+foreignSet :: Ptr Set -> IO Set
+foreignSet = fmap Set . newForeignPtr _hb_set_destroy
+
 foreignUnicodeFuncs :: Ptr UnicodeFuncs -> IO UnicodeFuncs
 foreignUnicodeFuncs = fmap UnicodeFuncs . newForeignPtr _hb_unicode_funcs_destroy
 
 foreign import ccall "hb.h &hb_blob_destroy"          _hb_blob_destroy          :: FinalizerPtr Blob
 foreign import ccall "hb.h &hb_buffer_destroy"        _hb_buffer_destroy        :: FinalizerPtr Buffer
 foreign import ccall "hb.h &hb_face_destroy"          _hb_face_destroy          :: FinalizerPtr Face
+foreign import ccall "hb.h &hb_set_destroy"           _hb_set_destroy           :: FinalizerPtr Set
 foreign import ccall "hb.h &hb_unicode_funcs_destroy" _hb_unicode_funcs_destroy :: FinalizerPtr UnicodeFuncs
