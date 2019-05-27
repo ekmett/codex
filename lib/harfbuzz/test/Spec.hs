@@ -3,6 +3,8 @@
 import Data.Const.ByteString
 import Data.Default
 import Data.StateVar
+import Foreign.Marshal.Alloc (finalizerFree)
+import Foreign.Marshal.Utils (new)
 import Graphics.Harfbuzz
 import Test.Hspec
 import Test.Tasty
@@ -34,6 +36,18 @@ spec = do
       x <- blob_create "hello" MEMORY_MODE_WRITABLE
       _ <- blob_create_sub_blob x 2 2
       blob_is_immutable x `shouldReturn` True
+    it "supports user data" $ do
+      u <- new ()
+      v <- new ()
+      ku <- key_create
+      kv <- key_create
+      x <- blob_create "hello" MEMORY_MODE_READONLY
+      set_user_data x ku u finalizerFree False `shouldReturn` True
+      set_user_data x kv v finalizerFree False `shouldReturn` True
+      get_user_data x ku `shouldReturn` u
+      get_user_data x kv `shouldReturn` v
+      set_user_data x ku v finalizerFree False `shouldReturn` False
+      get_user_data x ku `shouldReturn` u
   describe "hb_tag_t" $ do
     it "TAG matches" $ (case script_to_iso15924_tag SCRIPT_HEBREW of TAG a b c d -> (a,b,c,d); _ -> undefined) `shouldBe` ('H','e','b','r')
     it "TAG constructs" $ script_from_iso15924_tag (TAG 'H' 'e' 'b' 'r') == SCRIPT_HEBREW

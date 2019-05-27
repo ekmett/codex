@@ -53,6 +53,10 @@ module Graphics.Harfbuzz
   , Feature(..)
   , feature_to_string, feature_from_string
 
+  , Key(..) -- hb_user_data_key
+  , key_create
+  , key_create_n
+
   , Language(..)
   , language_from_string, language_to_string
   , language_get_default
@@ -72,6 +76,8 @@ module Graphics.Harfbuzz
   , UnicodeFuncs(..)
   , unicode_funcs_get_default
   , unicode_funcs_get_parent
+  , unicode_funcs_is_immutable
+  , unicode_funcs_make_immutable
 
   , Variation(..)
   , variation_from_string, variation_to_string
@@ -330,11 +336,28 @@ unicode_funcs_get_default = liftIO $
 
 unicode_funcs_get_parent :: MonadIO m => UnicodeFuncs -> m UnicodeFuncs
 unicode_funcs_get_parent u = liftIO $
-  [C.block|hb_unicode_funcs_t * { 
+  [C.block|hb_unicode_funcs_t * {
     hb_unicode_funcs_t * p = hb_unicode_funcs_get_parent($unicode-funcs:u);
     hb_unicode_funcs_reference(p);
     return p;
   }|] >>= foreignUnicodeFuncs
+
+unicode_funcs_is_immutable :: MonadIO m => UnicodeFuncs -> m Bool
+unicode_funcs_is_immutable b = liftIO $ [C.exp|hb_bool_t { hb_unicode_funcs_is_immutable($unicode-funcs:b) }|] <&> cbool
+
+unicode_funcs_make_immutable :: MonadIO m => UnicodeFuncs -> m ()
+unicode_funcs_make_immutable b = liftIO [C.block|void { hb_unicode_funcs_make_immutable($unicode-funcs:b); }|]
+
+key_create :: MonadIO m => m (Key a)
+key_create = liftIO $ Key <$> mallocForeignPtrBytes 1
+
+key_create_n :: MonadIO m => Int -> m (Int -> Key a)
+key_create_n n = liftIO $ do
+  fp <- mallocForeignPtrBytes n
+  return $ \i ->
+    if 0 < i && i < n
+    then Key (plusForeignPtr fp i)
+    else error "key_create_n: accessing an out of bound key"
 
 instance IsObject UnicodeFuncs where
   reference uf = liftIO [C.block|void { hb_unicode_funcs_reference($unicode-funcs:uf); }|]
