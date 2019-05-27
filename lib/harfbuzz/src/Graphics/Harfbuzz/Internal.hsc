@@ -173,6 +173,7 @@ module Graphics.Harfbuzz.Internal
   )
 , UnicodeCombiningClassFunc
 , UnicodeComposeFunc
+, UnicodeDecomposeFunc
 , UnicodeFuncs(..)
 , UnicodeGeneralCategory
   ( UnicodeGeneralCategory
@@ -368,6 +369,7 @@ type UnicodeGeneralCategoryFunc a = Ptr UnicodeFuncs -> Char -> Ptr a -> IO Unic
 newtype UnicodeCombiningClass = UnicodeCombiningClass CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 type UnicodeCombiningClassFunc a = Ptr UnicodeFuncs -> Char -> Ptr a -> IO UnicodeCombiningClass
 type UnicodeComposeFunc a = Ptr UnicodeFuncs -> Char -> Char -> Ptr Char -> Ptr a -> IO CInt
+type UnicodeDecomposeFunc a = Ptr UnicodeFuncs -> Char -> Ptr Char -> Ptr Char -> Ptr a -> IO CInt
 
 -- * Startup a crippled inline-c context for use in non-orphan instances
 
@@ -1279,6 +1281,7 @@ harfbuzzCtx = mempty
     , (C.TypeName "hb_unicode_combining_class_t", [t| UnicodeCombiningClass |])
     , (C.TypeName "hb_unicode_combining_class_func_t", [t| FunPtr (UnicodeCombiningClassFunc ()) |])
     , (C.TypeName "hb_unicode_compose_func_t", [t| FunPtr (UnicodeComposeFunc ()) |])
+    , (C.TypeName "hb_unicode_decompose_func_t", [t| FunPtr (UnicodeDecomposeFunc ()) |])
     , (C.TypeName "hb_unicode_funcs_t", [t| UnicodeFuncs |])
     , (C.TypeName "hb_unicode_general_category_t", [t| UnicodeGeneralCategory |])
     , (C.TypeName "hb_unicode_general_category_func_t", [t| FunPtr (UnicodeGeneralCategoryFunc ()) |])
