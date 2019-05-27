@@ -172,6 +172,7 @@ module Graphics.Harfbuzz.Internal
   , UNICODE_COMBINING_CLASS_INVALID
   )
 , UnicodeCombiningClassFunc
+, UnicodeComposeFunc
 , UnicodeFuncs(..)
 , UnicodeGeneralCategory
   ( UnicodeGeneralCategory
@@ -362,10 +363,11 @@ newtype BufferClusterLevel = BufferClusterLevel CInt deriving (Eq,Ord,Show,Read,
 newtype BufferContentType = BufferContentType CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 
 newtype UnicodeGeneralCategory = UnicodeGeneralCategory CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
-type UnicodeGeneralCategoryFunc a = FunPtr (Ptr UnicodeFuncs -> Char -> Ptr a -> UnicodeGeneralCategory)
+type UnicodeGeneralCategoryFunc a = Ptr UnicodeFuncs -> Char -> Ptr a -> IO UnicodeGeneralCategory
 
 newtype UnicodeCombiningClass = UnicodeCombiningClass CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
-type UnicodeCombiningClassFunc a = FunPtr (Ptr UnicodeFuncs -> Char -> Ptr a -> UnicodeCombiningClass)
+type UnicodeCombiningClassFunc a = Ptr UnicodeFuncs -> Char -> Ptr a -> IO UnicodeCombiningClass
+type UnicodeComposeFunc a = Ptr UnicodeFuncs -> Char -> Char -> Ptr Char -> Ptr a -> IO CInt
 
 -- * Startup a crippled inline-c context for use in non-orphan instances
 
@@ -1273,14 +1275,15 @@ harfbuzzCtx = mempty
     , (C.TypeName "hb_memory_mode_t", [t| MemoryMode |])
     , (C.TypeName "hb_script_t", [t| Script |])
     , (C.TypeName "hb_segment_properties_t", [t| SegmentProperties |])
+    , (C.TypeName "hb_tag_t", [t| Tag |])
     , (C.TypeName "hb_unicode_combining_class_t", [t| UnicodeCombiningClass |])
-    , (C.TypeName "hb_unicode_combining_class_func_t", [t| UnicodeCombiningClassFunc () |])
+    , (C.TypeName "hb_unicode_combining_class_func_t", [t| FunPtr (UnicodeCombiningClassFunc ()) |])
+    , (C.TypeName "hb_unicode_compose_func_t", [t| FunPtr (UnicodeComposeFunc ()) |])
     , (C.TypeName "hb_unicode_funcs_t", [t| UnicodeFuncs |])
     , (C.TypeName "hb_unicode_general_category_t", [t| UnicodeGeneralCategory |])
-    , (C.TypeName "hb_unicode_general_category_func_t", [t| UnicodeGeneralCategoryFunc () |])
+    , (C.TypeName "hb_unicode_general_category_func_t", [t| FunPtr (UnicodeGeneralCategoryFunc ()) |])
     , (C.TypeName "hb_user_data_key_t", [t| OpaqueKey |])
     , (C.TypeName "hb_variation_t", [t| Variation |])
-    , (C.TypeName "hb_tag_t", [t| Tag |])
     ]
   , C.ctxAntiQuoters = Map.fromList
     [ ("ustr", anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char (Just C.Unsigned))) [t| CUChar |] [| withCUString |])
@@ -1288,8 +1291,8 @@ harfbuzzCtx = mempty
     , ("blob", anti (ptr (C.TypeName "hb_blob_t")) [t| Blob |] [| withSelf |])
     , ("buffer", anti (ptr (C.TypeName "hb_buffer_t")) [t| Buffer |] [| withSelf |])
     , ("feature", anti (ptr (C.TypeName "hb_feature_t")) [t| Feature |] [| with |])
+    , ("key", anti (ptr (C.TypeName "hb_user_data_key_t")) [t| OpaqueKey |] [| withKey |])
     , ("language", anti (C.TypeSpecifier mempty $ C.TypeName "hb_language_t") [t| Language |] [| withPtr |])
     , ("unicode-funcs", anti (ptr (C.TypeName "hb_unicode_funcs_t")) [t| UnicodeFuncs |] [| withSelf |])
-    , ("key", anti (ptr (C.TypeName "hb_user_data_key_t")) [t| OpaqueKey |] [| withKey |])
     ]
   } where ptr = C.Ptr [] . C.TypeSpecifier mempty

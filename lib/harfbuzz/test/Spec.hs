@@ -3,6 +3,7 @@
 import Data.Char
 import Data.Const.ByteString
 import Data.Default
+import Data.Functor
 import Data.StateVar
 import Foreign.Marshal.Alloc (finalizerFree)
 import Foreign.Marshal.Utils (new)
@@ -127,16 +128,19 @@ spec = do
   describe "hb_unicode_funcs_t" $ do
     it "can identify general categories" $ do
       uf <- unicode_funcs_get_default 
-      gc (unicode_general_category uf 'a') `shouldBe` LowercaseLetter
-      gc (unicode_general_category uf 'A') `shouldBe` UppercaseLetter
+      (unicode_general_category uf 'a' <&> gc) `shouldReturn` LowercaseLetter
+      (unicode_general_category uf 'A' <&> gc) `shouldReturn` UppercaseLetter
     it "can override general categories on empty" $ do
       uf <- unicode_funcs_create def
-      unicode_funcs_set_general_category_func uf $ \_ -> UNICODE_GENERAL_CATEGORY Control
-      gc (unicode_general_category uf 'a') `shouldBe` Control
+      unicode_funcs_set_general_category_func uf $ \_ -> return $ UNICODE_GENERAL_CATEGORY Control
+      (unicode_general_category uf 'a' <&> gc) `shouldReturn` Control
     it "can override general categories on default" $ do
       uf <- unicode_funcs_get_default >>= unicode_funcs_create
-      unicode_funcs_set_general_category_func uf $ \_ -> UNICODE_GENERAL_CATEGORY Control
-      gc (unicode_general_category uf 'a') `shouldBe` Control
+      unicode_funcs_set_general_category_func uf $ \_ -> return $ UNICODE_GENERAL_CATEGORY Control
+      (unicode_general_category uf 'a' <&> gc) `shouldReturn` Control
+    it "can compose" $ do
+      uf <- unicode_funcs_get_default
+      unicode_compose uf 'e' '\x0301' `shouldReturn` Just '\x00e9'
      
 
 main :: IO ()

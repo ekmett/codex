@@ -1,3 +1,4 @@
+{-# language LambdaCase #-}
 {-# language QuasiQuotes #-}
 {-# language ViewPatterns #-}
 {-# language TemplateHaskell #-}
@@ -87,6 +88,9 @@ module Graphics.Harfbuzz
   , UnicodeCombiningClassFunc
   , unicode_funcs_set_combining_class_func
   , unicode_combining_class
+  , UnicodeComposeFunc
+  , unicode_funcs_set_compose_func
+  , unicode_compose
 
   , Variation(..)
   , variation_from_string, variation_to_string
@@ -366,30 +370,46 @@ unicode_funcs_is_immutable b = liftIO $ [C.exp|hb_bool_t { hb_unicode_funcs_is_i
 unicode_funcs_make_immutable :: MonadIO m => UnicodeFuncs -> m ()
 unicode_funcs_make_immutable b = liftIO [C.block|void { hb_unicode_funcs_make_immutable($unicode-funcs:b); }|]
 
-foreign import ccall "wrapper" mkUnicodeGeneralCategoryFunc :: (Ptr UnicodeFuncs -> Char -> Ptr a -> UnicodeGeneralCategory) -> IO (UnicodeGeneralCategoryFunc a)
-foreign import ccall "wrapper" mkUnicodeCombiningClassFunc :: (Ptr UnicodeFuncs -> Char -> Ptr a -> UnicodeCombiningClass) -> IO (UnicodeCombiningClassFunc a)
+foreign import ccall "wrapper" mkUnicodeGeneralCategoryFunc :: UnicodeGeneralCategoryFunc a -> IO (FunPtr (UnicodeGeneralCategoryFunc a))
+foreign import ccall "wrapper" mkUnicodeCombiningClassFunc :: UnicodeCombiningClassFunc a -> IO (FunPtr (UnicodeCombiningClassFunc a))
+foreign import ccall "wrapper" mkUnicodeComposeFunc :: UnicodeComposeFunc a -> IO (FunPtr (UnicodeComposeFunc a))
 
-unicode_funcs_set_general_category_func :: MonadIO m => UnicodeFuncs -> (Char -> UnicodeGeneralCategory) -> m ()
+unicode_funcs_set_general_category_func :: MonadIO m => UnicodeFuncs -> (Char -> IO UnicodeGeneralCategory) -> m ()
 unicode_funcs_set_general_category_func uf fun = liftIO $ do
-  f <- castFunPtr <$> mkUnicodeGeneralCategoryFunc (\ _ c _ -> fun c)
+  (castFunPtr -> f) <- mkUnicodeGeneralCategoryFunc $ \ _ c _ -> fun c
   [C.block|void {
     hb_unicode_general_category_func_t f = $(hb_unicode_general_category_func_t f);
     hb_unicode_funcs_set_general_category_func($unicode-funcs:uf,f,f,(hb_destroy_func_t)hs_free_fun_ptr);
   }|]
 
-unicode_general_category :: UnicodeFuncs -> Char -> UnicodeGeneralCategory
-unicode_general_category uf codepoint = [C.pure|hb_unicode_general_category_t { hb_unicode_general_category($unicode-funcs:uf,$(hb_codepoint_t codepoint)) }|]
+unicode_general_category :: MonadIO m => UnicodeFuncs -> Char -> m UnicodeGeneralCategory
+unicode_general_category uf codepoint = liftIO $ [C.exp|hb_unicode_general_category_t { hb_unicode_general_category($unicode-funcs:uf,$(hb_codepoint_t codepoint)) }|]
 
-unicode_funcs_set_combining_class_func :: MonadIO m => UnicodeFuncs -> (Char -> UnicodeCombiningClass) -> m ()
+unicode_funcs_set_combining_class_func :: MonadIO m => UnicodeFuncs -> (Char -> IO UnicodeCombiningClass) -> m ()
 unicode_funcs_set_combining_class_func uf fun = liftIO $ do
-  f <- castFunPtr <$> mkUnicodeCombiningClassFunc (\ _ c _ -> fun c)
+  (castFunPtr -> f) <- mkUnicodeCombiningClassFunc $ \ _ c _ -> fun c
   [C.block|void {
     hb_unicode_combining_class_func_t f = $(hb_unicode_combining_class_func_t f);
     hb_unicode_funcs_set_combining_class_func($unicode-funcs:uf,f,f,(hb_destroy_func_t)hs_free_fun_ptr);
   }|]
 
-unicode_combining_class :: UnicodeFuncs -> Char -> UnicodeCombiningClass
-unicode_combining_class uf codepoint = [C.pure|hb_unicode_combining_class_t { hb_unicode_combining_class($unicode-funcs:uf,$(hb_codepoint_t codepoint)) }|]
+unicode_combining_class :: MonadIO m => UnicodeFuncs -> Char -> m UnicodeCombiningClass
+unicode_combining_class uf codepoint = liftIO $ [C.exp|hb_unicode_combining_class_t { hb_unicode_combining_class($unicode-funcs:uf,$(hb_codepoint_t codepoint)) }|]
+
+unicode_funcs_set_compose_func :: MonadIO m => UnicodeFuncs -> (Char -> Char -> IO (Maybe Char)) -> m ()
+unicode_funcs_set_compose_func uf fun = liftIO $ do
+  (castFunPtr -> f) <- mkUnicodeComposeFunc $ \ _ a b c _ -> fun a b >>= \case
+     Nothing -> pure $ boolc False
+     Just ab -> boolc True <$ poke c ab
+  [C.block|void {
+    hb_unicode_compose_func_t f = $(hb_unicode_compose_func_t f);
+    hb_unicode_funcs_set_compose_func($unicode-funcs:uf,f,f,(hb_destroy_func_t)hs_free_fun_ptr);
+  }|]
+
+unicode_compose :: MonadIO m => UnicodeFuncs -> Char -> Char -> m (Maybe Char)
+unicode_compose uf a b = liftIO $ alloca $ \c -> do
+  ok <- [C.exp|hb_bool_t { hb_unicode_compose($unicode-funcs:uf,$(hb_codepoint_t a),$(hb_codepoint_t b),$(hb_codepoint_t * c)) }|]
+  if cbool ok then Just <$> peek c else pure Nothing
 
 key_create :: MonadIO m => m (Key a)
 key_create = liftIO $ Key <$> mallocForeignPtrBytes 1
