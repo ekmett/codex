@@ -31,6 +31,10 @@ module Graphics.Harfbuzz
   , script_get_horizontal_direction
   , script_from_string, script_to_string
 
+  , Language(..)
+  , language_from_string, language_to_string
+  , language_get_default
+
   -- hb_buffer.h
   , Buffer
   , buffer_create
@@ -44,7 +48,7 @@ import Control.Monad.IO.Class
 import Data.Const
 import Data.Functor
 import Data.ByteString as Strict
--- import Data.ByteString.Short as Short
+import Data.String
 import Foreign.C.String
 import Foreign.Const.C.String
 import Foreign.ForeignPtr
@@ -118,23 +122,22 @@ instance IsObject Buffer where
 
 -- * 4 character tags
 
-tag_from_string :: Strict.ByteString -> Tag
-tag_from_string bs = unsafeLocalState $
-  Strict.useAsCStringLen (Strict.take 4 bs) $ \(cstr,fromIntegral -> l) -> [C.exp|hb_tag_t { hb_tag_from_string($(const char * cstr),$(int l)) }|]
+tag_from_string :: String -> Tag
+tag_from_string = fromString
 
-tag_to_string :: Tag -> Strict.ByteString
+tag_to_string :: Tag -> String
 tag_to_string t = unsafeLocalState $ allocaBytes 4 $ \buf -> do
   [C.exp|void { hb_tag_to_string($(hb_tag_t t),$(char * buf)) }|]
-  Strict.packCStringLen (buf,4)
+  peekCStringLen (buf,4)
 
 -- * directions
 
-direction_from_string :: Strict.ByteString -> Direction
-direction_from_string bs = unsafeLocalState $
-  Strict.useAsCStringLen bs $ \(cstr,fromIntegral -> l) -> [C.exp|hb_direction_t { hb_direction_from_string($(const char * cstr),$(int l)) }|]
+direction_from_string :: String -> Direction
+direction_from_string = fromString
 
-direction_to_string :: Direction -> Strict.ByteString
-direction_to_string t = unsafeLocalState $ [C.exp|const char * { hb_direction_to_string($(hb_direction_t t)) }|] >>= Strict.packCString -- we don't own it, don't destroy it
+direction_to_string :: Direction -> String
+direction_to_string t = unsafeLocalState $
+  [C.exp|const char * { hb_direction_to_string($(hb_direction_t t)) }|] >>= peekCString
 
 -- * scripts
 
@@ -147,11 +150,26 @@ script_to_iso15924_tag script = [C.pure|hb_tag_t { hb_script_to_iso15924_tag ($(
 script_get_horizontal_direction :: Script -> Direction
 script_get_horizontal_direction script = [C.pure|hb_direction_t { hb_script_get_horizontal_direction($(hb_script_t script)) }|]
 
-script_from_string :: Strict.ByteString -> Script
+script_from_string :: String -> Script
 script_from_string = script_from_iso15924_tag . tag_from_string
 
-script_to_string :: Script -> Strict.ByteString
+script_to_string :: Script -> String
 script_to_string = tag_to_string . script_to_iso15924_tag
+
+-- * language
+
+language_from_string :: String -> Language
+language_from_string = fromString
+
+language_to_string :: Language -> String
+language_to_string l = unsafeLocalState (peekCString cstr) where
+  cstr = [C.pure|const char * { hb_language_to_string($language:l) }|]
+
+-- | The first time this is called it calls setLocale, which isn't thread safe.
+--
+-- For multithreaded use, first call once in an isolated fashion
+language_get_default :: MonadIO m => m Language
+language_get_default = liftIO $ Language <$> [C.exp|hb_language_t { hb_language_get_default() }|]
 
 -- * Finalization
 
