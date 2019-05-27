@@ -25,6 +25,9 @@ module Graphics.Harfbuzz
   , buffer_set_length
   , buffer_get_length
   , buffer_allocation_successful
+  , buffer_reverse
+  , buffer_reverse_range
+  , buffer_reverse_clusters
   , buffer_add
   -- statevars
   , buffer_direction
@@ -166,6 +169,16 @@ buffer_get_length b = liftIO $
 buffer_allocation_successful :: MonadIO m => Buffer -> m Bool
 buffer_allocation_successful b = liftIO $
   [C.exp|hb_bool_t { hb_buffer_allocation_successful($buffer:b) }|] <&> cbool
+
+buffer_reverse :: MonadIO m => Buffer -> m ()
+buffer_reverse b = liftIO [C.block|void { hb_buffer_reverse($buffer:b); }|]
+
+buffer_reverse_clusters :: MonadIO m => Buffer -> m ()
+buffer_reverse_clusters b = liftIO [C.block|void { hb_buffer_reverse_clusters($buffer:b); }|]
+
+buffer_reverse_range :: MonadIO m => Buffer -> Int -> Int -> m ()
+buffer_reverse_range b (fromIntegral -> start) (fromIntegral -> end) = liftIO
+  [C.block|void { hb_buffer_reverse_range($buffer:b,$(unsigned int start), $(unsigned int end)); }|]
 
 buffer_add :: MonadIO m => Buffer -> Char -> Int -> m ()
 buffer_add buffer codepoint (fromIntegral -> cluster) = liftIO
