@@ -32,6 +32,7 @@ module Graphics.Harfbuzz
   , buffer_language
   , buffer_flags
   , buffer_cluster_level
+  , buffer_segment_properties
 
   , BufferFlags(..)
   , BufferClusterLevel(..)
@@ -193,10 +194,17 @@ buffer_flags b = StateVar g s where
   g = [C.exp|hb_buffer_flags_t { hb_buffer_get_flags($buffer:b) }|]
   s v = [C.block|void { hb_buffer_set_flags($buffer:b,$(hb_buffer_flags_t v)); }|]
 
+-- | Subsumes @hb_buffer_get_cluster_level@ and @hb_buffer_set_cluster_level@
 buffer_cluster_level :: Buffer -> StateVar BufferClusterLevel
 buffer_cluster_level b = StateVar g s where
   g = [C.exp|hb_buffer_cluster_level_t { hb_buffer_get_cluster_level($buffer:b) }|]
   s v = [C.block|void { hb_buffer_set_cluster_level($buffer:b,$(hb_buffer_cluster_level_t v)); }|]
+
+-- | Subsumes @hb_buffer_get_segment_properties@ and @hb_buffer_set_segment_properties@
+buffer_segment_properties :: Buffer -> StateVar SegmentProperties
+buffer_segment_properties b = StateVar g s where
+  g = alloca $ \props -> [C.block|void { hb_buffer_get_segment_properties($buffer:b,$(hb_segment_properties_t * props)); }|] *> peek props
+  s v = with v $ \props -> [C.block|void { hb_buffer_set_segment_properties($buffer:b,$(const hb_segment_properties_t * props)); }|]
 
 instance IsObject Buffer where
   reference b = liftIO [C.block|void { hb_buffer_reference($buffer:b); }|]

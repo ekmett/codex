@@ -88,6 +88,7 @@ module Graphics.Harfbuzz.Internal
   , SCRIPT__MAX_VALUE
   , SCRIPT__MAX_VALUE_SIGNED
   )
+, SegmentProperties(..)
 , Tag
   ( Tag, TAG
   , TAG_NONE, TAG_MAX, TAG_MAX_SIGNED
@@ -774,6 +775,7 @@ harfbuzzCtx = mempty
     , (C.TypeName "hb_language_impl_t", [t| Language |])
     , (C.TypeName "hb_memory_mode_t", [t| MemoryMode |])
     , (C.TypeName "hb_script_t", [t| Script |])
+    , (C.TypeName "hb_segment_properties_t", [t| SegmentProperties |])
     , (C.TypeName "hb_tag_t", [t| Tag |])
     , (C.TypeName "hb_codepoint_t", [t| Char |])
     ]
