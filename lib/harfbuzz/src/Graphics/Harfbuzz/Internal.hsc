@@ -1,8 +1,10 @@
 {-# language GeneralizedNewtypeDeriving #-}
+{-# language ScopedTypeVariables #-}
 {-# language DeriveDataTypeable #-}
 {-# language DerivingStrategies #-}
 {-# language OverloadedStrings #-}
 {-# language FlexibleContexts #-}
+{-# language TypeApplications #-}
 {-# language PatternSynonyms #-}
 {-# language TemplateHaskell #-}
 {-# language DeriveFunctor #-}
@@ -16,195 +18,68 @@
 --
 -- As an internal module, I don't consider this module as supported by the PVP. Be careful.
 module Graphics.Harfbuzz.Internal
-  ( Blob(..)
-  , Buffer(..)
-  , Tag
-    ( Tag
-    , TAG
-    , TAG_NONE
-    , TAG_MAX
-    , TAG_MAX_SIGNED
-    )
-  , Script
-    ( Script
-    , SCRIPT_COMMON
-    , SCRIPT_INHERITED
-    , SCRIPT_UNKNOWN
-    , SCRIPT_ARABIC
-    , SCRIPT_ARMENIAN
-    , SCRIPT_BENGALI
-    , SCRIPT_CYRILLIC
-    , SCRIPT_DEVANAGARI
-    , SCRIPT_GEORGIAN
-    , SCRIPT_GREEK
-    , SCRIPT_GUJARATI
-    , SCRIPT_GURMUKHI
-    , SCRIPT_HANGUL
-    , SCRIPT_HAN
-    , SCRIPT_HEBREW
-    , SCRIPT_HIRAGANA
-    , SCRIPT_KANNADA
-    , SCRIPT_KATAKANA
-    , SCRIPT_LAO
-    , SCRIPT_LATIN
-    , SCRIPT_MALAYALAM
-    , SCRIPT_ORIYA
-    , SCRIPT_TAMIL
-    , SCRIPT_TELUGU
-    , SCRIPT_THAI
-    , SCRIPT_TIBETAN
-    , SCRIPT_BOPOMOFO
-    , SCRIPT_BRAILLE
-    , SCRIPT_CANADIAN_SYLLABICS
-    , SCRIPT_CHEROKEE
-    , SCRIPT_ETHIOPIC
-    , SCRIPT_KHMER
-    , SCRIPT_MONGOLIAN
-    , SCRIPT_MYANMAR
-    , SCRIPT_OGHAM
-    , SCRIPT_RUNIC
-    , SCRIPT_SINHALA
-    , SCRIPT_SYRIAC
-    , SCRIPT_THAANA
-    , SCRIPT_YI
-    , SCRIPT_DESERET
-    , SCRIPT_GOTHIC
-    , SCRIPT_OLD_ITALIC
-    , SCRIPT_BUHID
-    , SCRIPT_HANUNOO
-    , SCRIPT_TAGALOG
-    , SCRIPT_TAGBANWA
-    , SCRIPT_CYPRIOT
-    , SCRIPT_LIMBU
-    , SCRIPT_LINEAR_B
-    , SCRIPT_OSMANYA
-    , SCRIPT_SHAVIAN
-    , SCRIPT_TAI_LE
-    , SCRIPT_UGARITIC
-    , SCRIPT_BUGINESE
-    , SCRIPT_COPTIC
-    , SCRIPT_GLAGOLITIC
-    , SCRIPT_KHAROSHTHI
-    , SCRIPT_NEW_TAI_LUE
-    , SCRIPT_OLD_PERSIAN
-    , SCRIPT_SYLOTI_NAGRI
-    , SCRIPT_TIFINAGH
-    , SCRIPT_BALINESE
-    , SCRIPT_CUNEIFORM
-    , SCRIPT_NKO
-    , SCRIPT_PHAGS_PA
-    , SCRIPT_PHOENICIAN
-    , SCRIPT_CARIAN
-    , SCRIPT_CHAM
-    , SCRIPT_KAYAH_LI
-    , SCRIPT_LEPCHA
-    , SCRIPT_LYCIAN
-    , SCRIPT_LYDIAN
-    , SCRIPT_OL_CHIKI
-    , SCRIPT_REJANG
-    , SCRIPT_SAURASHTRA
-    , SCRIPT_SUNDANESE
-    , SCRIPT_VAI
-    , SCRIPT_AVESTAN
-    , SCRIPT_BAMUM
-    , SCRIPT_EGYPTIAN_HIEROGLYPHS
-    , SCRIPT_IMPERIAL_ARAMAIC
-    , SCRIPT_INSCRIPTIONAL_PAHLAVI
-    , SCRIPT_INSCRIPTIONAL_PARTHIAN
-    , SCRIPT_JAVANESE
-    , SCRIPT_KAITHI
-    , SCRIPT_LISU
-    , SCRIPT_MEETEI_MAYEK
-    , SCRIPT_OLD_SOUTH_ARABIAN
-    , SCRIPT_OLD_TURKIC
-    , SCRIPT_SAMARITAN
-    , SCRIPT_TAI_THAM
-    , SCRIPT_TAI_VIET
-    , SCRIPT_BATAK
-    , SCRIPT_BRAHMI
-    , SCRIPT_MANDAIC
-    , SCRIPT_CHAKMA
-    , SCRIPT_MEROITIC_CURSIVE
-    , SCRIPT_MEROITIC_HIEROGLYPHS
-    , SCRIPT_MIAO
-    , SCRIPT_SHARADA
-    , SCRIPT_SORA_SOMPENG
-    , SCRIPT_TAKRI
-    , SCRIPT_BASSA_VAH
-    , SCRIPT_CAUCASIAN_ALBANIAN
-    , SCRIPT_DUPLOYAN
-    , SCRIPT_ELBASAN
-    , SCRIPT_GRANTHA
-    , SCRIPT_KHOJKI
-    , SCRIPT_KHUDAWADI
-    , SCRIPT_LINEAR_A
-    , SCRIPT_MAHAJANI
-    , SCRIPT_MANICHAEAN
-    , SCRIPT_MENDE_KIKAKUI
-    , SCRIPT_MODI
-    , SCRIPT_MRO
-    , SCRIPT_NABATAEAN
-    , SCRIPT_OLD_NORTH_ARABIAN
-    , SCRIPT_OLD_PERMIC
-    , SCRIPT_PAHAWH_HMONG
-    , SCRIPT_PALMYRENE
-    , SCRIPT_PAU_CIN_HAU
-    , SCRIPT_PSALTER_PAHLAVI
-    , SCRIPT_SIDDHAM
-    , SCRIPT_TIRHUTA
-    , SCRIPT_WARANG_CITI
-    , SCRIPT_AHOM
-    , SCRIPT_ANATOLIAN_HIEROGLYPHS
-    , SCRIPT_HATRAN
-    , SCRIPT_MULTANI
-    , SCRIPT_OLD_HUNGARIAN
-    , SCRIPT_SIGNWRITING
-    , SCRIPT_ADLAM
-    , SCRIPT_BHAIKSUKI
-    , SCRIPT_MARCHEN
-    , SCRIPT_OSAGE
-    , SCRIPT_TANGUT
-    , SCRIPT_NEWA
-    , SCRIPT_MASARAM_GONDI
-    , SCRIPT_NUSHU
-    , SCRIPT_SOYOMBO
-    , SCRIPT_ZANABAZAR_SQUARE
-    , SCRIPT_DOGRA
-    , SCRIPT_GUNJALA_GONDI
-    , SCRIPT_HANIFI_ROHINGYA
-    , SCRIPT_MAKASAR
-    , SCRIPT_MEDEFAIDRIN
-    , SCRIPT_OLD_SOGDIAN
-    , SCRIPT_SOGDIAN
-    , SCRIPT_ELYMAIC
-    , SCRIPT_NANDINAGARI
-    , SCRIPT_NYIAKENG_PUACHUE_HMONG
-    , SCRIPT_WANCHO
-    , SCRIPT_INVALID
-    , SCRIPT__MAX_VALUE
-    , SCRIPT__MAX_VALUE_SIGNED
-    )
-  , MemoryMode
-    ( MemoryMode
-    , MEMORY_MODE_DUPLICATE
-    , MEMORY_MODE_READONLY
-    , MEMORY_MODE_WRITABLE
-    , MEMORY_MODE_READONLY_MAY_MAKE_WRITABLE
-    )
-  , Direction
-    ( Direction
-    , DIRECTION_INVALID
-    , DIRECTION_LTR
-    , DIRECTION_RTL
-    , DIRECTION_BTT
-    , DIRECTION_TTB
-    )
+( Blob(..)
+, Buffer(..)
+, Tag
+  ( Tag, TAG
+  , TAG_NONE, TAG_MAX, TAG_MAX_SIGNED
+  )
+, Script
+  ( Script
+  , SCRIPT_COMMON, SCRIPT_INHERITED, SCRIPT_UNKNOWN, SCRIPT_ARABIC, SCRIPT_ARMENIAN
+  , SCRIPT_BENGALI, SCRIPT_CYRILLIC, SCRIPT_DEVANAGARI, SCRIPT_GEORGIAN, SCRIPT_GREEK
+  , SCRIPT_GUJARATI, SCRIPT_GURMUKHI, SCRIPT_HANGUL, SCRIPT_HAN, SCRIPT_HEBREW
+  , SCRIPT_HIRAGANA, SCRIPT_KANNADA, SCRIPT_KATAKANA, SCRIPT_LAO, SCRIPT_LATIN
+  , SCRIPT_MALAYALAM, SCRIPT_ORIYA, SCRIPT_TAMIL, SCRIPT_TELUGU, SCRIPT_THAI
+  , SCRIPT_TIBETAN, SCRIPT_BOPOMOFO, SCRIPT_BRAILLE, SCRIPT_CANADIAN_SYLLABICS
+  , SCRIPT_CHEROKEE, SCRIPT_ETHIOPIC, SCRIPT_KHMER, SCRIPT_MONGOLIAN, SCRIPT_MYANMAR
+  , SCRIPT_OGHAM, SCRIPT_RUNIC, SCRIPT_SINHALA, SCRIPT_SYRIAC, SCRIPT_THAANA
+  , SCRIPT_YI, SCRIPT_DESERET, SCRIPT_GOTHIC, SCRIPT_OLD_ITALIC, SCRIPT_BUHID
+  , SCRIPT_HANUNOO, SCRIPT_TAGALOG, SCRIPT_TAGBANWA, SCRIPT_CYPRIOT, SCRIPT_LIMBU
+  , SCRIPT_LINEAR_B, SCRIPT_OSMANYA, SCRIPT_SHAVIAN, SCRIPT_TAI_LE, SCRIPT_UGARITIC
+  , SCRIPT_BUGINESE, SCRIPT_COPTIC, SCRIPT_GLAGOLITIC, SCRIPT_KHAROSHTHI, SCRIPT_NEW_TAI_LUE
+  , SCRIPT_OLD_PERSIAN, SCRIPT_SYLOTI_NAGRI, SCRIPT_TIFINAGH, SCRIPT_BALINESE, SCRIPT_CUNEIFORM
+  , SCRIPT_NKO, SCRIPT_PHAGS_PA, SCRIPT_PHOENICIAN, SCRIPT_CARIAN, SCRIPT_CHAM
+  , SCRIPT_KAYAH_LI, SCRIPT_LEPCHA, SCRIPT_LYCIAN, SCRIPT_LYDIAN, SCRIPT_OL_CHIKI
+  , SCRIPT_REJANG, SCRIPT_SAURASHTRA, SCRIPT_SUNDANESE, SCRIPT_VAI, SCRIPT_AVESTAN
+  , SCRIPT_BAMUM, SCRIPT_EGYPTIAN_HIEROGLYPHS, SCRIPT_IMPERIAL_ARAMAIC
+  , SCRIPT_INSCRIPTIONAL_PAHLAVI, SCRIPT_INSCRIPTIONAL_PARTHIAN, SCRIPT_JAVANESE
+  , SCRIPT_KAITHI, SCRIPT_LISU, SCRIPT_MEETEI_MAYEK, SCRIPT_OLD_SOUTH_ARABIAN
+  , SCRIPT_OLD_TURKIC, SCRIPT_SAMARITAN, SCRIPT_TAI_THAM, SCRIPT_TAI_VIET, SCRIPT_BATAK
+  , SCRIPT_BRAHMI, SCRIPT_MANDAIC, SCRIPT_CHAKMA, SCRIPT_MEROITIC_CURSIVE
+  , SCRIPT_MEROITIC_HIEROGLYPHS, SCRIPT_MIAO, SCRIPT_SHARADA, SCRIPT_SORA_SOMPENG
+  , SCRIPT_TAKRI, SCRIPT_BASSA_VAH, SCRIPT_CAUCASIAN_ALBANIAN, SCRIPT_DUPLOYAN
+  , SCRIPT_ELBASAN, SCRIPT_GRANTHA, SCRIPT_KHOJKI, SCRIPT_KHUDAWADI, SCRIPT_LINEAR_A
+  , SCRIPT_MAHAJANI, SCRIPT_MANICHAEAN, SCRIPT_MENDE_KIKAKUI, SCRIPT_MODI, SCRIPT_MRO
+  , SCRIPT_NABATAEAN, SCRIPT_OLD_NORTH_ARABIAN, SCRIPT_OLD_PERMIC, SCRIPT_PAHAWH_HMONG
+  , SCRIPT_PALMYRENE, SCRIPT_PAU_CIN_HAU, SCRIPT_PSALTER_PAHLAVI, SCRIPT_SIDDHAM
+  , SCRIPT_TIRHUTA, SCRIPT_WARANG_CITI, SCRIPT_AHOM, SCRIPT_ANATOLIAN_HIEROGLYPHS
+  , SCRIPT_HATRAN, SCRIPT_MULTANI, SCRIPT_OLD_HUNGARIAN, SCRIPT_SIGNWRITING, SCRIPT_ADLAM
+  , SCRIPT_BHAIKSUKI, SCRIPT_MARCHEN, SCRIPT_OSAGE, SCRIPT_TANGUT, SCRIPT_NEWA
+  , SCRIPT_MASARAM_GONDI, SCRIPT_NUSHU, SCRIPT_SOYOMBO, SCRIPT_ZANABAZAR_SQUARE
+  , SCRIPT_DOGRA, SCRIPT_GUNJALA_GONDI, SCRIPT_HANIFI_ROHINGYA, SCRIPT_MAKASAR
+  , SCRIPT_MEDEFAIDRIN, SCRIPT_OLD_SOGDIAN, SCRIPT_SOGDIAN, SCRIPT_ELYMAIC, SCRIPT_NANDINAGARI
+  , SCRIPT_NYIAKENG_PUACHUE_HMONG, SCRIPT_WANCHO, SCRIPT_INVALID
+  , SCRIPT__MAX_VALUE
+  , SCRIPT__MAX_VALUE_SIGNED
+  )
+, MemoryMode
+  ( MemoryMode
+  , MEMORY_MODE_DUPLICATE, MEMORY_MODE_READONLY, MEMORY_MODE_WRITABLE, MEMORY_MODE_READONLY_MAY_MAKE_WRITABLE
+  )
+, Direction
+  ( Direction
+  , DIRECTION_INVALID, DIRECTION_LTR, DIRECTION_RTL, DIRECTION_BTT, DIRECTION_TTB
+  )
+, Language
+  ( Language
+  )
   -- * internals
-  , withSelf
-  , cbool
-  , newByteStringCStringLen
-  , harfbuzzCtx
-  ) where
+, withSelf, withPtr
+, cbool
+, newByteStringCStringLen
+, harfbuzzCtx
+) where
 
 import qualified Data.ByteString as Strict
 import qualified Data.ByteString.Internal as Strict
@@ -212,6 +87,7 @@ import Foreign
 import Data.Coerce
 import Data.Data (Data)
 import Data.Default (Default(..))
+import Data.Function ((&))
 import qualified Data.Map as Map
 import Data.String
 import Foreign.C
@@ -228,6 +104,8 @@ import Text.Read
 newtype Blob = Blob { getBlob :: ForeignPtr Blob } deriving (Eq, Ord, Show, Data)
 
 newtype Buffer = Buffer { getBuffer :: ForeignPtr Buffer } deriving (Eq, Ord, Show, Data)
+
+newtype Language = Language { getLanguage :: Ptr Language } deriving (Eq, Ord, Show, Data) -- we never manage
 
 newtype Tag = Tag Word32 deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
 {-# complete Tag #-}
@@ -255,23 +133,11 @@ pattern TAG a b c d <- (untag -> (a,b,c,d)) where
     unsafeShiftL (c2w c .&. 0xff) 8  .|.
     (c2w d .&. 0xff)
 
-pattern TAG_NONE :: Tag
-pattern TAG_NONE = #const HB_TAG_NONE
-
-pattern TAG_MAX:: Tag
-pattern TAG_MAX = #const HB_TAG_MAX
-
-pattern TAG_MAX_SIGNED :: Tag
-pattern TAG_MAX_SIGNED = #const HB_TAG_MAX_SIGNED
-
 instance Show Tag where
   showsPrec e (TAG a b c d) = showsPrec e [a,b,c,d]
 
 instance Read Tag where
   readPrec = fromString <$> step readPrec
-
-instance Default Tag where
-  def = TAG_NONE
 
 instance IsString Tag where
   fromString [] = TAG ' ' ' ' ' ' ' '
@@ -287,6 +153,101 @@ instance Show Script where
 
 instance Read Script where
   readPrec = fromString <$> step readPrec
+
+newtype Direction = Direction Word32  deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+
+newtype MemoryMode = MemoryMode CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+
+
+C.context $ C.baseCtx <> mempty
+  { C.ctxTypesTable = Map.fromList
+    [ (C.TypeName "hb_blob_t", [t| Blob |])
+    , (C.TypeName "hb_buffer_t", [t| Buffer |])
+    , (C.TypeName "hb_tag_t", [t| Tag |])
+    , (C.TypeName "hb_script_t", [t| Script |])
+    , (C.TypeName "hb_direction_t", [t| Direction |])
+    , (C.TypeName "hb_language_impl_t", [t| Language |])
+    , (C.TypeName "hb_language_t", [t| Ptr Language |])
+    ]
+  }
+
+C.include "<hb.h>"
+
+instance Default Blob where
+  def = unsafeLocalState $ [C.exp|hb_blob_t * { hb_blob_get_empty() }|] >>= fmap Blob . newForeignPtr_ 
+  {-# noinline def #-}
+
+instance Default Buffer where
+  def = unsafeLocalState $ [C.exp|hb_buffer_t * { hb_buffer_get_empty() }|] >>= fmap Buffer . newForeignPtr_ 
+  {-# noinline def #-}
+
+instance Default Tag where
+  def = TAG_NONE
+
+-- damnit ffi
+instance IsString Script where
+  fromString (fromString -> tag) = [C.pure|hb_script_t { hb_script_from_iso15924_tag($(hb_tag_t tag)) }|]
+
+instance IsString Direction where
+  fromString s = unsafeLocalState $
+    withCStringLen (take 1 s) $ \(cstr,fromIntegral -> l) ->
+      [C.exp|hb_direction_t { hb_direction_from_string($(const char * cstr),$(int l)) }|]
+
+instance IsString Language where
+  fromString s = unsafeLocalState $
+    withCStringLen s $ \(cstr,fromIntegral -> l) ->
+      Language <$> [C.exp|hb_language_t { hb_language_from_string($(const char * cstr),$(int l)) }|]
+
+withPtr :: forall a r. Coercible a (Ptr a) => a -> (Ptr a -> IO r) -> IO r
+withPtr = (&) . coerce
+
+withSelf :: forall a r. Coercible a (ForeignPtr a) => a -> (Ptr a -> IO r) -> IO r
+withSelf = withForeignPtr . coerce
+
+cbool :: CInt -> Bool
+cbool = toEnum . fromIntegral
+
+-- | Copies 'ByteString' to newly allocated 'CString'. The result must be
+-- | explicitly freed using 'free' or 'finalizerFree'.
+newByteStringCStringLen :: Strict.ByteString -> IO CStringLen
+newByteStringCStringLen (Strict.PS fp o l) = do
+  buf <- mallocBytes (l + 1)
+  withForeignPtr fp $ \p -> do
+    Strict.memcpy buf (p `plusPtr` o) l
+    pokeByteOff buf l (0::Word8)
+    return (castPtr buf, l)
+
+-- * constants
+
+pattern TAG_NONE :: Tag
+pattern TAG_MAX:: Tag
+pattern TAG_MAX_SIGNED :: Tag
+
+pattern TAG_NONE = #const HB_TAG_NONE
+pattern TAG_MAX = #const HB_TAG_MAX
+pattern TAG_MAX_SIGNED = #const HB_TAG_MAX_SIGNED
+
+pattern DIRECTION_INVALID :: Direction
+pattern DIRECTION_LTR :: Direction
+pattern DIRECTION_RTL :: Direction
+pattern DIRECTION_TTB :: Direction
+pattern DIRECTION_BTT :: Direction
+
+pattern DIRECTION_INVALID = #const HB_DIRECTION_INVALID
+pattern DIRECTION_LTR = #const HB_DIRECTION_LTR
+pattern DIRECTION_RTL = #const HB_DIRECTION_RTL
+pattern DIRECTION_TTB = #const HB_DIRECTION_TTB
+pattern DIRECTION_BTT = #const HB_DIRECTION_BTT
+
+pattern MEMORY_MODE_DUPLICATE :: MemoryMode
+pattern MEMORY_MODE_READONLY :: MemoryMode
+pattern MEMORY_MODE_WRITABLE :: MemoryMode
+pattern MEMORY_MODE_READONLY_MAY_MAKE_WRITABLE :: MemoryMode
+
+pattern MEMORY_MODE_DUPLICATE = #const HB_MEMORY_MODE_DUPLICATE
+pattern MEMORY_MODE_READONLY = #const HB_MEMORY_MODE_READONLY
+pattern MEMORY_MODE_WRITABLE = #const HB_MEMORY_MODE_WRITABLE
+pattern MEMORY_MODE_READONLY_MAY_MAKE_WRITABLE = #const HB_MEMORY_MODE_READONLY_MAY_MAKE_WRITABLE
 
 pattern SCRIPT_COMMON :: Script
 pattern SCRIPT_INHERITED :: Script
@@ -602,73 +563,6 @@ pattern SCRIPT_INVALID = #const HB_SCRIPT_INVALID
 pattern SCRIPT__MAX_VALUE = #const _HB_SCRIPT_MAX_VALUE
 pattern SCRIPT__MAX_VALUE_SIGNED = #const _HB_SCRIPT_MAX_VALUE_SIGNED
 
-newtype Direction = Direction Word32  deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
-
-pattern DIRECTION_INVALID :: Direction
-pattern DIRECTION_LTR :: Direction
-pattern DIRECTION_RTL :: Direction
-pattern DIRECTION_TTB :: Direction
-pattern DIRECTION_BTT :: Direction
-
-pattern DIRECTION_INVALID = #const HB_DIRECTION_INVALID
-pattern DIRECTION_LTR = #const HB_DIRECTION_LTR
-pattern DIRECTION_RTL = #const HB_DIRECTION_RTL
-pattern DIRECTION_TTB = #const HB_DIRECTION_TTB
-pattern DIRECTION_BTT = #const HB_DIRECTION_BTT
-
-newtype MemoryMode = MemoryMode CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
-
-pattern MEMORY_MODE_DUPLICATE :: MemoryMode
-pattern MEMORY_MODE_READONLY :: MemoryMode
-pattern MEMORY_MODE_WRITABLE :: MemoryMode
-pattern MEMORY_MODE_READONLY_MAY_MAKE_WRITABLE :: MemoryMode
-
-pattern MEMORY_MODE_DUPLICATE = #const HB_MEMORY_MODE_DUPLICATE
-pattern MEMORY_MODE_READONLY = #const HB_MEMORY_MODE_READONLY
-pattern MEMORY_MODE_WRITABLE = #const HB_MEMORY_MODE_WRITABLE
-pattern MEMORY_MODE_READONLY_MAY_MAKE_WRITABLE = #const HB_MEMORY_MODE_READONLY_MAY_MAKE_WRITABLE
-
-C.context $ C.baseCtx <> mempty
-  { C.ctxTypesTable = Map.fromList
-    [ (C.TypeName "hb_blob_t", [t| Blob |])
-    , (C.TypeName "hb_buffer_t", [t| Buffer |])
-    , (C.TypeName "hb_tag_t", [t| Tag |])
-    , (C.TypeName "hb_script_t", [t| Script |])
-    , (C.TypeName "hb_direction_t", [t| Direction |])
-    ]
-  }
-
-C.include "<hb.h>"
-
--- damnit ffi
-instance IsString Script where
-  fromString (fromString -> tag) = [C.pure|hb_script_t { hb_script_from_iso15924_tag($(hb_tag_t tag)) }|]
-
-instance Default Blob where
-  def = unsafeLocalState $ [C.exp|hb_blob_t * { hb_blob_get_empty() }|] >>= fmap Blob . newForeignPtr_ 
-  {-# noinline def #-}
-
-instance Default Buffer where
-  def = unsafeLocalState $ [C.exp|hb_buffer_t * { hb_buffer_get_empty() }|] >>= fmap Buffer . newForeignPtr_ 
-  {-# noinline def #-}
-
-
-withSelf :: Coercible a (ForeignPtr a) => a -> (Ptr a -> IO r) -> IO r
-withSelf = withForeignPtr . coerce
-
-cbool :: CInt -> Bool
-cbool = toEnum . fromIntegral
-
--- | Copies 'ByteString' to newly allocated 'CString'. The result must be
--- | explicitly freed using 'free' or 'finalizerFree'.
-newByteStringCStringLen :: Strict.ByteString -> IO CStringLen
-newByteStringCStringLen (Strict.PS fp o l) = do
-  buf <- mallocBytes (l + 1)
-  withForeignPtr fp $ \p -> do
-    Strict.memcpy buf (p `plusPtr` o) l
-    pokeByteOff buf l (0::Word8)
-    return (castPtr buf, l)
-
 -- * Inline C context
 
 getHsVariable :: String -> C.HaskellIdentifier -> TH.ExpQ
@@ -702,11 +596,15 @@ harfbuzzCtx = mempty
     , (C.TypeName "hb_tag_t", [t| Tag |])
     , (C.TypeName "hb_script_t", [t| Script |])
     , (C.TypeName "hb_direction_t", [t| Direction |])
+    , (C.TypeName "hb_language_impl_t", [t| Language |])
+    , (C.TypeName "hb_language_t", [t| Ptr Language |])
     ]
   , C.ctxAntiQuoters = Map.fromList
-    [ ("ustr",        anti (C.Ptr [C.CONST] (C.TypeSpecifier mempty (C.Char (Just C.Unsigned)))) [t| CUChar |] [| withCUString |])
-    , ("str",         anti (C.Ptr [C.CONST] (C.TypeSpecifier mempty (C.Char Nothing))) [t| CChar |] [| withCString |])
+    [ ("ustr",        anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char (Just C.Unsigned))) [t| CUChar |] [| withCUString |])
+    , ("str",         anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char Nothing)) [t| CChar |] [| withCString |])
     , ("blob",        anti (ptr (C.TypeName "hb_blob_t")) [t| Blob |] [| withSelf |])
     , ("buffer",      anti (ptr (C.TypeName "hb_buffer_t")) [t| Buffer |] [| withSelf |])
+    , ("language",    anti (C.TypeSpecifier mempty $ C.TypeName "hb_language_t") [t| Language |] [| withPtr |])
     ]
   } where ptr = C.Ptr [] . C.TypeSpecifier mempty
+
