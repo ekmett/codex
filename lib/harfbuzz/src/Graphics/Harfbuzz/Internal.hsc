@@ -44,14 +44,13 @@ module Graphics.Harfbuzz.Internal
   , BUFFER_FLAG_REMOVE_DEFAULT_IGNORABLES
   , BUFFER_FLAG_DO_NOT_INSERT_DOTTED_CIRCLE
   )
-, Char
-  ( BUFFER_REPLACEMENT_CODEPOINT_DEFAULT
-  )
+, pattern BUFFER_REPLACEMENT_CODEPOINT_DEFAULT
 , Direction
   ( Direction
   , DIRECTION_INVALID, DIRECTION_LTR, DIRECTION_RTL, DIRECTION_BTT, DIRECTION_TTB
   )
 , direction_to_string, direction_from_string
+, Face(..)
 , Feature(..)
 , feature_to_string, feature_from_string
 , GlyphFlags
@@ -69,6 +68,7 @@ module Graphics.Harfbuzz.Internal
   , MEMORY_MODE_DUPLICATE, MEMORY_MODE_READONLY
   , MEMORY_MODE_WRITABLE, MEMORY_MODE_READONLY_MAY_MAKE_WRITABLE
   )
+, ReferenceTableFunc
 , Script
   ( Script
   , SCRIPT_COMMON, SCRIPT_INHERITED, SCRIPT_UNKNOWN, SCRIPT_ARABIC, SCRIPT_ARMENIAN
@@ -257,9 +257,9 @@ import Text.Read
 
 #include <hb.h>
 
-newtype Blob = Blob (ForeignPtr Blob) deriving (Eq, Ord, Show, Data)
+newtype Blob = Blob (ForeignPtr Blob) deriving (Eq,Ord,Show,Data)
 
-newtype Buffer = Buffer (ForeignPtr Buffer) deriving (Eq, Ord, Show, Data)
+newtype Buffer = Buffer (ForeignPtr Buffer) deriving (Eq,Ord,Show,Data)
 
 newtype BufferClusterLevel = BufferClusterLevel CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 
@@ -268,6 +268,8 @@ newtype BufferContentType = BufferContentType CInt deriving (Eq,Ord,Show,Read,Nu
 newtype BufferFlags = BufferFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
 
 newtype Direction = Direction Word32  deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
+
+newtype Face = Face (ForeignPtr Face) deriving (Eq,Ord,Show,Data)
 
 data Feature = Feature
   { feature_tag :: {-# unpack #-} !Tag
@@ -292,11 +294,13 @@ instance Storable Feature where
 newtype GlyphFlags = GlyphFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
 
 data OpaqueKey deriving Data
-newtype Key a = Key (ForeignPtr OpaqueKey) deriving (Eq, Ord, Show, Data)
+newtype Key a = Key (ForeignPtr OpaqueKey) deriving (Eq,Ord,Show,Data)
 
-newtype Language = Language (Ptr Language) deriving (Eq, Ord, Data, Storable) -- we never manage
+newtype Language = Language (Ptr Language) deriving (Eq,Ord,Data,Storable) -- we never manage
 
 newtype MemoryMode = MemoryMode CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+
+type ReferenceTableFunc a = Ptr Face -> Tag -> Ptr a -> IO (Ptr Blob)
 
 newtype Script = Script Word32 deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
 instance Show Script where showsPrec e (Script w) = showsPrec e (Tag w)
@@ -364,7 +368,7 @@ type UnicodeComposeFunc a = Ptr UnicodeFuncs -> Char -> Char -> Ptr Char -> Ptr 
 
 type UnicodeDecomposeFunc a = Ptr UnicodeFuncs -> Char -> Ptr Char -> Ptr Char -> Ptr a -> IO CInt -- hb_bool_t
 
-newtype UnicodeFuncs = UnicodeFuncs (ForeignPtr UnicodeFuncs) deriving (Eq, Ord, Show, Data)
+newtype UnicodeFuncs = UnicodeFuncs (ForeignPtr UnicodeFuncs) deriving (Eq,Ord,Show,Data)
 
 newtype UnicodeGeneralCategory = UnicodeGeneralCategory CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 
@@ -396,6 +400,7 @@ C.context $ C.baseCtx <> mempty
     [ (C.TypeName "hb_blob_t", [t| Blob |])
     , (C.TypeName "hb_buffer_t", [t| Buffer |])
     , (C.TypeName "hb_direction_t", [t| Direction |])
+    , (C.TypeName "hb_face_t", [t| Face |])
     , (C.TypeName "hb_feature_t", [t| Feature |])
     , (C.TypeName "hb_language_t", [t| Ptr Language |])
     , (C.TypeName "hb_language_impl_t", [t| Language |])
@@ -430,6 +435,10 @@ direction_to_string t = unsafeLocalState $
 instance IsString Direction where fromString = direction_from_string
 instance Show Direction where showsPrec d = showsPrec d . direction_to_string
 instance Read Direction where readPrec = direction_from_string <$> step readPrec
+
+instance Default Face where
+  def = unsafeLocalState $ [C.exp|hb_face_t * { hb_face_get_empty() }|] >>= fmap Face . newForeignPtr_
+  {-# noinline def #-}
 
 feature_from_string :: String -> Maybe Feature
 feature_from_string s = unsafeLocalState $
@@ -1243,9 +1252,8 @@ pattern GLYPH_FLAG_DEFINED :: GlyphFlags
 pattern GLYPH_FLAG_UNSAFE_TO_BREAK = #const HB_GLYPH_FLAG_UNSAFE_TO_BREAK
 pattern GLYPH_FLAG_DEFINED = #const HB_GLYPH_FLAG_DEFINED
 
-pattern BUFFER_REPLACEMENT_CODEPOINT_DEFAULT :: Char
-pattern BUFFER_REPLACEMENT_CODEPOINT_DEFAULT <- (fromEnum -> (#const HB_BUFFER_REPLACEMENT_CODEPOINT_DEFAULT)) where
-  BUFFER_REPLACEMENT_CODEPOINT_DEFAULT = toEnum (#const HB_BUFFER_REPLACEMENT_CODEPOINT_DEFAULT)
+pattern BUFFER_REPLACEMENT_CODEPOINT_DEFAULT :: Int
+pattern BUFFER_REPLACEMENT_CODEPOINT_DEFAULT = #const HB_BUFFER_REPLACEMENT_CODEPOINT_DEFAULT
 
 pattern VERSION_MAJOR :: Int
 pattern VERSION_MAJOR = #const HB_VERSION_MAJOR
@@ -1295,9 +1303,11 @@ harfbuzzCtx = mempty
     , (C.TypeName "hb_destroy_func_t", [t| FinalizerPtr () |])
     , (C.TypeName "hb_direction_t", [t| Direction |])
     , (C.TypeName "hb_feature_t", [t| Feature |])
+    , (C.TypeName "hb_face_t", [t| Face |])
     , (C.TypeName "hb_language_t", [t| Ptr Language |])
     , (C.TypeName "hb_language_impl_t", [t| Language |])
     , (C.TypeName "hb_memory_mode_t", [t| MemoryMode |])
+    , (C.TypeName "hb_reference_table_func_t", [t| FunPtr (ReferenceTableFunc ()) |])
     , (C.TypeName "hb_script_t", [t| Script |])
     , (C.TypeName "hb_segment_properties_t", [t| SegmentProperties |])
     , (C.TypeName "hb_tag_t", [t| Tag |])
@@ -1318,6 +1328,7 @@ harfbuzzCtx = mempty
     , ("str", anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char Nothing)) [t| CChar |] [| withCString |])
     , ("blob", anti (ptr (C.TypeName "hb_blob_t")) [t| Blob |] [| withSelf |])
     , ("buffer", anti (ptr (C.TypeName "hb_buffer_t")) [t| Buffer |] [| withSelf |])
+    , ("face", anti (ptr (C.TypeName "hb_face_t")) [t| Face |] [| withSelf |])
     , ("feature", anti (ptr (C.TypeName "hb_feature_t")) [t| Feature |] [| with |])
     , ("key", anti (ptr (C.TypeName "hb_user_data_key_t")) [t| OpaqueKey |] [| withKey |])
     , ("language", anti (C.TypeSpecifier mempty $ C.TypeName "hb_language_t") [t| Language |] [| withPtr |])

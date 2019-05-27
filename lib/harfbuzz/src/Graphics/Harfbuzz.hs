@@ -63,13 +63,18 @@ module Graphics.Harfbuzz
   , BufferFlags(..)
   , BufferContentType(..)
   , BufferClusterLevel(..)
-  , Char(BUFFER_REPLACEMENT_CODEPOINT_DEFAULT)
+  , pattern BUFFER_REPLACEMENT_CODEPOINT_DEFAULT
 
   , Direction(..)
   , direction_to_string, direction_from_string
   , direction_reverse, direction_is_valid
   , direction_is_backward, direction_is_forward
   , direction_is_vertical, direction_is_horizontal
+
+  , Face(..)
+  , face_count
+  , face_create
+  , face_create_for_tables
 
   , Feature(..)
   , feature_to_string, feature_from_string
@@ -164,6 +169,17 @@ C.context $ C.baseCtx <> harfbuzzCtx
 C.include "<stdlib.h>"
 C.include "<hb.h>"
 C.include "HsFFI.h"
+
+key_create :: MonadIO m => m (Key a)
+key_create = liftIO $ Key <$> mallocForeignPtrBytes 1
+
+key_create_n :: MonadIO m => Int -> m (Int -> Key a)
+key_create_n n = liftIO $ do
+  fp <- mallocForeignPtrBytes n
+  return $ \i ->
+    if 0 < i && i < n
+    then Key (plusForeignPtr fp i)
+    else error "key_create_n: accessing an out of bound key"
 
 class IsObject t where
   reference :: MonadIO m => t -> m ()
@@ -308,8 +324,6 @@ buffer_guess_segment_properties b = liftIO [C.block|void { hb_buffer_guess_segme
 buffer_normalize_glyphs :: MonadIO m => Buffer -> m ()
 buffer_normalize_glyphs b = liftIO [C.block|void { hb_buffer_normalize_glyphs($buffer:b); }|]
 
--- * buffer statevars
-
 buffer_direction :: Buffer -> StateVar Direction
 buffer_direction b = StateVar g s where
   g = [C.exp|hb_direction_t { hb_buffer_get_direction($buffer:b) }|]
@@ -362,23 +376,13 @@ buffer_invisible_glyph b = StateVar g s where
   g = [C.exp|hb_codepoint_t { hb_buffer_get_invisible_glyph($buffer:b) }|]
   s v = [C.block|void { hb_buffer_set_invisible_glyph($buffer:b,$(hb_codepoint_t v)); }|]
 
-buffer_replacement_codepoint :: Buffer -> StateVar Char
+-- | Note: this should be in the form of a glyph, not a codepoint.
+buffer_replacement_codepoint :: Buffer -> StateVar Int
 buffer_replacement_codepoint b = StateVar g s where
-  g = [C.exp|hb_codepoint_t { hb_buffer_get_replacement_codepoint($buffer:b) }|]
-  s v = [C.block|void { hb_buffer_set_replacement_codepoint($buffer:b,$(hb_codepoint_t v)); }|]
-
--- * 4 character tags
-
-tag_from_string :: String -> Tag
-tag_from_string = fromString
-
-tag_to_string :: Tag -> String
-tag_to_string t = unsafeLocalState $ allocaBytes 4 $ \buf -> do
-  [C.exp|void { hb_tag_to_string($(hb_tag_t t),$(char * buf)) }|]
-  peekCStringLen (buf,4)
+  g = [C.exp|hb_codepoint_t { hb_buffer_get_replacement_codepoint($buffer:b) }|] <&> fromEnum
+  s (toEnum -> v) = [C.block|void { hb_buffer_set_replacement_codepoint($buffer:b,$(hb_codepoint_t v)); }|]
 
 -- * directions
-
 
 direction_reverse :: Direction -> Direction
 direction_reverse d = [C.pure|hb_direction_t { HB_DIRECTION_REVERSE($(hb_direction_t d)) }|]
@@ -398,6 +402,34 @@ direction_is_vertical d = cbool [C.pure|int { HB_DIRECTION_IS_VERTICAL($(hb_dire
 direction_is_valid :: Direction -> Bool
 direction_is_valid d = cbool [C.pure|int { HB_DIRECTION_IS_VALID($(hb_direction_t d)) }|]
 
+-- * font faces
+
+face_count :: MonadIO m => Blob -> m Int
+face_count b = liftIO $ [C.exp|int { hb_face_count($blob:b) }|] <&> fromIntegral
+
+face_create :: MonadIO m => Blob -> Int -> m Face
+face_create b (fromIntegral -> i) = liftIO $
+  [C.exp|hb_face_t * { hb_face_create($blob:b,$(int i)) }|] >>= foreignFace
+
+face_create_for_tables :: MonadIO m => (Face -> Tag -> IO Blob) -> m Face
+face_create_for_tables fun = liftIO $ do
+  (castFunPtr -> f) <- mkReferenceTableFunc $ \ pface tag _ -> do
+    face <- [C.exp|hb_face_t * { hb_face_reference($(hb_face_t * pface)) }|] >>= foreignFace
+    b <- fun face tag
+    [C.exp|hb_blob_t * { hb_blob_reference($blob:b) }|]
+  [C.block|hb_face_t * {
+    hb_reference_table_func_t f = $(hb_reference_table_func_t f);
+    return hb_face_create_for_tables(f,f,(hb_destroy_func_t)hs_free_fun_ptr);
+  }|] >>= foreignFace
+
+-- * language
+
+-- | The first time this is called it calls setLocale, which isn't thread safe.
+-- For multithreaded use, first call once in an isolated fashion
+language_get_default :: MonadIO m => m Language
+language_get_default = liftIO $
+  Language <$> [C.exp|hb_language_t { hb_language_get_default() }|]
+
 -- * scripts
 
 script_from_iso15924_tag :: Tag -> Script
@@ -415,14 +447,15 @@ script_from_string = script_from_iso15924_tag . tag_from_string
 script_to_string :: Script -> String
 script_to_string = tag_to_string . script_to_iso15924_tag
 
--- * language
+-- * 4 character tags
 
--- | The first time this is called it calls setLocale, which isn't thread safe.
+tag_from_string :: String -> Tag
+tag_from_string = fromString
 
--- For multithreaded use, first call once in an isolated fashion
-language_get_default :: MonadIO m => m Language
-language_get_default = liftIO $
-  Language <$> [C.exp|hb_language_t { hb_language_get_default() }|]
+tag_to_string :: Tag -> String
+tag_to_string t = unsafeLocalState $ allocaBytes 4 $ \buf -> do
+  [C.exp|void { hb_tag_to_string($(hb_tag_t t),$(char * buf)) }|]
+  peekCStringLen (buf,4)
 
 -- * unicode functions
 
@@ -457,6 +490,7 @@ foreign import ccall "wrapper" mkUnicodeDecomposeFunc :: UnicodeDecomposeFunc a 
 foreign import ccall "wrapper" mkUnicodeGeneralCategoryFunc :: UnicodeGeneralCategoryFunc a -> IO (FunPtr (UnicodeGeneralCategoryFunc a))
 foreign import ccall "wrapper" mkUnicodeMirroringFunc :: UnicodeMirroringFunc a -> IO (FunPtr (UnicodeMirroringFunc a))
 foreign import ccall "wrapper" mkUnicodeScriptFunc :: UnicodeScriptFunc a -> IO (FunPtr (UnicodeScriptFunc a))
+foreign import ccall "wrapper" mkReferenceTableFunc :: ReferenceTableFunc a -> IO (FunPtr (ReferenceTableFunc a))
 
 unicode_funcs_set_combining_class_func :: MonadIO m => UnicodeFuncs -> (Char -> IO UnicodeCombiningClass) -> m ()
 unicode_funcs_set_combining_class_func uf fun = liftIO $ do
@@ -465,6 +499,7 @@ unicode_funcs_set_combining_class_func uf fun = liftIO $ do
     hb_unicode_combining_class_func_t f = $(hb_unicode_combining_class_func_t f);
     hb_unicode_funcs_set_combining_class_func($unicode-funcs:uf,f,f,(hb_destroy_func_t)hs_free_fun_ptr);
   }|]
+
 unicode_funcs_set_compose_func :: MonadIO m => UnicodeFuncs -> (Char -> Char -> IO (Maybe Char)) -> m ()
 unicode_funcs_set_compose_func uf fun = liftIO $ do
   (castFunPtr -> f) <- mkUnicodeComposeFunc $ \ _ a b c _ -> fun a b >>= \case
@@ -534,17 +569,6 @@ unicode_mirroring uf a = liftIO [C.exp|hb_codepoint_t { hb_unicode_mirroring($un
 unicode_script :: MonadIO m => UnicodeFuncs -> Char -> m Script
 unicode_script uf a = liftIO [C.exp|hb_script_t { hb_unicode_script($unicode-funcs:uf,$(hb_codepoint_t a)) }|]
 
-key_create :: MonadIO m => m (Key a)
-key_create = liftIO $ Key <$> mallocForeignPtrBytes 1
-
-key_create_n :: MonadIO m => Int -> m (Int -> Key a)
-key_create_n n = liftIO $ do
-  fp <- mallocForeignPtrBytes n
-  return $ \i ->
-    if 0 < i && i < n
-    then Key (plusForeignPtr fp i)
-    else error "key_create_n: accessing an out of bound key"
-
 instance IsObject UnicodeFuncs where
   reference uf = liftIO [C.block|void { hb_unicode_funcs_reference($unicode-funcs:uf); }|]
   destroy uf = liftIO [C.block|void { hb_unicode_funcs_destroy($unicode-funcs:uf); }|]
@@ -574,9 +598,13 @@ foreignBlob = fmap Blob . newForeignPtr _hb_blob_destroy
 foreignBuffer :: Ptr Buffer -> IO Buffer
 foreignBuffer = fmap Buffer . newForeignPtr _hb_buffer_destroy
 
+foreignFace :: Ptr Face -> IO Face
+foreignFace = fmap Face . newForeignPtr _hb_face_destroy
+
 foreignUnicodeFuncs :: Ptr UnicodeFuncs -> IO UnicodeFuncs
 foreignUnicodeFuncs = fmap UnicodeFuncs . newForeignPtr _hb_unicode_funcs_destroy
 
-foreign import ccall "hb.h &hb_blob_destroy" _hb_blob_destroy :: FinalizerPtr Blob
-foreign import ccall "hb.h &hb_buffer_destroy" _hb_buffer_destroy :: FinalizerPtr Buffer
+foreign import ccall "hb.h &hb_blob_destroy"          _hb_blob_destroy          :: FinalizerPtr Blob
+foreign import ccall "hb.h &hb_buffer_destroy"        _hb_buffer_destroy        :: FinalizerPtr Buffer
+foreign import ccall "hb.h &hb_face_destroy"          _hb_face_destroy          :: FinalizerPtr Face
 foreign import ccall "hb.h &hb_unicode_funcs_destroy" _hb_unicode_funcs_destroy :: FinalizerPtr UnicodeFuncs
