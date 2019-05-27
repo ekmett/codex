@@ -111,11 +111,13 @@ module Graphics.Harfbuzz.Internal
   ( Tag, TAG
   , TAG_NONE, TAG_MAX, TAG_MAX_SIGNED
   )
+, UnicodeFuncs(..)
+, Key(..), withKey
 , Variation(..)
 , variation_to_string, variation_from_string
 -- * internals
 , withSelf, withPtr
-, cbool
+, cbool, boolc
 , newByteStringCStringLen
 , harfbuzzCtx
 ) where
@@ -148,6 +150,11 @@ newtype Blob = Blob (ForeignPtr Blob) deriving (Eq, Ord, Show, Data)
 newtype Buffer = Buffer (ForeignPtr Buffer) deriving (Eq, Ord, Show, Data)
 
 newtype Language = Language (Ptr Language) deriving (Eq, Ord, Data, Storable) -- we never manage
+
+newtype UnicodeFuncs = UnicodeFuncs (ForeignPtr UnicodeFuncs) deriving (Eq, Ord, Show, Data)
+
+data OpaqueKey deriving Data
+newtype Key a = Key (ForeignPtr OpaqueKey) deriving (Eq, Ord, Show, Data)
 
 newtype Tag = Tag Word32 deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
 {-# complete Tag #-}
@@ -269,6 +276,8 @@ C.context $ C.baseCtx <> mempty
     , (C.TypeName "hb_language_impl_t", [t| Language |])
     , (C.TypeName "hb_script_t", [t| Script |])
     , (C.TypeName "hb_tag_t", [t| Tag |])
+    , (C.TypeName "hb_unicode_funcs_t", [t| UnicodeFuncs |])
+    , (C.TypeName "hb_user_data_key_t", [t| ForeignPtr OpaqueKey |])
     , (C.TypeName "hb_variation_t", [t| Variation |])
     , (C.TypeName "hb_bool_t", [t| CInt |])
     ]
@@ -282,6 +291,11 @@ instance Default Blob where
 
 instance Default Buffer where
   def = unsafeLocalState $ [C.exp|hb_buffer_t * { hb_buffer_get_empty() }|] >>= fmap Buffer . newForeignPtr_
+  {-# noinline def #-}
+
+-- | Note: @hb_unicode_funcs_get_empty@ not @hb_unicode_funcs_get_default@!
+instance Default UnicodeFuncs where
+  def = unsafeLocalState $ [C.exp|hb_unicode_funcs_t * { hb_unicode_funcs_get_empty() }|] >>= fmap UnicodeFuncs . newForeignPtr_
   {-# noinline def #-}
 
 instance Default Tag where
@@ -384,6 +398,9 @@ withSelf = withForeignPtr . coerce
 
 cbool :: CInt -> Bool
 cbool = toEnum . fromIntegral
+
+boolc :: Bool -> CInt
+boolc = fromIntegral . fromEnum
 
 -- | Copies 'ByteString' to newly allocated 'CString'. The result must be
 -- | explicitly freed using 'free' or 'finalizerFree'.
@@ -815,6 +832,9 @@ anti cTy hsTyQ w = C.SomeAntiQuoter C.AntiQuoter
     return (hsTy, hsExp')
   }
 
+withKey :: Key a -> (Ptr OpaqueKey -> IO r) -> IO r
+withKey (Key k) = withForeignPtr k
+
 harfbuzzCtx :: C.Context
 harfbuzzCtx = mempty
   { C.ctxTypesTable = Map.fromList
@@ -824,6 +844,8 @@ harfbuzzCtx = mempty
     , (C.TypeName "hb_buffer_content_type_t", [t| BufferContentType |])
     , (C.TypeName "hb_buffer_flags_t", [t| BufferFlags |])
     , (C.TypeName "hb_bool_t", [t| CInt |])
+    , (C.TypeName "hb_codepoint_t", [t| Char |])
+    , (C.TypeName "hb_destroy_func_t", [t| FinalizerPtr () |])
     , (C.TypeName "hb_direction_t", [t| Direction |])
     , (C.TypeName "hb_feature_t", [t| Feature |])
     , (C.TypeName "hb_language_t", [t| Ptr Language |])
@@ -831,16 +853,19 @@ harfbuzzCtx = mempty
     , (C.TypeName "hb_memory_mode_t", [t| MemoryMode |])
     , (C.TypeName "hb_script_t", [t| Script |])
     , (C.TypeName "hb_segment_properties_t", [t| SegmentProperties |])
+    , (C.TypeName "hb_unicode_funcs_t", [t| UnicodeFuncs |])
+    , (C.TypeName "hb_user_data_key_t", [t| OpaqueKey |])
+    , (C.TypeName "hb_variation_t", [t| Variation |])
     , (C.TypeName "hb_tag_t", [t| Tag |])
-    , (C.TypeName "hb_codepoint_t", [t| Char |])
     ]
   , C.ctxAntiQuoters = Map.fromList
-    [ ("ustr",        anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char (Just C.Unsigned))) [t| CUChar |] [| withCUString |])
-    , ("str",         anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char Nothing)) [t| CChar |] [| withCString |])
-    , ("blob",        anti (ptr (C.TypeName "hb_blob_t")) [t| Blob |] [| withSelf |])
-    , ("buffer",      anti (ptr (C.TypeName "hb_buffer_t")) [t| Buffer |] [| withSelf |])
-    , ("feature",     anti (ptr (C.TypeName "hb_feature_t")) [t| Feature |] [| with |])
-    , ("language",    anti (C.TypeSpecifier mempty $ C.TypeName "hb_language_t") [t| Language |] [| withPtr |])
+    [ ("ustr", anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char (Just C.Unsigned))) [t| CUChar |] [| withCUString |])
+    , ("str", anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char Nothing)) [t| CChar |] [| withCString |])
+    , ("blob", anti (ptr (C.TypeName "hb_blob_t")) [t| Blob |] [| withSelf |])
+    , ("buffer", anti (ptr (C.TypeName "hb_buffer_t")) [t| Buffer |] [| withSelf |])
+    , ("feature", anti (ptr (C.TypeName "hb_feature_t")) [t| Feature |] [| with |])
+    , ("language", anti (C.TypeSpecifier mempty $ C.TypeName "hb_language_t") [t| Language |] [| withPtr |])
+    , ("unicode-funcs", anti (ptr (C.TypeName "hb_unicode_funcs_t")) [t| UnicodeFuncs |] [| withSelf |])
+    , ("key", anti (ptr (C.TypeName "hb_user_data_key_t")) [t| OpaqueKey |] [| withKey |])
     ]
   } where ptr = C.Ptr [] . C.TypeSpecifier mempty
-
