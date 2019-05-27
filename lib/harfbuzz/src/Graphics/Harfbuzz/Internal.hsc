@@ -17,6 +17,7 @@
 -- As an internal module, I don't consider this module as supported by the PVP. Be careful.
 module Graphics.Harfbuzz.Internal
   ( Blob(..)
+  , Buffer(..)
   , Tag
     ( Tag
     , TAG
@@ -224,7 +225,9 @@ import Text.Read
 
 #include <hb.h>
 
-newtype Blob = Blob { getConfig :: ForeignPtr Blob } deriving (Eq, Ord, Show, Data)
+newtype Blob = Blob { getBlob :: ForeignPtr Blob } deriving (Eq, Ord, Show, Data)
+
+newtype Buffer = Buffer { getBuffer :: ForeignPtr Buffer } deriving (Eq, Ord, Show, Data)
 
 newtype Tag = Tag Word32 deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
 {-# complete Tag #-}
@@ -628,6 +631,7 @@ pattern MEMORY_MODE_READONLY_MAY_MAKE_WRITABLE = #const HB_MEMORY_MODE_READONLY_
 C.context $ C.baseCtx <> mempty
   { C.ctxTypesTable = Map.fromList
     [ (C.TypeName "hb_blob_t", [t| Blob |])
+    , (C.TypeName "hb_buffer_t", [t| Buffer |])
     , (C.TypeName "hb_tag_t", [t| Tag |])
     , (C.TypeName "hb_script_t", [t| Script |])
     , (C.TypeName "hb_direction_t", [t| Direction |])
@@ -643,6 +647,11 @@ instance IsString Script where
 instance Default Blob where
   def = unsafeLocalState $ [C.exp|hb_blob_t * { hb_blob_get_empty() }|] >>= fmap Blob . newForeignPtr_ 
   {-# noinline def #-}
+
+instance Default Buffer where
+  def = unsafeLocalState $ [C.exp|hb_buffer_t * { hb_buffer_get_empty() }|] >>= fmap Buffer . newForeignPtr_ 
+  {-# noinline def #-}
+
 
 withSelf :: Coercible a (ForeignPtr a) => a -> (Ptr a -> IO r) -> IO r
 withSelf = withForeignPtr . coerce
@@ -687,6 +696,7 @@ harfbuzzCtx :: C.Context
 harfbuzzCtx = mempty
   { C.ctxTypesTable = Map.fromList
     [ (C.TypeName "hb_blob_t", [t| Blob |])
+    , (C.TypeName "hb_buffer_t", [t| Buffer |])
     , (C.TypeName "hb_bool_t", [t| CInt |])
     , (C.TypeName "hb_memory_mode_t", [t| MemoryMode |])
     , (C.TypeName "hb_tag_t", [t| Tag |])
@@ -697,5 +707,6 @@ harfbuzzCtx = mempty
     [ ("ustr",        anti (C.Ptr [C.CONST] (C.TypeSpecifier mempty (C.Char (Just C.Unsigned)))) [t| CUChar |] [| withCUString |])
     , ("str",         anti (C.Ptr [C.CONST] (C.TypeSpecifier mempty (C.Char Nothing))) [t| CChar |] [| withCString |])
     , ("blob",        anti (ptr (C.TypeName "hb_blob_t")) [t| Blob |] [| withSelf |])
+    , ("buffer",      anti (ptr (C.TypeName "hb_buffer_t")) [t| Buffer |] [| withSelf |])
     ]
   } where ptr = C.Ptr [] . C.TypeSpecifier mempty
