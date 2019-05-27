@@ -146,6 +146,7 @@ module Graphics.Harfbuzz.Internal
   , UNICODE_GENERAL_CATEGORY_PARAGRAPH_SEPARATOR
   , UNICODE_GENERAL_CATEGORY_SPACE_SEPARATOR
   )
+, UnicodeGeneralCategoryFunc
 , Key(..), withKey
 , Variation(..)
 , variation_to_string, variation_from_string
@@ -298,7 +299,9 @@ newtype MemoryMode = MemoryMode CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,In
 newtype BufferFlags = BufferFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
 newtype BufferClusterLevel = BufferClusterLevel CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 newtype BufferContentType = BufferContentType CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+
 newtype UnicodeGeneralCategory = UnicodeGeneralCategory CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+type UnicodeGeneralCategoryFunc a = FunPtr (Ptr UnicodeFuncs -> Char -> Ptr a -> IO UnicodeGeneralCategory)
 
 -- * Startup a crippled inline-c context for use in non-orphan instances
 
@@ -1056,6 +1059,8 @@ harfbuzzCtx = mempty
     , (C.TypeName "hb_script_t", [t| Script |])
     , (C.TypeName "hb_segment_properties_t", [t| SegmentProperties |])
     , (C.TypeName "hb_unicode_funcs_t", [t| UnicodeFuncs |])
+    , (C.TypeName "hb_unicode_general_category_t", [t| UnicodeGeneralCategory |])
+    , (C.TypeName "hb_unicode_general_category_func_t", [t| UnicodeGeneralCategoryFunc () |])
     , (C.TypeName "hb_user_data_key_t", [t| OpaqueKey |])
     , (C.TypeName "hb_variation_t", [t| Variation |])
     , (C.TypeName "hb_tag_t", [t| Tag |])
