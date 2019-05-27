@@ -223,6 +223,9 @@ module Graphics.Harfbuzz.Internal
 , Key(..), withKey
 , Variation(..)
 , variation_to_string, variation_from_string
+, pattern VERSION_MAJOR
+, pattern VERSION_MINOR
+, pattern VERSION_MICRO
 -- * internals
 , withSelf, withPtr
 , cbool, boolc
@@ -1243,6 +1246,15 @@ pattern GLYPH_FLAG_DEFINED = #const HB_GLYPH_FLAG_DEFINED
 pattern BUFFER_REPLACEMENT_CODEPOINT_DEFAULT :: Char
 pattern BUFFER_REPLACEMENT_CODEPOINT_DEFAULT <- (fromEnum -> (#const HB_BUFFER_REPLACEMENT_CODEPOINT_DEFAULT)) where
   BUFFER_REPLACEMENT_CODEPOINT_DEFAULT = toEnum (#const HB_BUFFER_REPLACEMENT_CODEPOINT_DEFAULT)
+
+pattern VERSION_MAJOR :: Int
+pattern VERSION_MAJOR = #const HB_VERSION_MAJOR
+
+pattern VERSION_MINOR :: Int
+pattern VERSION_MINOR = #const HB_VERSION_MINOR
+
+pattern VERSION_MICRO :: Int
+pattern VERSION_MICRO = #const HB_VERSION_MICRO
 
 -- * Inline C context
 
