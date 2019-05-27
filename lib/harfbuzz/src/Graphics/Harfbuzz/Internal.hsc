@@ -25,7 +25,7 @@ module Graphics.Harfbuzz.Internal
   ( Direction
   , DIRECTION_INVALID, DIRECTION_LTR, DIRECTION_RTL, DIRECTION_BTT, DIRECTION_TTB
   )
-, Feature(..)
+, Feature(..), feature_to_string, feature_from_string
 , Language(..)
 , MemoryMode
   ( MemoryMode
@@ -82,15 +82,17 @@ module Graphics.Harfbuzz.Internal
 , harfbuzzCtx
 ) where
 
+import Control.Applicative
 import qualified Data.ByteString as Strict
 import qualified Data.ByteString.Internal as Strict
-import Foreign
 import Data.Coerce
 import Data.Data (Data)
 import Data.Default (Default(..))
 import Data.Function ((&))
 import qualified Data.Map as Map
+import Data.Maybe
 import Data.String
+import Foreign
 import Foreign.C
 import Foreign.Marshal.Unsafe
 import qualified Language.C.Inline as C
@@ -191,6 +193,7 @@ C.context $ C.baseCtx <> mempty
     , (C.TypeName "hb_language_impl_t", [t| Language |])
     , (C.TypeName "hb_script_t", [t| Script |])
     , (C.TypeName "hb_tag_t", [t| Tag |])
+    , (C.TypeName "hb_bool_t", [t| CInt |])
     ]
   }
 
@@ -231,12 +234,12 @@ feature_from_string s = unsafeLocalState $
 feature_to_string :: Feature -> String
 feature_to_string feature = unsafeLocalState $
   allocaBytes 128 $ \buf -> do
-    with feature $ \f ->
+    with feature $ \f -> do
       [C.block|void { hb_feature_to_string($(hb_feature_t * f),$(char * buf),128); }|]
       peekCString buf
 
 instance IsString Feature where
-  feature = maybe (error $"invalid feature: " ++ s) . feature_to_string
+  fromString s = fromMaybe (error $ "invalid feature: " ++ s) $ feature_from_string s
 
 instance Show Feature where
   showsPrec d = showsPrec d . feature_to_string
