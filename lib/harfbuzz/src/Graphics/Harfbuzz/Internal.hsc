@@ -115,6 +115,7 @@ module Graphics.Harfbuzz.Internal
   , segment_properties_language
   , SEGMENT_PROPERTIES_DEFAULT
   )
+, Set(..)
 , Tag
   ( Tag, TAG
   , TAG_NONE, TAG_MAX, TAG_MAX_SIGNED
@@ -324,6 +325,8 @@ instance Storable SegmentProperties where
     (#poke hb_segment_properties_t, script) p segment_properties_script
     (#poke hb_segment_properties_t, language) p segment_properties_language
 
+newtype Set = Set (ForeignPtr Set) deriving (Eq,Ord,Show,Data)
+
 newtype Tag = Tag Word32 deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
 {-# complete Tag #-}
 {-# complete TAG #-}
@@ -405,6 +408,7 @@ C.context $ C.baseCtx <> mempty
     , (C.TypeName "hb_language_t", [t| Ptr Language |])
     , (C.TypeName "hb_language_impl_t", [t| Language |])
     , (C.TypeName "hb_script_t", [t| Script |])
+    , (C.TypeName "hb_set_t", [t| Set |])
     , (C.TypeName "hb_tag_t", [t| Tag |])
     , (C.TypeName "hb_unicode_funcs_t", [t| UnicodeFuncs |])
     , (C.TypeName "hb_user_data_key_t", [t| ForeignPtr OpaqueKey |])
@@ -481,6 +485,10 @@ instance IsString Script where
 
 deriving instance Show SegmentProperties
 deriving instance Read SegmentProperties
+
+instance Default Set where
+  def = unsafeLocalState $ [C.exp|hb_set_t * { hb_set_get_empty() }|] >>= fmap Set . newForeignPtr_
+  {-# noinline def #-}
 
 instance Default Tag where def = TAG_NONE
 
@@ -1310,6 +1318,7 @@ harfbuzzCtx = mempty
     , (C.TypeName "hb_reference_table_func_t", [t| FunPtr (ReferenceTableFunc ()) |])
     , (C.TypeName "hb_script_t", [t| Script |])
     , (C.TypeName "hb_segment_properties_t", [t| SegmentProperties |])
+    , (C.TypeName "hb_set_t", [t| Set |])
     , (C.TypeName "hb_tag_t", [t| Tag |])
     , (C.TypeName "hb_unicode_combining_class_t", [t| UnicodeCombiningClass |])
     , (C.TypeName "hb_unicode_combining_class_func_t", [t| FunPtr (UnicodeCombiningClassFunc ()) |])
@@ -1326,12 +1335,13 @@ harfbuzzCtx = mempty
   , C.ctxAntiQuoters = Map.fromList
     [ ("ustr", anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char (Just C.Unsigned))) [t| CUChar |] [| withCUString |])
     , ("str", anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char Nothing)) [t| CChar |] [| withCString |])
-    , ("blob", anti (ptr (C.TypeName "hb_blob_t")) [t| Blob |] [| withSelf |])
-    , ("buffer", anti (ptr (C.TypeName "hb_buffer_t")) [t| Buffer |] [| withSelf |])
-    , ("face", anti (ptr (C.TypeName "hb_face_t")) [t| Face |] [| withSelf |])
-    , ("feature", anti (ptr (C.TypeName "hb_feature_t")) [t| Feature |] [| with |])
-    , ("key", anti (ptr (C.TypeName "hb_user_data_key_t")) [t| OpaqueKey |] [| withKey |])
+    , ("blob", anti (ptr $ C.TypeName "hb_blob_t") [t| Blob |] [| withSelf |])
+    , ("buffer", anti (ptr $ C.TypeName "hb_buffer_t") [t| Buffer |] [| withSelf |])
+    , ("face", anti (ptr $ C.TypeName "hb_face_t") [t| Face |] [| withSelf |])
+    , ("feature", anti (ptr $ C.TypeName "hb_feature_t") [t| Feature |] [| with |])
+    , ("key", anti (ptr $ C.TypeName "hb_user_data_key_t") [t| OpaqueKey |] [| withKey |])
     , ("language", anti (C.TypeSpecifier mempty $ C.TypeName "hb_language_t") [t| Language |] [| withPtr |])
-    , ("unicode-funcs", anti (ptr (C.TypeName "hb_unicode_funcs_t")) [t| UnicodeFuncs |] [| withSelf |])
+    , ("set", anti (ptr $ C.TypeName "hb_set_t") [t| Set |] [| withSelf |])
+    , ("unicode-funcs", anti (ptr $ C.TypeName "hb_unicode_funcs_t") [t| UnicodeFuncs |] [| withSelf |])
     ]
   } where ptr = C.Ptr [] . C.TypeSpecifier mempty
