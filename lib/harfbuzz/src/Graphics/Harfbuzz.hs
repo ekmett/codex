@@ -44,6 +44,7 @@ module Graphics.Harfbuzz
   , buffer_cluster_level
   , buffer_segment_properties
   , buffer_content_type
+  , buffer_unicode_funcs
 
   , BufferFlags(..)
   , BufferContentType(..)
@@ -318,12 +319,17 @@ buffer_content_type b = StateVar g s where
   g = [C.exp|hb_buffer_content_type_t { hb_buffer_get_content_type($buffer:b) }|]
   s v = [C.block|void { hb_buffer_set_content_type($buffer:b,$(hb_buffer_content_type_t v)); }|]
 
-
 -- | Subsumes @hb_buffer_get_segment_properties@ and @hb_buffer_set_segment_properties@
 buffer_segment_properties :: Buffer -> StateVar SegmentProperties
 buffer_segment_properties b = StateVar g s where
   g = alloca $ \props -> [C.block|void { hb_buffer_get_segment_properties($buffer:b,$(hb_segment_properties_t * props)); }|] *> peek props
   s v = with v $ \props -> [C.block|void { hb_buffer_set_segment_properties($buffer:b,$(const hb_segment_properties_t * props)); }|]
+
+-- | Subsumes @hb_buffer_get_unicode_funcs@ and @hb_buffer_set_unicode_funcs@
+buffer_unicode_funcs :: Buffer -> StateVar UnicodeFuncs
+buffer_unicode_funcs b = StateVar g s where
+  g = [C.exp|hb_unicode_funcs_t * { hb_buffer_get_unicode_funcs($buffer:b) }|] >>= foreignUnicodeFuncs
+  s v = [C.block|void { hb_buffer_set_unicode_funcs($buffer:b,$unicode-funcs:v); }|]
 
 -- * 4 character tags
 
