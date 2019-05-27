@@ -1,5 +1,6 @@
 {-# language OverloadedStrings #-}
 
+import Data.Char
 import Data.Const.ByteString
 import Data.Default
 import Data.StateVar
@@ -9,6 +10,9 @@ import Graphics.Harfbuzz
 import Test.Hspec
 import Test.Tasty
 import Test.Tasty.Hspec
+
+gc :: UnicodeGeneralCategory -> GeneralCategory
+gc (UNICODE_GENERAL_CATEGORY x) = x
 
 spec :: Spec
 spec = do
@@ -120,7 +124,20 @@ spec = do
       get (buffer_direction x) `shouldReturn` "rtl"
       default_language <- language_get_default 
       get (buffer_language x) `shouldReturn` default_language -- harfbuzz does not guess language off content, takes host language
-  
+  describe "hb_unicode_funcs_t" $ do
+    it "can identify general categories" $ do
+      uf <- unicode_funcs_get_default 
+      gc (unicode_general_category uf 'a') `shouldBe` LowercaseLetter
+      gc (unicode_general_category uf 'A') `shouldBe` UppercaseLetter
+    it "can override general categories on empty" $ do
+      uf <- unicode_funcs_create def
+      unicode_funcs_set_general_category_func uf $ \_ -> UNICODE_GENERAL_CATEGORY Control
+      gc (unicode_general_category uf 'a') `shouldBe` Control
+    it "can override general categories on default" $ do
+      uf <- unicode_funcs_get_default >>= unicode_funcs_create
+      unicode_funcs_set_general_category_func uf $ \_ -> UNICODE_GENERAL_CATEGORY Control
+      gc (unicode_general_category uf 'a') `shouldBe` Control
+     
 
 main :: IO ()
 main = do

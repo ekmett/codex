@@ -74,6 +74,7 @@ module Graphics.Harfbuzz
   , tag_from_string, tag_to_string
 
   , UnicodeFuncs(..)
+  , unicode_funcs_create
   , unicode_funcs_get_default
   , unicode_funcs_get_parent
   , unicode_funcs_is_immutable
@@ -334,6 +335,14 @@ language_get_default = liftIO $
   Language <$> [C.exp|hb_language_t { hb_language_get_default() }|]
 
 -- * unicode functions
+
+unicode_funcs_create :: MonadIO m => UnicodeFuncs -> m UnicodeFuncs
+unicode_funcs_create parent = liftIO $
+  [C.block|hb_unicode_funcs_t * { 
+    hb_unicode_funcs_t * p = $unicode-funcs:parent;
+    hb_unicode_funcs_reference(p);
+    return hb_unicode_funcs_create(p);
+  }|] >>= foreignUnicodeFuncs
 
 unicode_funcs_get_default :: MonadIO m => m UnicodeFuncs
 unicode_funcs_get_default = liftIO $
