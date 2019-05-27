@@ -207,7 +207,6 @@ instance IsObject Blob where
   set_user_data b k (castPtr -> v) (castFunPtr -> d) (boolc -> replace) = liftIO $
     [C.exp|hb_bool_t { hb_blob_set_user_data($blob:b,$key:k,$(void * v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|] <&> cbool
 
-
 -- | hb_blob_get_data is unsafe under ForeignPtr management, this is safe
 withBlobData :: Blob -> (ConstCStringLen -> IO r) -> IO r
 withBlobData bfp k = withSelf bfp $ \bp -> alloca $ \ip -> do
@@ -437,14 +436,13 @@ unicode_funcs_create parent = liftIO $
 
 unicode_funcs_get_default :: MonadIO m => m UnicodeFuncs
 unicode_funcs_get_default = liftIO $
-  [C.exp|hb_unicode_funcs_t * { hb_unicode_funcs_get_default() }|] >>= foreignUnicodeFuncs
+  [C.exp|hb_unicode_funcs_t * { hb_unicode_funcs_reference(hb_unicode_funcs_get_default()) }|] >>= foreignUnicodeFuncs
 
 unicode_funcs_get_parent :: MonadIO m => UnicodeFuncs -> m UnicodeFuncs
 unicode_funcs_get_parent u = liftIO $
   [C.block|hb_unicode_funcs_t * {
     hb_unicode_funcs_t * p = hb_unicode_funcs_get_parent($unicode-funcs:u);
-    hb_unicode_funcs_reference(p);
-    return p;
+    return hb_unicode_funcs_reference(p);
   }|] >>= foreignUnicodeFuncs
 
 unicode_funcs_is_immutable :: MonadIO m => UnicodeFuncs -> m Bool

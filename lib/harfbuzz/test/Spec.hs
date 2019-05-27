@@ -8,7 +8,8 @@ import Data.StateVar
 import Foreign.Marshal.Alloc (finalizerFree)
 import Foreign.Marshal.Utils (new)
 import Graphics.Harfbuzz
-import Test.Hspec
+import System.Mem
+import Test.Hspec as Hspec
 import Test.Tasty
 import Test.Tasty.Hspec
 
@@ -16,7 +17,33 @@ gc :: UnicodeGeneralCategory -> GeneralCategory
 gc (UNICODE_GENERAL_CATEGORY x) = x
 
 spec :: Spec
-spec = do
+spec = Hspec.after_ performMajorGC $ do
+  describe "hb_unicode_funcs_t" $ do
+    it "can identify general categories" $ do
+      uf <- unicode_funcs_get_default
+      (unicode_general_category uf 'a' <&> gc) `shouldReturn` LowercaseLetter
+      (unicode_general_category uf 'A' <&> gc) `shouldReturn` UppercaseLetter
+    it "can override general categories on default" $ do
+      uf <- unicode_funcs_get_default
+      uf' <- unicode_funcs_create uf
+      unicode_funcs_set_general_category_func uf' $ \_ -> return $ UNICODE_GENERAL_CATEGORY Control
+      (unicode_general_category uf' 'a' <&> gc) `shouldReturn` Control
+    it "can override general categories on empty" $ do
+      uf <- unicode_funcs_create def
+      unicode_funcs_set_general_category_func uf $ \_ -> return $ UNICODE_GENERAL_CATEGORY Control
+      (unicode_general_category uf 'a' <&> gc) `shouldReturn` Control
+    it "can compose" $ do
+      uf <- unicode_funcs_get_default
+      unicode_compose uf 'e' '\x0301' `shouldReturn` Just '\x00e9'
+  describe "hb_tag_t" $ do
+    it "TAG matches" $ (case script_to_iso15924_tag SCRIPT_HEBREW of TAG a b c d -> (a,b,c,d); _ -> undefined) `shouldBe` ('H','e','b','r')
+    it "TAG constructs" $ script_from_iso15924_tag (TAG 'H' 'e' 'b' 'r') == SCRIPT_HEBREW
+  describe "hb_script_t" $ do
+    it "compares" $ (SCRIPT_HEBREW == SCRIPT_TAMIL) `shouldBe` False
+    it "has Hebrew" $ do script_to_string SCRIPT_HEBREW `shouldBe` "Hebr"
+    it "has Tamil" $ do script_to_string SCRIPT_TAMIL `shouldBe` "Taml"
+    it "has Braille" $ do script_to_string SCRIPT_BRAILLE `shouldBe` "Brai"
+    it "corrects case " $ do script_from_string "HEBR" `shouldBe` SCRIPT_HEBREW
   describe "hb_blob_t" $ do
     it "should not construct the empty blob by default" $ do
       blob_create "hello" MEMORY_MODE_READONLY `shouldNotReturn` def
@@ -30,7 +57,7 @@ spec = do
       blob_make_immutable x
       blob_is_immutable x `shouldReturn` True
     it "we get out what we put in" $ do
-      x <- blob_create "hello" MEMORY_MODE_READONLY 
+      x <- blob_create "hello" MEMORY_MODE_READONLY
       withBlobData x packACStringLen `shouldReturn` "hello"
     it "trims correctly" $ do
       x <- blob_create "hello" MEMORY_MODE_WRITABLE
@@ -53,15 +80,6 @@ spec = do
       get_user_data x kv `shouldReturn` v
       set_user_data x ku v finalizerFree False `shouldReturn` False
       get_user_data x ku `shouldReturn` u
-  describe "hb_tag_t" $ do
-    it "TAG matches" $ (case script_to_iso15924_tag SCRIPT_HEBREW of TAG a b c d -> (a,b,c,d); _ -> undefined) `shouldBe` ('H','e','b','r')
-    it "TAG constructs" $ script_from_iso15924_tag (TAG 'H' 'e' 'b' 'r') == SCRIPT_HEBREW
-  describe "hb_script_t" $ do
-    it "compares" $ (SCRIPT_HEBREW == SCRIPT_TAMIL) `shouldBe` False
-    it "has Hebrew" $ do script_to_string SCRIPT_HEBREW `shouldBe` "Hebr"
-    it "has Tamil" $ do script_to_string SCRIPT_TAMIL `shouldBe` "Taml"
-    it "has Braille" $ do script_to_string SCRIPT_BRAILLE `shouldBe` "Brai"
-    it "corrects case " $ do script_from_string "HEBR" `shouldBe` SCRIPT_HEBREW
   describe "hb_direction_t" $ do
     describe "direction_from_string" $ do
       it "DIRECTION_LTR" $ do direction_from_string "l" `shouldBe` DIRECTION_LTR
@@ -120,28 +138,11 @@ spec = do
       buffer_segment_properties x $= def
       buffer_content_type x $= BUFFER_CONTENT_TYPE_UNICODE
       buffer_add x 'ד' 0 -- a hebrew character
-      buffer_guess_segment_properties x 
+      buffer_guess_segment_properties x
       get (buffer_script x) `shouldReturn` "Hebr"
       get (buffer_direction x) `shouldReturn` "rtl"
-      default_language <- language_get_default 
+      default_language <- language_get_default
       get (buffer_language x) `shouldReturn` default_language -- harfbuzz does not guess language off content, takes host language
-  describe "hb_unicode_funcs_t" $ do
-    it "can identify general categories" $ do
-      uf <- unicode_funcs_get_default 
-      (unicode_general_category uf 'a' <&> gc) `shouldReturn` LowercaseLetter
-      (unicode_general_category uf 'A' <&> gc) `shouldReturn` UppercaseLetter
-    it "can override general categories on empty" $ do
-      uf <- unicode_funcs_create def
-      unicode_funcs_set_general_category_func uf $ \_ -> return $ UNICODE_GENERAL_CATEGORY Control
-      (unicode_general_category uf 'a' <&> gc) `shouldReturn` Control
-    it "can override general categories on default" $ do
-      uf <- unicode_funcs_get_default >>= unicode_funcs_create
-      unicode_funcs_set_general_category_func uf $ \_ -> return $ UNICODE_GENERAL_CATEGORY Control
-      (unicode_general_category uf 'a' <&> gc) `shouldReturn` Control
-    it "can compose" $ do
-      uf <- unicode_funcs_get_default
-      unicode_compose uf 'e' '\x0301' `shouldReturn` Just '\x00e9'
-     
 
 main :: IO ()
 main = do
