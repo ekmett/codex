@@ -43,6 +43,9 @@ module Graphics.Harfbuzz
   , Tag(..)
   , tag_from_string, tag_to_string
 
+  , Variation(..)
+  , variation_from_string, variation_to_string
+
   -- * internals
   , foreignBlob
   , _hb_blob_destroy

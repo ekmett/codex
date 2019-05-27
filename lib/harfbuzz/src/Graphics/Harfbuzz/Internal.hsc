@@ -75,6 +75,7 @@ module Graphics.Harfbuzz.Internal
   ( Tag, TAG
   , TAG_NONE, TAG_MAX, TAG_MAX_SIGNED
   )
+, Variation(..), variation_to_string, variation_from_string
 -- * internals
 , withSelf, withPtr
 , cbool
@@ -133,6 +134,21 @@ instance Storable Feature where
     (#poke hb_feature_t, value) p feature_value
     (#poke hb_feature_t, start) p feature_start
     (#poke hb_feature_t, end) p feature_end
+
+data Variation = Variation
+  { variation_tag :: {-# unpack #-} !Tag
+  , variation_value :: {-# unpack #-} !Float
+  } deriving (Eq,Ord)
+
+instance Storable Variation where
+  sizeOf _ = #size hb_variation_t
+  alignment _ = #alignment hb_variation_t
+  peek p = Variation
+    <$> (#peek hb_variation_t, tag) p
+    <*> (#peek hb_variation_t, value) p
+  poke p Variation{..} = do
+    (#poke hb_variation_t, tag) p variation_tag
+    (#poke hb_variation_t, value) p variation_value
 
 w2c :: Word32 -> Char
 w2c = toEnum . fromIntegral
@@ -193,6 +209,7 @@ C.context $ C.baseCtx <> mempty
     , (C.TypeName "hb_language_impl_t", [t| Language |])
     , (C.TypeName "hb_script_t", [t| Script |])
     , (C.TypeName "hb_tag_t", [t| Tag |])
+    , (C.TypeName "hb_variation_t", [t| Variation |])
     , (C.TypeName "hb_bool_t", [t| CInt |])
     ]
   }
@@ -246,6 +263,29 @@ instance Show Feature where
 
 instance Read Feature where
   readPrec = step readPrec >>= maybe empty pure . feature_from_string
+
+variation_from_string :: String -> Maybe Variation
+variation_from_string s = unsafeLocalState $
+  withCStringLen s $ \(cstr,fromIntegral -> len) ->
+    alloca $ \variation -> do
+      b <- [C.exp|hb_bool_t { hb_variation_from_string($(const char * cstr),$(int len),$(hb_variation_t * variation)) }|]
+      if cbool b then Just <$> peek variation else pure Nothing
+
+variation_to_string :: Variation -> String
+variation_to_string variation = unsafeLocalState $
+  allocaBytes 128 $ \buf -> do
+    with variation $ \f -> do
+      [C.block|void { hb_variation_to_string($(hb_variation_t * f),$(char * buf),128); }|]
+      peekCString buf
+
+instance IsString Variation where
+  fromString s = fromMaybe (error $ "invalid variation: " ++ s) $ variation_from_string s
+
+instance Show Variation where
+  showsPrec d = showsPrec d . variation_to_string
+
+instance Read Variation where
+  readPrec = step readPrec >>= maybe empty pure . variation_from_string
 
 withPtr :: forall a r. Coercible a (Ptr a) => a -> (Ptr a -> IO r) -> IO r
 withPtr = (&) . coerce
