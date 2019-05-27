@@ -15,7 +15,6 @@ module Graphics.Harfbuzz
   , blob_make_immutable
   , withBlobData
   , withBlobDataWritable
-  -- blob_set_user_data
 
   , Buffer
   , buffer_create
@@ -31,6 +30,7 @@ module Graphics.Harfbuzz
   , buffer_add
   , buffer_append
   , buffer_guess_segment_properties
+
   -- statevars
   , buffer_direction
   , buffer_script
@@ -69,12 +69,21 @@ module Graphics.Harfbuzz
   , Tag(..)
   , tag_from_string, tag_to_string
 
+  , UnicodeFuncs(..)
+  , unicode_funcs_get_default
+  , unicode_funcs_get_parent
+
   , Variation(..)
   , variation_from_string, variation_to_string
 
   -- * internals
   , foreignBlob
+  , foreignBuffer
+  , foreignUnicodeFuncs
+
   , _hb_blob_destroy
+  , _hb_buffer_destroy
+  , _hb_unicode_funcs_destroy
   ) where
 
 import Control.Monad.IO.Class
@@ -102,6 +111,8 @@ C.include "<hb.h>"
 class IsObject t where
   reference :: MonadIO m => t -> m ()
   destroy :: MonadIO m => t -> m ()
+  set_user_data :: MonadIO m => t -> Key a -> Ptr a -> FinalizerPtr a -> Bool -> m Bool
+  get_user_data :: MonadIO m => t -> Key a -> m (Ptr a)
 
 blob_create :: MonadIO m => Strict.ByteString -> MemoryMode -> m Blob
 blob_create bs mode = liftIO $ do
@@ -135,6 +146,9 @@ blob_make_immutable b = liftIO [C.block|void { hb_blob_make_immutable($blob:b); 
 instance IsObject Blob where
   reference b = liftIO [C.block|void { hb_blob_reference($blob:b); }|]
   destroy b = liftIO [C.block|void { hb_blob_destroy($blob:b); }|]
+  get_user_data b k = liftIO $ [C.exp|void * { hb_blob_get_user_data($blob:b,$key:k) }|] <&> castPtr
+  set_user_data b k (castPtr -> v) (castFunPtr -> d) (boolc -> replace) = liftIO $ [C.exp|hb_bool_t { hb_blob_set_user_data($blob:b,$key:k,$(void * v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|] <&> cbool
+
 
 -- | hb_blob_get_data is unsafe under ForeignPtr management, this is safe
 withBlobData :: Blob -> (ConstCStringLen -> IO r) -> IO r
@@ -154,6 +168,8 @@ withBlobDataWritable bfp k = withSelf bfp $ \bp -> alloca $ \ip -> do
 instance IsObject Buffer where
   reference b = liftIO [C.block|void { hb_buffer_reference($buffer:b); }|]
   destroy b = liftIO [C.block|void { hb_buffer_destroy($buffer:b); }|]
+  get_user_data b k = liftIO $ [C.exp|void * { hb_buffer_get_user_data($buffer:b,$key:k) }|] <&> castPtr
+  set_user_data b k (castPtr -> v) (castFunPtr -> d) (boolc -> replace) = liftIO $ [C.exp|hb_bool_t { hb_buffer_set_user_data($buffer:b,$key:k,$(void * v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|] <&> cbool
 
 buffer_create :: MonadIO m => m Buffer
 buffer_create = liftIO $ [C.exp|hb_buffer_t * { hb_buffer_create() }|] >>= foreignBuffer
@@ -298,10 +314,31 @@ script_to_string = tag_to_string . script_to_iso15924_tag
 -- * language
 
 -- | The first time this is called it calls setLocale, which isn't thread safe.
---
+
 -- For multithreaded use, first call once in an isolated fashion
 language_get_default :: MonadIO m => m Language
-language_get_default = liftIO $ Language <$> [C.exp|hb_language_t { hb_language_get_default() }|]
+language_get_default = liftIO $
+  Language <$> [C.exp|hb_language_t { hb_language_get_default() }|]
+
+-- * unicode functions
+
+unicode_funcs_get_default :: MonadIO m => m UnicodeFuncs
+unicode_funcs_get_default = liftIO $
+  [C.exp|hb_unicode_funcs_t * { hb_unicode_funcs_get_default() }|] >>= foreignUnicodeFuncs
+
+unicode_funcs_get_parent :: MonadIO m => UnicodeFuncs -> m UnicodeFuncs
+unicode_funcs_get_parent u = liftIO $
+  [C.block|hb_unicode_funcs_t * { 
+    hb_unicode_funcs_t * p = hb_unicode_funcs_get_parent($unicode-funcs:u);
+    hb_unicode_funcs_reference(p);
+    return p;
+  }|] >>= foreignUnicodeFuncs
+
+instance IsObject UnicodeFuncs where
+  reference uf = liftIO [C.block|void { hb_unicode_funcs_reference($unicode-funcs:uf); }|]
+  destroy uf = liftIO [C.block|void { hb_unicode_funcs_destroy($unicode-funcs:uf); }|]
+  get_user_data b k = liftIO $ [C.exp|void * { hb_unicode_funcs_get_user_data($unicode-funcs:b,$key:k) }|] <&> castPtr
+  set_user_data b k (castPtr -> v) (castFunPtr -> d) (boolc -> replace) = liftIO $ [C.exp|hb_bool_t{ hb_unicode_funcs_set_user_data($unicode-funcs:b,$key:k,$(void * v),$(hb_destroy_func_t d), $(hb_bool_t replace)) }|] <&> cbool
 
 -- * Finalization
 
@@ -311,6 +348,9 @@ foreignBlob = fmap Blob . newForeignPtr _hb_blob_destroy
 foreignBuffer :: Ptr Buffer -> IO Buffer
 foreignBuffer = fmap Buffer . newForeignPtr _hb_buffer_destroy
 
-foreign import ccall "hb.h &hb_blob_destroy" _hb_blob_destroy :: FinalizerPtr Blob
+foreignUnicodeFuncs :: Ptr UnicodeFuncs -> IO UnicodeFuncs
+foreignUnicodeFuncs = fmap UnicodeFuncs . newForeignPtr _hb_unicode_funcs_destroy
 
+foreign import ccall "hb.h &hb_blob_destroy" _hb_blob_destroy :: FinalizerPtr Blob
 foreign import ccall "hb.h &hb_buffer_destroy" _hb_buffer_destroy :: FinalizerPtr Buffer
+foreign import ccall "hb.h &hb_unicode_funcs_destroy" _hb_unicode_funcs_destroy :: FinalizerPtr UnicodeFuncs
