@@ -2,6 +2,7 @@
 {-# language ScopedTypeVariables #-}
 {-# language DeriveDataTypeable #-}
 {-# language DerivingStrategies #-}
+{-# language StandaloneDeriving #-}
 {-# language OverloadedStrings #-}
 {-# language FlexibleContexts #-}
 {-# language TypeApplications #-}
@@ -21,9 +22,18 @@
 module Graphics.Harfbuzz.Internal
 ( Blob(..)
 , Buffer(..)
+, BufferClusterLevel
+  ( BufferClusterLevel
+  , BUFFER_CLUSTER_LEVEL_MONOTONE_GRAPHEMES
+  , BUFFER_CLUSTER_LEVEL_MONOTONE_CHARACTERS
+  , BUFFER_CLUSTER_LEVEL_CHARACTERS
+  , BUFFER_CLUSTER_LEVEL_DEFAULT
+  )
 , BufferFlags
   ( BufferFlags
-  , BUFFER_FLAG_DEFAULT, BUFFER_FLAG_BOT, BUFFER_FLAG_EOT
+  , BUFFER_FLAG_DEFAULT
+  , BUFFER_FLAG_BOT
+  , BUFFER_FLAG_EOT
   , BUFFER_FLAG_PRESERVE_DEFAULT_IGNORABLES
   , BUFFER_FLAG_REMOVE_DEFAULT_IGNORABLES
   , BUFFER_FLAG_DO_NOT_INSERT_DOTTED_CIRCLE
@@ -33,7 +43,7 @@ module Graphics.Harfbuzz.Internal
   , DIRECTION_INVALID, DIRECTION_LTR, DIRECTION_RTL, DIRECTION_BTT, DIRECTION_TTB
   )
 , Feature(..), feature_to_string, feature_from_string
-, Language(..)
+, Language(..), language_to_string, language_from_string
 , MemoryMode
   ( MemoryMode
   , MEMORY_MODE_DUPLICATE, MEMORY_MODE_READONLY
@@ -117,7 +127,7 @@ newtype Blob = Blob { getBlob :: ForeignPtr Blob } deriving (Eq, Ord, Show, Data
 
 newtype Buffer = Buffer { getBuffer :: ForeignPtr Buffer } deriving (Eq, Ord, Show, Data)
 
-newtype Language = Language { getLanguage :: Ptr Language } deriving (Eq, Ord, Show, Data) -- we never manage
+newtype Language = Language { getLanguage :: Ptr Language } deriving (Eq, Ord, Data, Storable) -- we never manage
 
 newtype Tag = Tag Word32 deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
 {-# complete Tag #-}
@@ -157,6 +167,24 @@ instance Storable Variation where
   poke p Variation{..} = do
     (#poke hb_variation_t, tag) p variation_tag
     (#poke hb_variation_t, value) p variation_value
+
+data SegmentProperties = SegmentProperties
+  { segment_properties_direction :: {-# unpack #-} !Direction
+  , segment_properties_script    :: {-# unpack #-} !Script
+  , segment_properties_language  :: {-# unpack #-} !Language
+  } deriving (Eq,Ord)
+
+instance Storable SegmentProperties where
+  sizeOf _ = #size hb_segment_properties_t
+  alignment _ = #alignment hb_segment_properties_t
+  peek p = SegmentProperties
+    <$> (#peek hb_segment_properties_t, direction) p
+    <*> (#peek hb_segment_properties_t, script) p
+    <*> (#peek hb_segment_properties_t, language) p
+  poke p SegmentProperties{..} = do
+    (#poke hb_segment_properties_t, direction) p segment_properties_direction
+    (#poke hb_segment_properties_t, script) p segment_properties_script
+    (#poke hb_segment_properties_t, language) p segment_properties_language
 
 w2c :: Word32 -> Char
 w2c = toEnum . fromIntegral
@@ -206,6 +234,7 @@ newtype Direction = Direction Word32  deriving (Eq,Ord,Show,Read,Num,Enum,Real,I
 newtype MemoryMode = MemoryMode CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 
 newtype BufferFlags = BufferFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
+newtype BufferClusterLevel = BufferClusterLevel CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 
 -- * Startup a crippled inline-c context for use in non-orphan instances
 
@@ -250,6 +279,22 @@ instance IsString Language where
   fromString s = unsafeLocalState $
     withCStringLen s $ \(cstr,fromIntegral -> l) ->
       Language <$> [C.exp|hb_language_t { hb_language_from_string($(const char * cstr),$(int l)) }|]
+
+instance Show Language where
+  showsPrec d = showsPrec d . language_to_string
+
+instance Read Language where
+  readPrec = fromString <$> step readPrec
+
+language_from_string :: String -> Language
+language_from_string = fromString
+
+language_to_string :: Language -> String
+language_to_string (Language l) = unsafeLocalState (peekCString cstr) where
+  cstr = [C.pure|const char * { hb_language_to_string($(hb_language_t l)) }|]
+
+deriving instance Show SegmentProperties
+deriving instance Read SegmentProperties
 
 feature_from_string :: String -> Maybe Feature
 feature_from_string s = unsafeLocalState $
@@ -679,6 +724,19 @@ pattern BUFFER_FLAG_DO_NOT_INSERT_DOTTED_CIRCLE = #const HB_BUFFER_FLAG_DO_NOT_I
 instance Default BufferFlags where
   def = BUFFER_FLAG_DEFAULT
 
+pattern BUFFER_CLUSTER_LEVEL_MONOTONE_GRAPHEMES  :: BufferClusterLevel
+pattern BUFFER_CLUSTER_LEVEL_MONOTONE_CHARACTERS :: BufferClusterLevel
+pattern BUFFER_CLUSTER_LEVEL_CHARACTERS :: BufferClusterLevel
+pattern BUFFER_CLUSTER_LEVEL_DEFAULT :: BufferClusterLevel
+
+pattern BUFFER_CLUSTER_LEVEL_MONOTONE_GRAPHEMES  = #const HB_BUFFER_CLUSTER_LEVEL_MONOTONE_GRAPHEMES 
+pattern BUFFER_CLUSTER_LEVEL_MONOTONE_CHARACTERS = #const HB_BUFFER_CLUSTER_LEVEL_MONOTONE_CHARACTERS
+pattern BUFFER_CLUSTER_LEVEL_CHARACTERS = #const HB_BUFFER_CLUSTER_LEVEL_CHARACTERS
+pattern BUFFER_CLUSTER_LEVEL_DEFAULT = #const HB_BUFFER_CLUSTER_LEVEL_DEFAULT
+
+instance Default BufferClusterLevel where
+  def = BUFFER_CLUSTER_LEVEL_DEFAULT
+
 -- * Inline C context
 
 getHsVariable :: String -> C.HaskellIdentifier -> TH.ExpQ
@@ -707,6 +765,7 @@ harfbuzzCtx = mempty
   { C.ctxTypesTable = Map.fromList
     [ (C.TypeName "hb_blob_t", [t| Blob |])
     , (C.TypeName "hb_buffer_t", [t| Buffer |])
+    , (C.TypeName "hb_buffer_cluster_level_t", [t| BufferClusterLevel |])
     , (C.TypeName "hb_buffer_flags_t", [t| BufferFlags |])
     , (C.TypeName "hb_bool_t", [t| CInt |])
     , (C.TypeName "hb_direction_t", [t| Direction |])
