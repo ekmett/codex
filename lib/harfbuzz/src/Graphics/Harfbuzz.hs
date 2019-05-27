@@ -23,6 +23,8 @@ module Graphics.Harfbuzz
   , buffer_clear_contents
   , buffer_pre_allocate
   , buffer_allocation_successful
+  , buffer_add
+  , buffer_script
 
   , Direction(..)
   , direction_to_string, direction_from_string
@@ -59,6 +61,7 @@ import Control.Monad.IO.Class
 import Data.Const
 import Data.Functor
 import Data.ByteString as Strict
+import Data.StateVar
 import Data.String
 import Foreign.C.String
 import Foreign.Const.C.String
@@ -89,14 +92,16 @@ blob_create bs mode = liftIO $ do
   }|] >>= foreignBlob
 
 blob_create_from_file :: MonadIO m => FilePath -> m Blob
-blob_create_from_file fp = liftIO $ [C.exp|hb_blob_t * { hb_blob_create_from_file($str:fp) }|] >>= foreignBlob
+blob_create_from_file fp = liftIO $
+  [C.exp|hb_blob_t * { hb_blob_create_from_file($str:fp) }|] >>= foreignBlob
 
 blob_create_sub_blob :: MonadIO m => Blob -> Int -> Int -> m Blob
-
-blob_create_sub_blob b (fromIntegral -> o) (fromIntegral -> l) = liftIO $ [C.exp|hb_blob_t * { hb_blob_create_sub_blob($blob:b,$(int o),$(int l)) }|] >>= foreignBlob
+blob_create_sub_blob b (fromIntegral -> o) (fromIntegral -> l) = liftIO $
+  [C.exp|hb_blob_t * { hb_blob_create_sub_blob($blob:b,$(int o),$(int l)) }|] >>= foreignBlob
 
 blob_copy_writable_or_fail :: MonadIO m => Blob -> m (Maybe Blob)
-blob_copy_writable_or_fail b = liftIO $ [C.exp|hb_blob_t * { hb_blob_copy_writable_or_fail($blob:b) }|] >>= maybePeek foreignBlob
+blob_copy_writable_or_fail b = liftIO $
+  [C.exp|hb_blob_t * { hb_blob_copy_writable_or_fail($blob:b) }|] >>= maybePeek foreignBlob
 
 blob_get_length :: MonadIO m => Blob -> m Int
 blob_get_length b = liftIO $ [C.exp|int { hb_blob_get_length($blob:b) }|] <&> fromIntegral
@@ -136,10 +141,22 @@ buffer_clear_contents :: MonadIO m => Buffer -> m ()
 buffer_clear_contents b = liftIO [C.block|void { hb_buffer_clear_contents($buffer:b); }|]
 
 buffer_pre_allocate :: MonadIO m => Buffer -> Int -> m ()
-buffer_pre_allocate b (fromIntegral -> size) = liftIO [C.block|void { hb_buffer_pre_allocate($buffer:b,$(unsigned int size)); }|]
+buffer_pre_allocate b (fromIntegral -> size) = liftIO
+  [C.block|void { hb_buffer_pre_allocate($buffer:b,$(unsigned int size)); }|]
 
 buffer_allocation_successful :: MonadIO m => Buffer -> m Bool
-buffer_allocation_successful b = liftIO $ [C.exp|hb_bool_t { hb_buffer_allocation_successful($buffer:b) }|] <&> cbool
+buffer_allocation_successful b = liftIO $
+  [C.exp|hb_bool_t { hb_buffer_allocation_successful($buffer:b) }|] <&> cbool
+
+buffer_add :: MonadIO m => Buffer -> Char -> Int -> m ()
+buffer_add buffer codepoint (fromIntegral -> cluster) = liftIO
+  [C.block|void { hb_buffer_add($buffer:buffer,$(hb_codepoint_t codepoint),$(unsigned int cluster)); }|]
+
+-- | Subsumes @hb_buffer_get_script@ and @hb_buffer_set_script@
+buffer_script :: Buffer -> StateVar Script
+buffer_script b = StateVar g s where
+  g = [C.exp|hb_script_t { hb_buffer_get_script($buffer:b) }|]
+  s v = [C.block|void { hb_buffer_set_script($buffer:b,$(hb_script_t v)); }|]
 
 instance IsObject Buffer where
   reference b = liftIO [C.block|void { hb_buffer_reference($buffer:b); }|]
