@@ -30,6 +30,7 @@ module Graphics.Harfbuzz
   , buffer_reverse_clusters
   , buffer_add
   , buffer_append
+  , buffer_guess_segment_properties
   -- statevars
   , buffer_direction
   , buffer_script
@@ -37,8 +38,10 @@ module Graphics.Harfbuzz
   , buffer_flags
   , buffer_cluster_level
   , buffer_segment_properties
+  , buffer_content_type
 
   , BufferFlags(..)
+  , BufferContentType(..)
   , BufferClusterLevel(..)
 
   , Direction(..)
@@ -60,6 +63,8 @@ module Graphics.Harfbuzz
   , script_from_iso15924_tag, script_to_iso15924_tag
   , script_get_horizontal_direction
   , script_from_string, script_to_string
+
+  , SegmentProperties(..)
 
   , Tag(..)
   , tag_from_string, tag_to_string
@@ -144,6 +149,12 @@ withBlobDataWritable bfp k = withSelf bfp $ \bp -> alloca $ \ip -> do
   i <- peek ip
   k (s, fromIntegral i)
 
+-- * buffers
+
+instance IsObject Buffer where
+  reference b = liftIO [C.block|void { hb_buffer_reference($buffer:b); }|]
+  destroy b = liftIO [C.block|void { hb_buffer_destroy($buffer:b); }|]
+
 buffer_create :: MonadIO m => m Buffer
 buffer_create = liftIO $ [C.exp|hb_buffer_t * { hb_buffer_create() }|] >>= foreignBuffer
 
@@ -189,6 +200,11 @@ buffer_append :: MonadIO m => Buffer -> Buffer -> Int -> Int -> m ()
 buffer_append buffer source (fromIntegral -> start) (fromIntegral -> end) = liftIO
   [C.block|void { hb_buffer_append($buffer:buffer,$buffer:source,$(unsigned int start),$(unsigned int end)); }|]
 
+buffer_guess_segment_properties :: MonadIO m => Buffer -> m ()
+buffer_guess_segment_properties b = liftIO [C.block|void { hb_buffer_guess_segment_properties($buffer:b); }|]
+
+-- * buffer statevars
+
 buffer_direction :: Buffer -> StateVar Direction
 buffer_direction b = StateVar g s where
   g = [C.exp|hb_direction_t { hb_buffer_get_direction($buffer:b) }|]
@@ -218,15 +234,18 @@ buffer_cluster_level b = StateVar g s where
   g = [C.exp|hb_buffer_cluster_level_t { hb_buffer_get_cluster_level($buffer:b) }|]
   s v = [C.block|void { hb_buffer_set_cluster_level($buffer:b,$(hb_buffer_cluster_level_t v)); }|]
 
+-- | Subsumes @hb_buffer_get_content_type@ and @hb_buffer_set_content_type@
+buffer_content_type :: Buffer -> StateVar BufferContentType
+buffer_content_type b = StateVar g s where
+  g = [C.exp|hb_buffer_content_type_t { hb_buffer_get_content_type($buffer:b) }|]
+  s v = [C.block|void { hb_buffer_set_content_type($buffer:b,$(hb_buffer_content_type_t v)); }|]
+
+
 -- | Subsumes @hb_buffer_get_segment_properties@ and @hb_buffer_set_segment_properties@
 buffer_segment_properties :: Buffer -> StateVar SegmentProperties
 buffer_segment_properties b = StateVar g s where
   g = alloca $ \props -> [C.block|void { hb_buffer_get_segment_properties($buffer:b,$(hb_segment_properties_t * props)); }|] *> peek props
   s v = with v $ \props -> [C.block|void { hb_buffer_set_segment_properties($buffer:b,$(const hb_segment_properties_t * props)); }|]
-
-instance IsObject Buffer where
-  reference b = liftIO [C.block|void { hb_buffer_reference($buffer:b); }|]
-  destroy b = liftIO [C.block|void { hb_buffer_destroy($buffer:b); }|]
 
 -- * 4 character tags
 
@@ -240,12 +259,6 @@ tag_to_string t = unsafeLocalState $ allocaBytes 4 $ \buf -> do
 
 -- * directions
 
-direction_from_string :: String -> Direction
-direction_from_string = fromString
-
-direction_to_string :: Direction -> String
-direction_to_string t = unsafeLocalState $
-  [C.exp|const char * { hb_direction_to_string($(hb_direction_t t)) }|] >>= peekCString
 
 direction_reverse :: Direction -> Direction
 direction_reverse d = [C.pure|hb_direction_t { HB_DIRECTION_REVERSE($(hb_direction_t d)) }|]
