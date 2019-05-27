@@ -64,5 +64,6 @@ test-suite spec
   build-depends:
     harfbuzz,
     hspec,
+    StateVar,
     tasty,
     tasty-hspec

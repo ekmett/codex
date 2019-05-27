@@ -2,6 +2,7 @@
 
 import Data.Const.ByteString
 import Data.Default
+import Data.StateVar
 import Graphics.Harfbuzz
 import Test.Hspec
 import Test.Tasty
@@ -17,28 +18,22 @@ spec = do
     it "readonly is not immutable" $ do
       (blob_create "hello" MEMORY_MODE_READONLY >>= blob_is_immutable) `shouldReturn` False
     it "make_immutable makes things immutable" $ do
-      let task = do
-           x <- blob_create "hello" MEMORY_MODE_READONLY
-           blob_make_immutable x
-           blob_is_immutable x
-      task `shouldReturn` True 
+      x <- blob_create "hello" MEMORY_MODE_READONLY
+      blob_is_immutable x `shouldReturn` False
+      blob_make_immutable x
+      blob_is_immutable x `shouldReturn` True
     it "we get out what we put in" $ do
-      let task = do
-           x <- blob_create "hello" MEMORY_MODE_READONLY 
-           withBlobData x packACStringLen
-      task `shouldReturn` "hello"
+      x <- blob_create "hello" MEMORY_MODE_READONLY 
+      withBlobData x packACStringLen `shouldReturn` "hello"
     it "trims correctly" $ do
-      let task = do
-           x <- blob_create "hello" MEMORY_MODE_WRITABLE
-           y <- blob_create_sub_blob x 2 2
-           (,) <$> withBlobData x packACStringLen <*> withBlobData y packACStringLen
-      task `shouldReturn` ("hello","ll")
+      x <- blob_create "hello" MEMORY_MODE_WRITABLE
+      y <- blob_create_sub_blob x 2 2
+      withBlobData x packACStringLen `shouldReturn` "hello"
+      withBlobData y packACStringLen `shouldReturn` "ll"
     it "forming a sub_blob renders the parent immutable" $ do
-      let task = do
-           x <- blob_create "hello" MEMORY_MODE_WRITABLE
-           _ <- blob_create_sub_blob x 2 2
-           blob_is_immutable x
-      task `shouldReturn` True
+      x <- blob_create "hello" MEMORY_MODE_WRITABLE
+      _ <- blob_create_sub_blob x 2 2
+      blob_is_immutable x `shouldReturn` True
   describe "hb_tag_t" $ do
     it "TAG matches" $ (case script_to_iso15924_tag SCRIPT_HEBREW of TAG a b c d -> (a,b,c,d); _ -> undefined) `shouldBe` ('H','e','b','r')
     it "TAG constructs" $ script_from_iso15924_tag (TAG 'H' 'e' 'b' 'r') == SCRIPT_HEBREW
@@ -81,32 +76,36 @@ spec = do
     it "create produces an empty buffer" $ do
       (buffer_create >>= buffer_get_length) `shouldReturn` 0
     it "can add to a buffer" $ do
-      let task = do
-           x <- buffer_create
-           buffer_add x 'a' 0
-           buffer_get_length x
-      task `shouldReturn` 1
+      x <- buffer_create
+      buffer_add x 'a' 0
+      buffer_get_length x `shouldReturn` 1
     it "can be reset" $ do
-      let task = do
-           x <- buffer_create
-           buffer_add x 'a' 0
-           buffer_reset x
-           buffer_get_length x
-      task `shouldReturn` 0
+      x <- buffer_create
+      buffer_add x 'a' 0
+      buffer_reset x
+      buffer_get_length x `shouldReturn` 0
     it "can append" $ do
-      let task = do
-           x <- buffer_create
-           buffer_add x 'a' 0
-           buffer_add x 'b' 0
-           y <- buffer_create
-           buffer_add y 'c' 0
-           buffer_add y 'd' 0
-           buffer_add y 'e' 0
-           buffer_add y 'f' 0
-           buffer_append x y 1 3 -- abde
-           buffer_get_length x
-      task `shouldReturn` 4
-    
+      x <- buffer_create
+      buffer_add x 'a' 0
+      buffer_add x 'b' 0
+      buffer_get_length x `shouldReturn` 2
+      y <- buffer_create
+      buffer_add y 'c' 0
+      buffer_add y 'd' 0
+      buffer_add y 'e' 0
+      buffer_add y 'f' 0
+      buffer_append x y 1 3 -- abde
+      buffer_get_length x `shouldReturn` 4
+    it "can guess" $ do
+      x <- buffer_create
+      buffer_segment_properties x $= def
+      buffer_content_type x $= BUFFER_CONTENT_TYPE_UNICODE
+      buffer_add x 'ד' 0 -- a hebrew character
+      buffer_guess_segment_properties x 
+      get (buffer_script x) `shouldReturn` "Hebr"
+      get (buffer_direction x) `shouldReturn` "rtl"
+      default_language <- language_get_default 
+      get (buffer_language x) `shouldReturn` default_language -- harfbuzz does not guess language off content, takes host language
   
 
 main :: IO ()

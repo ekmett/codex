@@ -29,6 +29,12 @@ module Graphics.Harfbuzz.Internal
   , BUFFER_CLUSTER_LEVEL_CHARACTERS
   , BUFFER_CLUSTER_LEVEL_DEFAULT
   )
+, BufferContentType
+  ( BufferContentType
+  , BUFFER_CONTENT_TYPE_INVALID
+  , BUFFER_CONTENT_TYPE_UNICODE
+  , BUFFER_CONTENT_TYPE_GLYPHS
+  )
 , BufferFlags
   ( BufferFlags
   , BUFFER_FLAG_DEFAULT
@@ -42,8 +48,14 @@ module Graphics.Harfbuzz.Internal
   ( Direction
   , DIRECTION_INVALID, DIRECTION_LTR, DIRECTION_RTL, DIRECTION_BTT, DIRECTION_TTB
   )
-, Feature(..), feature_to_string, feature_from_string
-, Language(..), language_to_string, language_from_string
+, direction_to_string, direction_from_string
+, Feature(..)
+, feature_to_string, feature_from_string
+, Language
+  ( Language
+  , LANGUAGE_INVALID
+  )
+, language_to_string, language_from_string
 , MemoryMode
   ( MemoryMode
   , MEMORY_MODE_DUPLICATE, MEMORY_MODE_READONLY
@@ -88,12 +100,19 @@ module Graphics.Harfbuzz.Internal
   , SCRIPT__MAX_VALUE
   , SCRIPT__MAX_VALUE_SIGNED
   )
-, SegmentProperties(..)
+, SegmentProperties
+  ( SegmentProperties
+  , segment_properties_direction
+  , segment_properties_script
+  , segment_properties_language
+  , SEGMENT_PROPERTIES_DEFAULT
+  )
 , Tag
   ( Tag, TAG
   , TAG_NONE, TAG_MAX, TAG_MAX_SIGNED
   )
-, Variation(..), variation_to_string, variation_from_string
+, Variation(..)
+, variation_to_string, variation_from_string
 -- * internals
 , withSelf, withPtr
 , cbool
@@ -124,11 +143,11 @@ import Text.Read
 
 #include <hb.h>
 
-newtype Blob = Blob { getBlob :: ForeignPtr Blob } deriving (Eq, Ord, Show, Data)
+newtype Blob = Blob (ForeignPtr Blob) deriving (Eq, Ord, Show, Data)
 
-newtype Buffer = Buffer { getBuffer :: ForeignPtr Buffer } deriving (Eq, Ord, Show, Data)
+newtype Buffer = Buffer (ForeignPtr Buffer) deriving (Eq, Ord, Show, Data)
 
-newtype Language = Language { getLanguage :: Ptr Language } deriving (Eq, Ord, Data, Storable) -- we never manage
+newtype Language = Language (Ptr Language) deriving (Eq, Ord, Data, Storable) -- we never manage
 
 newtype Tag = Tag Word32 deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
 {-# complete Tag #-}
@@ -230,12 +249,13 @@ instance Show Script where
 instance Read Script where
   readPrec = fromString <$> step readPrec
 
-newtype Direction = Direction Word32  deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+newtype Direction = Direction Word32  deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
 
 newtype MemoryMode = MemoryMode CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 
 newtype BufferFlags = BufferFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
 newtype BufferClusterLevel = BufferClusterLevel CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+newtype BufferContentType = BufferContentType CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 
 -- * Startup a crippled inline-c context for use in non-orphan instances
 
@@ -271,10 +291,23 @@ instance Default Tag where
 instance IsString Script where
   fromString (fromString -> tag) = [C.pure|hb_script_t { hb_script_from_iso15924_tag($(hb_tag_t tag)) }|]
 
+direction_from_string :: String -> Direction
+direction_from_string s = unsafeLocalState $
+  withCStringLen (take 1 s) $ \(cstr,fromIntegral -> l) ->
+    [C.exp|hb_direction_t { hb_direction_from_string($(const char * cstr),$(int l)) }|]
+
+direction_to_string :: Direction -> String
+direction_to_string t = unsafeLocalState $
+  [C.exp|const char * { hb_direction_to_string($(hb_direction_t t)) }|] >>= peekCString
+
+instance Show Direction where
+  showsPrec d = showsPrec d . direction_to_string
+
+instance Read Direction where
+  readPrec = direction_from_string <$> step readPrec
+
 instance IsString Direction where
-  fromString s = unsafeLocalState $
-    withCStringLen (take 1 s) $ \(cstr,fromIntegral -> l) ->
-      [C.exp|hb_direction_t { hb_direction_from_string($(const char * cstr),$(int l)) }|]
+  fromString = direction_from_string
 
 instance IsString Language where
   fromString s = unsafeLocalState $
@@ -738,6 +771,27 @@ pattern BUFFER_CLUSTER_LEVEL_DEFAULT = #const HB_BUFFER_CLUSTER_LEVEL_DEFAULT
 instance Default BufferClusterLevel where
   def = BUFFER_CLUSTER_LEVEL_DEFAULT
 
+pattern BUFFER_CONTENT_TYPE_INVALID :: BufferContentType
+pattern BUFFER_CONTENT_TYPE_UNICODE :: BufferContentType
+pattern BUFFER_CONTENT_TYPE_GLYPHS :: BufferContentType
+
+pattern BUFFER_CONTENT_TYPE_INVALID = #const HB_BUFFER_CONTENT_TYPE_INVALID
+pattern BUFFER_CONTENT_TYPE_UNICODE = #const HB_BUFFER_CONTENT_TYPE_UNICODE
+pattern BUFFER_CONTENT_TYPE_GLYPHS = #const HB_BUFFER_CONTENT_TYPE_GLYPHS
+
+pattern NULL :: Ptr a
+pattern NULL <- ((nullPtr ==) -> True) where
+  NULL = nullPtr
+
+pattern LANGUAGE_INVALID :: Language
+pattern LANGUAGE_INVALID = Language NULL
+
+pattern SEGMENT_PROPERTIES_DEFAULT :: SegmentProperties
+pattern SEGMENT_PROPERTIES_DEFAULT = SegmentProperties DIRECTION_INVALID SCRIPT_INVALID LANGUAGE_INVALID
+
+instance Default SegmentProperties where
+  def = SEGMENT_PROPERTIES_DEFAULT
+
 -- * Inline C context
 
 getHsVariable :: String -> C.HaskellIdentifier -> TH.ExpQ
@@ -767,6 +821,7 @@ harfbuzzCtx = mempty
     [ (C.TypeName "hb_blob_t", [t| Blob |])
     , (C.TypeName "hb_buffer_t", [t| Buffer |])
     , (C.TypeName "hb_buffer_cluster_level_t", [t| BufferClusterLevel |])
+    , (C.TypeName "hb_buffer_content_type_t", [t| BufferContentType |])
     , (C.TypeName "hb_buffer_flags_t", [t| BufferFlags |])
     , (C.TypeName "hb_bool_t", [t| CInt |])
     , (C.TypeName "hb_direction_t", [t| Direction |])
