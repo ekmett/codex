@@ -688,6 +688,7 @@ harfbuzzCtx = mempty
     , (C.TypeName "hb_memory_mode_t", [t| MemoryMode |])
     , (C.TypeName "hb_script_t", [t| Script |])
     , (C.TypeName "hb_tag_t", [t| Tag |])
+    , (C.TypeName "hb_codepoint_t", [t| Char |])
     ]
   , C.ctxAntiQuoters = Map.fromList
     [ ("ustr",        anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char (Just C.Unsigned))) [t| CUChar |] [| withCUString |])

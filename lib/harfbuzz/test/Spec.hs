@@ -47,7 +47,7 @@ spec = do
     it "has Hebrew" $ do script_to_string SCRIPT_HEBREW `shouldBe` "Hebr"
     it "has Tamil" $ do script_to_string SCRIPT_TAMIL `shouldBe` "Taml"
     it "has Braille" $ do script_to_string SCRIPT_BRAILLE `shouldBe` "Brai"
-    it "corrects csase " $ do script_from_string "HEBR" `shouldBe` SCRIPT_HEBREW
+    it "corrects case " $ do script_from_string "HEBR" `shouldBe` SCRIPT_HEBREW
   describe "hb_direction_t" $ do
     describe "direction_from_string" $ do
       it "DIRECTION_LTR" $ do direction_from_string "l" `shouldBe` DIRECTION_LTR
