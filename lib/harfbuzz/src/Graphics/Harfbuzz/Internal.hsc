@@ -301,7 +301,7 @@ newtype BufferClusterLevel = BufferClusterLevel CInt deriving (Eq,Ord,Show,Read,
 newtype BufferContentType = BufferContentType CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 
 newtype UnicodeGeneralCategory = UnicodeGeneralCategory CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
-type UnicodeGeneralCategoryFunc a = FunPtr (Ptr UnicodeFuncs -> Char -> Ptr a -> IO UnicodeGeneralCategory)
+type UnicodeGeneralCategoryFunc a = FunPtr (Ptr UnicodeFuncs -> Char -> Ptr a -> UnicodeGeneralCategory)
 
 -- * Startup a crippled inline-c context for use in non-orphan instances
 
