@@ -147,7 +147,8 @@ instance IsObject Blob where
   reference b = liftIO [C.block|void { hb_blob_reference($blob:b); }|]
   destroy b = liftIO [C.block|void { hb_blob_destroy($blob:b); }|]
   get_user_data b k = liftIO $ [C.exp|void * { hb_blob_get_user_data($blob:b,$key:k) }|] <&> castPtr
-  set_user_data b k (castPtr -> v) (castFunPtr -> d) (boolc -> replace) = liftIO $ [C.exp|hb_bool_t { hb_blob_set_user_data($blob:b,$key:k,$(void * v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|] <&> cbool
+  set_user_data b k (castPtr -> v) (castFunPtr -> d) (boolc -> replace) = liftIO $
+    [C.exp|hb_bool_t { hb_blob_set_user_data($blob:b,$key:k,$(void * v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|] <&> cbool
 
 
 -- | hb_blob_get_data is unsafe under ForeignPtr management, this is safe
@@ -169,7 +170,8 @@ instance IsObject Buffer where
   reference b = liftIO [C.block|void { hb_buffer_reference($buffer:b); }|]
   destroy b = liftIO [C.block|void { hb_buffer_destroy($buffer:b); }|]
   get_user_data b k = liftIO $ [C.exp|void * { hb_buffer_get_user_data($buffer:b,$key:k) }|] <&> castPtr
-  set_user_data b k (castPtr -> v) (castFunPtr -> d) (boolc -> replace) = liftIO $ [C.exp|hb_bool_t { hb_buffer_set_user_data($buffer:b,$key:k,$(void * v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|] <&> cbool
+  set_user_data b k (castPtr -> v) (castFunPtr -> d) (boolc -> replace) = liftIO $
+    [C.exp|hb_bool_t { hb_buffer_set_user_data($buffer:b,$key:k,$(void * v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|] <&> cbool
 
 buffer_create :: MonadIO m => m Buffer
 buffer_create = liftIO $ [C.exp|hb_buffer_t * { hb_buffer_create() }|] >>= foreignBuffer
@@ -338,7 +340,8 @@ instance IsObject UnicodeFuncs where
   reference uf = liftIO [C.block|void { hb_unicode_funcs_reference($unicode-funcs:uf); }|]
   destroy uf = liftIO [C.block|void { hb_unicode_funcs_destroy($unicode-funcs:uf); }|]
   get_user_data b k = liftIO $ [C.exp|void * { hb_unicode_funcs_get_user_data($unicode-funcs:b,$key:k) }|] <&> castPtr
-  set_user_data b k (castPtr -> v) (castFunPtr -> d) (boolc -> replace) = liftIO $ [C.exp|hb_bool_t{ hb_unicode_funcs_set_user_data($unicode-funcs:b,$key:k,$(void * v),$(hb_destroy_func_t d), $(hb_bool_t replace)) }|] <&> cbool
+  set_user_data b k (castPtr -> v) (castFunPtr -> d) (boolc -> replace) = liftIO $
+    [C.exp|hb_bool_t{ hb_unicode_funcs_set_user_data($unicode-funcs:b,$key:k,$(void * v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|] <&> cbool
 
 -- * Finalization
 
