@@ -161,21 +161,6 @@ direction_is_vertical d = cbool [C.pure|int { HB_DIRECTION_IS_VERTICAL($(hb_dire
 direction_is_valid :: Direction -> Bool
 direction_is_valid d = cbool [C.pure|int { HB_DIRECTION_IS_VALID($(hb_direction_t d)) }|]
 
--- * features
-
-feature_from_string :: String -> Maybe Feature
-feature_from_string s = unsafeLocalState $
-  withCStringLen s $ \(cstr,fromIntegral -> len) ->
-    alloca $ \feature -> do
-      b <- [C.exp|hb_bool_t { hb_feature_from_string($(const char * cstr),$(int len),$(hb_feature_t * feature)) }|]
-      if cbool b then Just <$> peek feature else pure Nothing
-
-feature_to_string :: Feature -> String
-feature_to_string f = unsafeLocalState $
-  allocaBytes 128 $ \buf -> do
-    [C.block|void { hb_feature_to_string($feature:f,$(char * buf),128); }|]
-    peekCString buf
-
 -- * scripts
 
 script_from_iso15924_tag :: Tag -> Script

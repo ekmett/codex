@@ -61,6 +61,20 @@ spec = do
       it "btt" $ do direction_to_string DIRECTION_BTT `shouldBe` "btt"
       it "ttb" $ do direction_to_string DIRECTION_TTB `shouldBe` "ttb"
       it "invalid" $ do direction_to_string DIRECTION_INVALID `shouldBe` "invalid"
+  describe "hb_feature_t" $ do
+    it "parses" $ do "kern[1:5]" `shouldBe` Feature "kern" 1 1 5
+    it "compares" $ do "kern[1:5]" `shouldNotBe` ("kern[1:6]" :: Feature)
+    it "+kern" $ do "+kern" `shouldBe` Feature "kern" 1 0 maxBound
+    it "-kern" $ do "-kern" `shouldBe` Feature "kern" 0 0 maxBound
+    it "kern=1" $ do "kern=1" `shouldBe` Feature "kern" 1 0 maxBound
+    it "kern=0" $ do "kern=0" `shouldBe` Feature "kern" 0 0 maxBound
+    it "aalt=2" $ do "aalt=2" `shouldBe` Feature "aalt" 2 0 maxBound
+    it "kern[]" $ do "kern[]" `shouldBe` Feature "kern" 1 0 maxBound
+    it "kern[:]" $ do "kern[:]" `shouldBe` Feature "kern" 1 0 maxBound
+    it "kern[5:]" $ do "kern[5:]" `shouldBe` Feature "kern" 1 5 maxBound
+    it "kern[:5]" $ do "kern[:5]" `shouldBe` Feature "kern" 1 0 5
+    it "kern[3]" $ do "kern[3]" `shouldBe` Feature "kern" 1 3 4
+    it "aalt[3:5]=2" $ do "aalt[3:5]=2" `shouldBe` Feature "aalt" 2 3 5
 
 main :: IO ()
 main = do
