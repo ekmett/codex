@@ -75,6 +75,8 @@ spec = do
     it "kern[:5]" $ do "kern[:5]" `shouldBe` Feature "kern" 1 0 5
     it "kern[3]" $ do "kern[3]" `shouldBe` Feature "kern" 1 3 4
     it "aalt[3:5]=2" $ do "aalt[3:5]=2" `shouldBe` Feature "aalt" 2 3 5
+  describe "hb_variation_t" $ do
+    it "parses" $ do "wght=10" `shouldBe` Variation "wght" 10
 
 main :: IO ()
 main = do
