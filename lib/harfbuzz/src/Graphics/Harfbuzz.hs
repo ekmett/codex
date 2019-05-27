@@ -29,6 +29,7 @@ module Graphics.Harfbuzz
   , buffer_reverse_range
   , buffer_reverse_clusters
   , buffer_add
+  , buffer_append
   -- statevars
   , buffer_direction
   , buffer_script
@@ -183,6 +184,10 @@ buffer_reverse_range b (fromIntegral -> start) (fromIntegral -> end) = liftIO
 buffer_add :: MonadIO m => Buffer -> Char -> Int -> m ()
 buffer_add buffer codepoint (fromIntegral -> cluster) = liftIO
   [C.block|void { hb_buffer_add($buffer:buffer,$(hb_codepoint_t codepoint),$(unsigned int cluster)); }|]
+
+buffer_append :: MonadIO m => Buffer -> Buffer -> Int -> Int -> m ()
+buffer_append buffer source (fromIntegral -> start) (fromIntegral -> end) = liftIO
+  [C.block|void { hb_buffer_append($buffer:buffer,$buffer:source,$(unsigned int start),$(unsigned int end)); }|]
 
 buffer_direction :: Buffer -> StateVar Direction
 buffer_direction b = StateVar g s where

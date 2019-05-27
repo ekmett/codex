@@ -93,6 +93,21 @@ spec = do
            buffer_reset x
            buffer_get_length x
       task `shouldReturn` 0
+    it "can append" $ do
+      let task = do
+           x <- buffer_create
+           buffer_add x 'a' 0
+           buffer_add x 'b' 0
+           y <- buffer_create
+           buffer_add y 'c' 0
+           buffer_add y 'd' 0
+           buffer_add y 'e' 0
+           buffer_add y 'f' 0
+           buffer_append x y 1 3 -- abde
+           buffer_get_length x
+      task `shouldReturn` 4
+    
+  
 
 main :: IO ()
 main = do
