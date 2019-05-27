@@ -211,6 +211,7 @@ module Graphics.Harfbuzz.Internal
   )
 , UnicodeGeneralCategoryFunc
 , UnicodeMirroringFunc
+, UnicodeScriptFunc
 , Key(..), withKey
 , Variation(..)
 , variation_to_string, variation_from_string
@@ -369,9 +370,10 @@ type UnicodeGeneralCategoryFunc a = Ptr UnicodeFuncs -> Char -> Ptr a -> IO Unic
 
 newtype UnicodeCombiningClass = UnicodeCombiningClass CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 type UnicodeCombiningClassFunc a = Ptr UnicodeFuncs -> Char -> Ptr a -> IO UnicodeCombiningClass
-type UnicodeComposeFunc a = Ptr UnicodeFuncs -> Char -> Char -> Ptr Char -> Ptr a -> IO CInt
-type UnicodeDecomposeFunc a = Ptr UnicodeFuncs -> Char -> Ptr Char -> Ptr Char -> Ptr a -> IO CInt
+type UnicodeComposeFunc a = Ptr UnicodeFuncs -> Char -> Char -> Ptr Char -> Ptr a -> IO CInt -- hb_bool_tt
+type UnicodeDecomposeFunc a = Ptr UnicodeFuncs -> Char -> Ptr Char -> Ptr Char -> Ptr a -> IO CInt -- hb_bool_t
 type UnicodeMirroringFunc a = Ptr UnicodeFuncs -> Char -> Ptr a -> IO Char
+type UnicodeScriptFunc a = Ptr UnicodeFuncs -> Char -> Ptr a -> IO Script
 
 -- * Startup a crippled inline-c context for use in non-orphan instances
 
@@ -1288,6 +1290,7 @@ harfbuzzCtx = mempty
     , (C.TypeName "hb_unicode_general_category_t", [t| UnicodeGeneralCategory |])
     , (C.TypeName "hb_unicode_general_category_func_t", [t| FunPtr (UnicodeGeneralCategoryFunc ()) |])
     , (C.TypeName "hb_unicode_mirroring_func_t", [t| FunPtr (UnicodeMirroringFunc ()) |])
+    , (C.TypeName "hb_unicode_script_func_t", [t| FunPtr (UnicodeScriptFunc ()) |])
     , (C.TypeName "hb_user_data_key_t", [t| OpaqueKey |])
     , (C.TypeName "hb_variation_t", [t| Variation |])
     ]

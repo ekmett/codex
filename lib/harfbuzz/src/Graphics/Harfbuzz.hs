@@ -87,11 +87,14 @@ module Graphics.Harfbuzz
   , unicode_funcs_set_decompose_func
   , unicode_funcs_set_general_category_func
   , unicode_funcs_set_mirroring_func
+  , unicode_funcs_set_script_func
+
   , unicode_combining_class
   , unicode_compose
   , unicode_decompose
   , unicode_general_category
   , unicode_mirroring
+  , unicode_script
 
   , Variation(..)
   , variation_from_string, variation_to_string
@@ -377,6 +380,7 @@ foreign import ccall "wrapper" mkUnicodeComposeFunc :: UnicodeComposeFunc a -> I
 foreign import ccall "wrapper" mkUnicodeDecomposeFunc :: UnicodeDecomposeFunc a -> IO (FunPtr (UnicodeDecomposeFunc a))
 foreign import ccall "wrapper" mkUnicodeGeneralCategoryFunc :: UnicodeGeneralCategoryFunc a -> IO (FunPtr (UnicodeGeneralCategoryFunc a))
 foreign import ccall "wrapper" mkUnicodeMirroringFunc :: UnicodeMirroringFunc a -> IO (FunPtr (UnicodeMirroringFunc a))
+foreign import ccall "wrapper" mkUnicodeScriptFunc :: UnicodeScriptFunc a -> IO (FunPtr (UnicodeScriptFunc a))
 
 unicode_funcs_set_combining_class_func :: MonadIO m => UnicodeFuncs -> (Char -> IO UnicodeCombiningClass) -> m ()
 unicode_funcs_set_combining_class_func uf fun = liftIO $ do
@@ -421,6 +425,14 @@ unicode_funcs_set_mirroring_func uf fun = liftIO $ do
     hb_unicode_funcs_set_mirroring_func($unicode-funcs:uf,f,f,(hb_destroy_func_t)hs_free_fun_ptr);
   }|]
 
+unicode_funcs_set_script_func :: MonadIO m => UnicodeFuncs -> (Char -> IO Script) -> m ()
+unicode_funcs_set_script_func uf fun = liftIO $ do
+  (castFunPtr -> f) <- mkUnicodeScriptFunc $ \ _ a _ -> fun a
+  [C.block|void {
+    hb_unicode_script_func_t f = $(hb_unicode_script_func_t f);
+    hb_unicode_funcs_set_script_func($unicode-funcs:uf,f,f,(hb_destroy_func_t)hs_free_fun_ptr);
+  }|]
+
 unicode_combining_class :: MonadIO m => UnicodeFuncs -> Char -> m UnicodeCombiningClass
 unicode_combining_class uf codepoint = liftIO $ [C.exp|hb_unicode_combining_class_t { hb_unicode_combining_class($unicode-funcs:uf,$(hb_codepoint_t codepoint)) }|]
 
@@ -442,6 +454,9 @@ unicode_general_category uf codepoint = liftIO $ [C.exp|hb_unicode_general_categ
 
 unicode_mirroring :: MonadIO m => UnicodeFuncs -> Char -> m Char
 unicode_mirroring uf a = liftIO [C.exp|hb_codepoint_t { hb_unicode_mirroring($unicode-funcs:uf,$(hb_codepoint_t a)) }|]
+
+unicode_script :: MonadIO m => UnicodeFuncs -> Char -> m Script
+unicode_script uf a = liftIO [C.exp|hb_script_t { hb_unicode_script($unicode-funcs:uf,$(hb_codepoint_t a)) }|]
 
 key_create :: MonadIO m => m (Key a)
 key_create = liftIO $ Key <$> mallocForeignPtrBytes 1
