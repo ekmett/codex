@@ -14,6 +14,7 @@
 {-# language QuasiQuotes #-}
 {-# language LambdaCase #-}
 {-# language CPP #-}
+{-# options_ghc -Wno-missing-pattern-synonym-signatures #-}
 
 -- | ffi to the fontconfig library
 --
@@ -148,67 +149,38 @@ newtype Face = Face { getFace :: ForeignPtr Face } deriving (Eq,Ord,Show,Data)
 
 newtype Matrix = Matrix { getMatrix:: ForeignPtr Matrix } deriving (Eq,Ord,Show,Data) -- TODO use a struct and store it
 
+#ifndef HLINT
 newtype SetName = SetName CInt deriving newtype (Eq,Ord,Show,Read,Enum,Num,Real,Integral,Storable)
-
-pattern SetSystem :: SetName
-pattern SetApplication :: SetName
-
-pattern SetSystem = #const FcSetSystem
-pattern SetApplication = #const FcSetSystem
+pattern SetSystem = (#const FcSetSystem) :: SetName
+pattern SetApplication = (#const FcSetSystem) :: SetName
 
 newtype FcBool = FcBool CInt deriving newtype (Eq,Ord,Show,Read,Enum,Num,Real,Integral,Storable)
-
-pattern FcFalse :: FcBool
-pattern FcTrue :: FcBool
-pattern FcDontCare :: FcBool
-
-pattern FcFalse = #const FcFalse
-pattern FcTrue = #const FcTrue
-pattern FcDontCare = #const FcDontCare
+pattern FcFalse = (#const FcFalse) :: FcBool
+pattern FcTrue = (#const FcTrue) :: FcBool
+pattern FcDontCare = (#const FcDontCare) :: FcBool
 
 newtype MatchKind = MatchKind CInt deriving newtype (Eq,Ord,Show,Read,Enum,Num,Real,Integral,Storable)
-
-pattern MatchPattern :: MatchKind
-pattern MatchFont :: MatchKind
-pattern MatchScan :: MatchKind
-
-pattern MatchPattern = #const FcMatchPattern
-pattern MatchFont = #const FcMatchFont 
-pattern MatchScan = #const FcMatchScan 
+pattern MatchPattern = (#const FcMatchPattern) :: MatchKind
+pattern MatchFont = (#const FcMatchFont) :: MatchKind
+pattern MatchScan = (#const FcMatchScan) :: MatchKind
 
 newtype LangResult = LangResult CInt deriving newtype (Eq,Ord,Show,Read,Enum,Num,Real,Integral,Storable)
-
-pattern LangEqual :: LangResult
-pattern LangDifferentCountry :: LangResult
-pattern LangDifferentTerritory :: LangResult
-pattern LangDifferentLang :: LangResult
-
-pattern LangEqual = #const FcLangEqual
-pattern LangDifferentCountry = #const FcLangDifferentCountry
-pattern LangDifferentTerritory = #const FcLangDifferentTerritory
-pattern LangDifferentLang = #const FcLangDifferentLang
+pattern LangEqual = (#const FcLangEqual) :: LangResult
+pattern LangDifferentCountry = (#const FcLangDifferentCountry) :: LangResult
+pattern LangDifferentTerritory = (#const FcLangDifferentTerritory) :: LangResult
+pattern LangDifferentLang = (#const FcLangDifferentLang) :: LangResult
 
 newtype ValueBinding = ValueBinding CInt deriving newtype (Eq,Ord,Show,Read,Enum,Num,Real,Integral,Storable)
-
-pattern ValueBindingWeak :: ValueBinding
-pattern ValueBindingStrong :: ValueBinding
-pattern ValueBindingSame :: ValueBinding
-
-pattern ValueBindingWeak = #const FcValueBindingWeak
-pattern ValueBindingStrong = #const FcValueBindingStrong
-pattern ValueBindingSame = #const FcValueBindingSame
+pattern ValueBindingWeak = (#const FcValueBindingWeak) :: ValueBinding
+pattern ValueBindingStrong = (#const FcValueBindingStrong) :: ValueBinding
+pattern ValueBindingSame = (#const FcValueBindingSame)  :: ValueBinding
 
 newtype Spacing = Spacing CInt deriving newtype (Eq,Ord,Show,Read,Enum,Num,Real,Integral,Storable)
-
-pattern MONO :: Spacing
-pattern DUAL :: Spacing
-pattern PROPORTIONAL :: Spacing
-pattern CHARCELL :: Spacing
-
-pattern MONO = #const FC_MONO
-pattern DUAL = #const FC_DUAL
-pattern PROPORTIONAL = #const FC_PROPORTIONAL
-pattern CHARCELL = #const FC_CHARCELL
+pattern MONO = (#const FC_MONO) :: Spacing
+pattern DUAL = (#const FC_DUAL) :: Spacing
+pattern PROPORTIONAL = (#const FC_PROPORTIONAL) :: Spacing
+pattern CHARCELL = (#const FC_CHARCELL) :: Spacing
+#endif
 
 data StrList
 
@@ -251,6 +223,7 @@ C.include "<fontconfig/fcfreetype.h>"
 # endif
 #endif
 
+#ifndef HLINT
 instance Storable Value where
   sizeOf _ = #size FcValue
   alignment _ = #alignment FcValue
@@ -278,6 +251,7 @@ instance Storable Value where
     (#const FcTypeLangSet) -> ValueLangSet . ConstPtr <$> [C.exp|const FcLangSet * { $(FcValue*v)->u.l }|]
     (#const FcTypeRange) -> ValueRange . ConstPtr <$> [C.exp|const FcRange * { $(FcValue*v)->u.r }|]
     _ -> pure ValueUnknown
+#endif
 
 withSelf :: Coercible a (ForeignPtr a) => a -> (Ptr a -> IO r) -> IO r
 withSelf = withForeignPtr . coerce
@@ -402,7 +376,6 @@ foreignMatrix = fmap Matrix . newForeignPtr finalizerFree
 foreignFace :: Ptr Face -> IO Face
 foreignFace p = Face <$> Concurrent.newForeignPtr p [C.block|void { FT_Done_Face($(struct FT_FaceRec_ * p)); }|]
 #endif
-
 
 -- * Inline C context
 
