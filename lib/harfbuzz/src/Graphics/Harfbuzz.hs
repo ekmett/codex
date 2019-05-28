@@ -197,7 +197,6 @@ module Graphics.Harfbuzz
   , _hb_unicode_funcs_destroy
   ) where
 
-import Control.Monad ((>=>))
 import Control.Monad.IO.Class
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as ByteString
