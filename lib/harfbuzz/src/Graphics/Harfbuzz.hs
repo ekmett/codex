@@ -56,6 +56,7 @@ module Graphics.Harfbuzz
   , buffer_reverse_range
   , buffer_script -- statevar
   , buffer_segment_properties
+  , buffer_serialize_glyphs
   , buffer_serialize_list_formats
   , buffer_set_length
   , buffer_set_message_func
@@ -443,6 +444,28 @@ buffer_guess_segment_properties b = liftIO [C.block|void { hb_buffer_guess_segme
 
 buffer_normalize_glyphs :: MonadIO m => Buffer -> m ()
 buffer_normalize_glyphs b = liftIO [C.block|void { hb_buffer_normalize_glyphs($buffer:b); }|]
+
+-- TODO: wrapper that provides a lazy bytestring for a given window without fiddling with buffer sizes
+buffer_serialize_glyphs :: MonadIO m => Buffer -> Int -> Int -> Int -> Font -> BufferSerializeFormat -> BufferSerializeFlags -> m (Int, ByteString)
+buffer_serialize_glyphs b (fromIntegral -> start) (fromIntegral -> end) bs@(fromIntegral -> buf_size) font format flags = liftIO $
+  allocaBytes bs $ \ buf ->
+    alloca $ \pbuf_consumed -> do
+       n <- [C.exp|unsigned int {
+         hb_buffer_serialize_glyphs(
+           $buffer:b,
+           $(unsigned int start),
+           $(unsigned int end),
+           $(char * buf),
+           $(unsigned int buf_size),
+           $(unsigned int * pbuf_consumed),
+           $font:font,
+           $(hb_buffer_serialize_format_t format),
+           $(hb_buffer_serialize_flags_t flags)
+         )
+       }|] <&> fromIntegral
+       buf_consumed <- peek pbuf_consumed <&> fromIntegral
+       result <- ByteString.packCStringLen (buf,buf_consumed)
+       return (n, result)
 
 -- | Register a callback for buffer messages
 buffer_set_message_func :: MonadIO m => Buffer -> (Buffer -> Font -> String -> IO ()) -> m ()
