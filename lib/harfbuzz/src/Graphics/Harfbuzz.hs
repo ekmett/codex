@@ -111,9 +111,9 @@ module Graphics.Harfbuzz
   , font_set_funcs
   , font_glyph_to_string
   , font_glyph_from_string
-  -- , font_get_glyph_origin_for_direction
-  -- , font_add_glyph_origin_for_direction
-  -- , font_subtract_glyph_origin_for_direction
+  , font_get_glyph_origin_for_direction
+  , font_add_glyph_origin_for_direction
+  , font_subtract_glyph_origin_for_direction
   -- , font_set_variations
   -- , font_set_var_coords_design
   -- , font_set_var_coords_normalized
@@ -771,6 +771,24 @@ font_get_glyph_contour_point_for_origin font glyph (fromIntegral -> point_index)
     pure $ Just (x,y)
   else pure Nothing
 
+font_get_glyph_origin_for_direction :: MonadIO m => Font -> Codepoint -> Direction -> m (Position, Position)
+font_get_glyph_origin_for_direction font glyph dir = liftIO $ allocaArray 2 $ \xy -> do
+  [C.block|void {
+    hb_position_t * xy = $(hb_position_t * xy);
+    hb_font_get_glyph_origin_for_direction($font:font,$(hb_codepoint_t glyph),$(hb_direction_t dir),xy,xy+1);
+  }|]
+  (,) <$> peek xy <*> peek (advancePtr xy 1)
+
+font_add_glyph_origin_for_direction :: MonadIO m => Font -> Codepoint -> Direction -> (Position,Position) -> m (Position,Position)
+font_add_glyph_origin_for_direction font glyph dir (x,y) = do
+  (dx,dy) <- font_get_glyph_origin_for_direction font glyph dir
+  pure $ (x + dx, y + dy)
+
+font_subtract_glyph_origin_for_direction :: MonadIO m => Font -> Codepoint -> Direction -> (Position,Position) -> m (Position,Position)
+font_subtract_glyph_origin_for_direction font glyph dir (x,y) = do
+  (dx,dy) <- font_get_glyph_origin_for_direction font glyph dir
+  pure $ (x - dx, y - dy)
+
 font_get_glyph_extents :: MonadIO m => Font -> Codepoint -> m (Maybe GlyphExtents)
 font_get_glyph_extents font glyph = liftIO $ alloca $ \extents -> do
   b <- [C.exp|hb_bool_t { hb_font_get_glyph_extents($font:font,$(hb_codepoint_t glyph),$(hb_glyph_extents_t * extents)) }|]
@@ -816,7 +834,8 @@ font_glyph_from_string font name = liftIO $
         hb_font_glyph_from_string($font:font,$(const char * cstr),$(unsigned int len), $(hb_codepoint_t * glyph))
       }|]
       if cbool b then Just <$> peek glyph else pure Nothing
-   
+
+
 font_ppem :: Font -> StateVar (Int,Int)
 font_ppem font = StateVar g s where
   g = allocaArray 2 $ \xy -> do
@@ -1063,7 +1082,7 @@ instance IsObject ShapePlan where
   _set_user_data b k v d replace = [C.exp|hb_bool_t { hb_shape_plan_set_user_data($shape-plan:b,$key:k,$(void*v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|]
 
 shape_plan_create :: MonadIO m => Face -> SegmentProperties -> [Feature] -> [Shaper] -> m ShapePlan
-shape_plan_create face props features shapers = liftIO $ 
+shape_plan_create face props features shapers = liftIO $
   withArrayLen features $ \ (fromIntegral -> len) pfeatures ->
     withArray0 SHAPER_INVALID shapers $ \ (castPtr -> pshapers) ->
       [C.exp|hb_shape_plan_t * {
@@ -1071,7 +1090,7 @@ shape_plan_create face props features shapers = liftIO $
       }|] >>= foreignShapePlan
 
 shape_plan_create_cached :: MonadIO m => Face -> SegmentProperties -> [Feature] -> [Shaper] -> m ShapePlan
-shape_plan_create_cached face props features shapers = liftIO $ 
+shape_plan_create_cached face props features shapers = liftIO $
   withArrayLen features $ \ (fromIntegral -> len) pfeatures ->
     withArray0 SHAPER_INVALID shapers $ \ (castPtr -> pshapers) ->
       [C.exp|hb_shape_plan_t * {
@@ -1079,7 +1098,7 @@ shape_plan_create_cached face props features shapers = liftIO $
       }|] >>= foreignShapePlan
 
 shape_plan_create2 :: MonadIO m => Face -> SegmentProperties -> [Feature] -> [Int] -> [Shaper] -> m ShapePlan
-shape_plan_create2 face props features coords shapers = liftIO $ 
+shape_plan_create2 face props features coords shapers = liftIO $
   withArrayLen features $ \ (fromIntegral -> len) pfeatures ->
     withArrayLen (fromIntegral <$> coords) $ \ (fromIntegral -> num_coords) pcoords ->
       withArray0 SHAPER_INVALID shapers $ \ (castPtr -> pshapers) ->
@@ -1093,7 +1112,7 @@ shape_plan_create2 face props features coords shapers = liftIO $
         }|] >>= foreignShapePlan
 
 shape_plan_create_cached2 :: MonadIO m => Face -> SegmentProperties -> [Feature] -> [Int] -> [Shaper] -> m ShapePlan
-shape_plan_create_cached2 face props features coords shapers = liftIO $ 
+shape_plan_create_cached2 face props features coords shapers = liftIO $
   withArrayLen features $ \ (fromIntegral -> len) pfeatures ->
     withArrayLen (fromIntegral <$> coords) $ \ (fromIntegral -> num_coords) pcoords ->
       withArray0 SHAPER_INVALID shapers $ \ (castPtr -> pshapers) ->
