@@ -32,6 +32,7 @@ import Control.Monad.Primitive
 import Data.Coerce
 import Data.Type.Coercion
 import Data.Primitive.ByteArray
+import Data.Primitive.Ptr (Ptr (..))
 import Data.Primitive.Types
 import Data.Word
 
@@ -56,7 +57,7 @@ copyAByteArray :: forall m p. (AByteArray p, PrimMonad m) => MutableByteArray (P
 copyAByteArray = gcoerceWith (unsafeByteArrayCoercion @p @(PrimState m)) $ coerce $ copyMutableByteArray @m
 {-# inline copyAByteArray #-}
 
-copyAByteArrayToAddr :: forall m p. (AByteArray p, PrimMonad m) => Ptr Word8 -> p (PrimState m) -> Int -> Int -> m ()
+copyAByteArrayToAddr :: forall m p. (AByteArray p, PrimMonad m) => Addr -> p (PrimState m) -> Int -> Int -> m ()
 copyAByteArrayToAddr = gcoerceWith (unsafeByteArrayCoercion @p @(PrimState m)) $ coerce $ copyMutableByteArrayToAddr @m
 {-# inline copyAByteArrayToAddr #-}
 
@@ -78,5 +79,5 @@ isAByteArrayPinned = gcoerceWith (unsafeByteArrayCoercion @p @s) $ coerce $ isMu
 
 -- | Only safe on a pinned ByteArray or pinned ConstByteArray
 constByteArrayContents :: forall s p. AByteArray p => p s -> ConstPtr Word8
-constByteArrayContents = gcoerceWith (unsafeByteArrayCoercion @p @s) $ coerce $ mutableByteArrayContents @s
+constByteArrayContents = gcoerceWith (unsafeByteArrayCoercion @p @s) $ coerce $ (\(Addr a) -> Ptr a) . mutableByteArrayContents @s
 {-# inline constByteArrayContents #-}

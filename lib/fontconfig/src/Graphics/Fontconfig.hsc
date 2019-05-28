@@ -921,7 +921,7 @@ freeTypeQuery p (fromIntegral -> i) = liftIO $ alloca $ \count ->
   (,) <$> ([C.exp|FcPattern * { FcFreeTypeQuery($ustr:p,$(int i),0,$(int * count)) }|] >>= foreignPattern)
       <*> (peek count <&> fromIntegral)
 
-  -- | Constructs patterns found in 'file'. If the id is -1 then all patterns found in the file are added to the supplied set, otherwise
+-- | Constructs patterns found in 'file'. If the id is -1 then all patterns found in the file are added to the supplied set, otherwise
 -- just the selected pattern is added. Returns the number of patterns added to the fontset and the number of faces in the file.
 freeTypeQueryAll :: MonadIO m => FilePath -> Int -> FontSet -> m (Int, Int)
 freeTypeQueryAll p (fromIntegral -> i) fs = liftIO $ alloca $ \count -> 

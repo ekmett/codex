@@ -30,6 +30,7 @@ import Data.Coerce
 import Data.Type.Coercion
 import Data.Primitive.PrimArray
 import Data.Primitive.Types
+import Data.Primitive.Ptr (Ptr (..))
 
 import Data.Const.Unsafe
 
@@ -52,8 +53,8 @@ copyAPrimArray :: forall m a p. (Prim a, PrimMonad m, APrimArray (PrimState m) p
 copyAPrimArray = gcoerceWith (unsafePrimArrayCoercion @(PrimState m) @p @a) $ coerce $ copyMutablePrimArray @m @a
 {-# inline copyAPrimArray #-}
 
-copyAPrimArrayToPtr :: forall m a p. (Prim a, PrimMonad m, APrimArray (PrimState m) p) => Ptr a -> p a -> Int -> Int -> m ()
-copyAPrimArrayToPtr = gcoerceWith (unsafePrimArrayCoercion @(PrimState m) @p @a) $ coerce $ copyMutablePrimArrayToPtr @m @a
+copyAPrimArrayToPtr :: forall m a p. (Prim a, PrimMonad m, APrimArray (PrimState m) p) => Addr -> p a -> Int -> Int -> m ()
+copyAPrimArrayToPtr (Addr a) = gcoerceWith (unsafePrimArrayCoercion @(PrimState m) @p @a) $ coerce $ copyMutablePrimArrayToPtr @m @a (Ptr a) 
 {-# inline copyAPrimArrayToPtr #-}
 
 sizeofAPrimArray :: forall s a p. (Prim a, APrimArray s p) => p a -> Int
