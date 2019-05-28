@@ -6,123 +6,122 @@
 {-# language ScopedTypeVariables #-}
 {-# language ForeignFunctionInterface #-}
 module Graphics.Harfbuzz
-  (
-    Blob
-  , blob_copy_writable_or_fail
-  , blob_create
-  , blob_create_from_file
-  , blob_create_sub_blob
-  , blob_get_length
-  , blob_is_immutable
-  , blob_make_immutable
+( Blob
+, blob_copy_writable_or_fail
+, blob_create
+, blob_create_from_file
+, blob_create_sub_blob
+, blob_get_length
+, blob_is_immutable
+, blob_make_immutable
 
-  , withBlobData
-  , withBlobDataWritable
+, withBlobData
+, withBlobDataWritable
 
-  , Buffer
-  , BufferFlags(..)
-  , BufferContentType(..)
-  , BufferClusterLevel(..)
-  , BufferSerializeFormat(..)
-  , buffer_serialize_format_from_string, buffer_serialize_format_to_string
-  , pattern BUFFER_REPLACEMENT_CODEPOINT_DEFAULT
+, Buffer
+, BufferFlags(..)
+, BufferContentType(..)
+, BufferClusterLevel(..)
+, BufferSerializeFormat(..)
+, buffer_serialize_format_from_string, buffer_serialize_format_to_string
+, pattern BUFFER_REPLACEMENT_CODEPOINT_DEFAULT
 
-  , buffer_add
-  , buffer_add_char
-  , buffer_add_latin1 -- Char8.ByteString
-  , buffer_add_string -- String
-  , buffer_add_text -- Text
-  , buffer_add_utf8 -- UTF8 encoded ByteString
-  , buffer_allocation_successful
-  , buffer_append
-  , buffer_clear_contents
-  , buffer_cluster_level -- statevar
-  , buffer_content_type -- statevar
-  , buffer_create
-  , buffer_deserialize_glyphs
-  , buffer_diff
-  , buffer_direction -- statevar
-  , buffer_flags -- statevar
-  , buffer_get_glyph_positions
-  , buffer_get_glyph_flags
-  , buffer_get_length
-  , buffer_guess_segment_properties
-  , buffer_invisible_glyph
-  , buffer_language -- statevar
-  , buffer_normalize_glyphs
-  , buffer_pre_allocate
-  , buffer_replacement_codepoint
-  , buffer_reset
-  , buffer_reverse
-  , buffer_reverse_clusters
-  , buffer_reverse_range
-  , buffer_script -- statevar
-  , buffer_segment_properties
-  , buffer_serialize_glyphs
-  , buffer_serialize_list_formats
-  , buffer_set_length
-  , buffer_set_message_func
-  , buffer_unicode_funcs -- statevar
+, buffer_add
+, buffer_add_char
+, buffer_add_latin1 -- Char8.ByteString
+, buffer_add_string -- String
+, buffer_add_text -- Text
+, buffer_add_utf8 -- UTF8 encoded ByteString
+, buffer_allocation_successful
+, buffer_append
+, buffer_clear_contents
+, buffer_cluster_level -- statevar
+, buffer_content_type -- statevar
+, buffer_create
+, buffer_deserialize_glyphs
+, buffer_diff
+, buffer_direction -- statevar
+, buffer_flags -- statevar
+, buffer_get_glyph_positions
+, buffer_get_glyph_flags
+, buffer_get_length
+, buffer_guess_segment_properties
+, buffer_invisible_glyph
+, buffer_language -- statevar
+, buffer_normalize_glyphs
+, buffer_pre_allocate
+, buffer_replacement_codepoint
+, buffer_reset
+, buffer_reverse
+, buffer_reverse_clusters
+, buffer_reverse_range
+, buffer_script -- statevar
+, buffer_segment_properties
+, buffer_serialize_glyphs
+, buffer_serialize_list_formats
+, buffer_set_length
+, buffer_set_message_func
+, buffer_unicode_funcs -- statevar
 
-  , Codepoint
+, Codepoint
 
-  , Direction(..)
-  , direction_to_string, direction_from_string
-  , direction_reverse, direction_is_valid
-  , direction_is_backward, direction_is_forward
-  , direction_is_vertical, direction_is_horizontal
+, Direction(..)
+, direction_to_string, direction_from_string
+, direction_reverse, direction_is_valid
+, direction_is_backward, direction_is_forward
+, direction_is_vertical, direction_is_horizontal
 
-  , Face
-  , face_collect_unicodes
-  , face_collect_variation_selectors
-  , face_collect_variation_unicodes
-  , face_count
-  , face_create
-  , face_create_for_tables
-  , face_glyph_count -- statevar
-  , face_index -- statevar
-  , face_is_immutable
-  , face_make_immutable
-  , face_builder_create
-  , face_builder_add_table
-  , face_reference_blob
-  , face_reference_table
-  , face_upem -- statevar
+, Face
+, face_collect_unicodes
+, face_collect_variation_selectors
+, face_collect_variation_unicodes
+, face_count
+, face_create
+, face_create_for_tables
+, face_glyph_count -- statevar
+, face_index -- statevar
+, face_is_immutable
+, face_make_immutable
+, face_builder_create
+, face_builder_add_table
+, face_reference_blob
+, face_reference_table
+, face_upem -- statevar
 
-  , Feature(..)
-  , feature_to_string, feature_from_string
+, Feature(..)
+, feature_to_string, feature_from_string
 
-  , Font
-  , font_create
-  , font_create_sub_font
-  , font_face -- statevar
-  , font_get_extents_for_direction
-  , font_get_glyph
-  , font_get_glyph_advance_for_direction
-  , font_get_glyph_advances_for_direction
-  , font_get_glyph_contour_point
-  , font_get_glyph_contour_point_for_origin
-  , font_get_glyph_extents
-  , font_get_glyph_extents_for_origin
-  , font_get_glyph_name
-  , font_get_glyph_from_name
-  , font_ppem -- statevar
-  , font_ptem -- statevar
-  , font_scale -- statevar
-  , font_set_funcs
-  , font_glyph_to_string
-  , font_glyph_from_string
-  , font_get_glyph_origin_for_direction
-  , font_add_glyph_origin_for_direction
-  , font_subtract_glyph_origin_for_direction
-  , font_set_variations
-  , font_set_var_coords_design
-  , font_var_coords_normalized -- statevar
+, Font
+, font_create
+, font_create_sub_font
+, font_face -- statevar
+, font_get_extents_for_direction
+, font_get_glyph
+, font_get_glyph_advance_for_direction
+, font_get_glyph_advances_for_direction
+, font_get_glyph_contour_point
+, font_get_glyph_contour_point_for_origin
+, font_get_glyph_extents
+, font_get_glyph_extents_for_origin
+, font_get_glyph_name
+, font_get_glyph_from_name
+, font_ppem -- statevar
+, font_ptem -- statevar
+, font_scale -- statevar
+, font_set_funcs
+, font_glyph_to_string
+, font_glyph_from_string
+, font_get_glyph_origin_for_direction
+, font_add_glyph_origin_for_direction
+, font_subtract_glyph_origin_for_direction
+, font_set_variations
+, font_set_var_coords_design
+, font_var_coords_normalized -- statevar
 
-  , FontFuncs
-  , font_funcs_create
-  , font_funcs_is_immutable
-  , font_funcs_make_immutable
+, FontFuncs
+, font_funcs_create
+, font_funcs_is_immutable
+, font_funcs_make_immutable
 --  , font_funcs_set_glyph_contour_point_func
 --  , font_funcs_set_glyph_extents_func
 --  , font_funcs_set_glyph_from_name_func
@@ -136,142 +135,124 @@ module Graphics.Harfbuzz
 --  , font_funcs_set_glyph_nominal_glyph_func
 --  , font_funcs_set_variation_glyph_func
 
-  , GlyphInfo
-  , GlyphPosition(..)
+, GlyphInfo
+, GlyphPosition(..)
 
-  , Key
-  , key_create
-  , key_create_n
+, Key
+, key_create
+, key_create_n
 
-  , Language(..)
-  , language_from_string, language_to_string
-  , language_get_default
+, Language(..)
+, language_from_string, language_to_string
+, language_get_default
 
-  , Map
-  , map_allocation_successful
-  , map_create
-  , map_clear
-  , map_del
-  , map_get
-  , map_get_population
-  , map_has
-  , map_is_empty
-  , map_set
-  , pattern MAP_VALUE_INVALID
+, Map
+, map_allocation_successful
+, map_create
+, map_clear
+, map_del
+, map_get
+, map_get_population
+, map_has
+, map_is_empty
+, map_set
+, pattern MAP_VALUE_INVALID
 
-  , MemoryMode(..)
+, MemoryMode(..)
 
-  , IsObject(..)
-  , object_reference
-  , object_destroy
-  , object_set_user_data
-  , object_get_user_data
+, IsObject(..)
+, object_reference
+, object_destroy
+, object_set_user_data
+, object_get_user_data
 
-  , Position
+, Position
 
-  , Script(..)
-  , script_from_iso15924_tag, script_to_iso15924_tag
-  , script_get_horizontal_direction
-  , script_from_string, script_to_string
+, Script(..)
+, script_from_iso15924_tag, script_to_iso15924_tag
+, script_get_horizontal_direction
+, script_from_string, script_to_string
 
-  , SegmentProperties(..)
-  -- , (==) provides hb_segment_properties_equal
-  -- , hash provides hb_segment_properties_hash
+, SegmentProperties(..)
+-- , (==) provides hb_segment_properties_equal
+-- , hash provides hb_segment_properties_hash
 
-  , Set
-  , set_add
-  , set_add_range
-  , set_allocation_successful
-  , set_clear
-  , set_create
-  , set_del
-  , set_del_range
-  , set_get_max
-  , set_get_min
-  , set_get_population
-  , set_has
-  , set_intersect
-  , set_is_empty
-  , set_is_equal
-  , set_is_subset
-  , set_next
-  , set_next_range
-  , set_previous
-  , set_previous_range
-  , set_set
-  , set_subtract
-  , set_symmetric_difference
-  , set_union
-  , pattern SET_VALUE_INVALID
+, Set
+, set_add
+, set_add_range
+, set_allocation_successful
+, set_clear
+, set_create
+, set_del
+, set_del_range
+, set_get_max
+, set_get_min
+, set_get_population
+, set_has
+, set_intersect
+, set_is_empty
+, set_is_equal
+, set_is_subset
+, set_next
+, set_next_range
+, set_previous
+, set_previous_range
+, set_set
+, set_subtract
+, set_symmetric_difference
+, set_union
+, pattern SET_VALUE_INVALID
 
-  , shape -- the point of all of this
-  , shape_full
-  , shape_list_shapers
+, shape -- the point of all of this
+, shape_full
+, shape_list_shapers
 
-  , ShapePlan
-  , shape_plan_create
-  , shape_plan_create_cached
-  , shape_plan_create2
-  , shape_plan_create_cached2
-  , shape_plan_execute
-  , shape_plan_get_shaper
+, ShapePlan
+, shape_plan_create
+, shape_plan_create_cached
+, shape_plan_create2
+, shape_plan_create_cached2
+, shape_plan_execute
+, shape_plan_get_shaper
 
-  , Shaper(SHAPER_INVALID)
-  , shaper_from_string, shaper_to_string
+, Shaper(SHAPER_INVALID)
+, shaper_from_string, shaper_to_string
 
-  , Tag(..)
-  , tag_from_string, tag_to_string
+, Tag(..)
+, tag_from_string, tag_to_string
 
-  , UnicodeCombiningClass(..)
-  , UnicodeFuncs
-  , UnicodeGeneralCategory(..)
-  , unicode_funcs_create
-  , unicode_funcs_get_default
-  , unicode_funcs_get_parent
-  , unicode_funcs_is_immutable
-  , unicode_funcs_make_immutable
-  , unicode_funcs_set_combining_class_func
-  , unicode_funcs_set_compose_func
-  , unicode_funcs_set_decompose_func
-  , unicode_funcs_set_general_category_func
-  , unicode_funcs_set_mirroring_func
-  , unicode_funcs_set_script_func
+, UnicodeCombiningClass(..)
+, UnicodeFuncs
+, UnicodeGeneralCategory(..)
+, unicode_funcs_create
+, unicode_funcs_get_default
+, unicode_funcs_get_parent
+, unicode_funcs_is_immutable
+, unicode_funcs_make_immutable
+, unicode_funcs_set_combining_class_func
+, unicode_funcs_set_compose_func
+, unicode_funcs_set_decompose_func
+, unicode_funcs_set_general_category_func
+, unicode_funcs_set_mirroring_func
+, unicode_funcs_set_script_func
 
-  , unicode_combining_class
-  , unicode_compose
-  , unicode_decompose
-  , unicode_general_category
-  , unicode_mirroring
-  , unicode_script
+, unicode_combining_class
+, unicode_compose
+, unicode_decompose
+, unicode_general_category
+, unicode_mirroring
+, unicode_script
 
-  , Variation(..)
-  , variation_from_string, variation_to_string
+, Variation(..)
+, variation_from_string, variation_to_string
 
-  , version
-  , version_string
-  , pattern VERSION_MAJOR
-  , pattern VERSION_MINOR
-  , pattern VERSION_MICRO
+, version
+, version_string
+, pattern VERSION_MAJOR
+, pattern VERSION_MINOR
+, pattern VERSION_MICRO
 
-  -- * internals
-  , foreignBlob
-  , foreignBuffer
-  , foreignFace
-  , foreignFont
-  , foreignMap
-  , foreignSet
-  , foreignShapePlan
-  , foreignUnicodeFuncs
-
-  , _hb_blob_destroy
-  , _hb_buffer_destroy
-  , _hb_face_destroy
-  , _hb_font_destroy
-  , _hb_map_destroy
-  , _hb_set_destroy
-  , _hb_shape_plan_destroy
-  , _hb_unicode_funcs_destroy
-  ) where
+) where
 
 import Control.Monad.IO.Class
 import Data.ByteString (ByteString)
@@ -1290,42 +1271,3 @@ version = liftIO $ allocaArray 3 $ \abc -> do
 version_string :: MonadIO m => m String
 version_string = liftIO $ [C.exp|const char * { hb_version_string() }|] >>= peekCString
 
--- * Finalization
-
-foreignBlob :: Ptr Blob -> IO Blob
-foreignBlob = fmap Blob . newForeignPtr _hb_blob_destroy
-
-foreignBuffer :: Ptr Buffer -> IO Buffer
-foreignBuffer = fmap Buffer . newForeignPtr _hb_buffer_destroy
-
-foreignFace :: Ptr Face -> IO Face
-foreignFace = fmap Face . newForeignPtr _hb_face_destroy
-
-foreignFont :: Ptr Font -> IO Font
-foreignFont = fmap Font . newForeignPtr _hb_font_destroy
-
-foreignFontFuncs :: Ptr FontFuncs -> IO FontFuncs
-foreignFontFuncs = fmap FontFuncs . newForeignPtr _hb_font_funcs_destroy
-
-foreignMap :: Ptr Map -> IO Map
-foreignMap = fmap Map . newForeignPtr _hb_map_destroy
-
-foreignSet :: Ptr Set -> IO Set
-foreignSet = fmap Set . newForeignPtr _hb_set_destroy
-
-foreignShapePlan :: Ptr ShapePlan -> IO ShapePlan
-foreignShapePlan = fmap ShapePlan . newForeignPtr _hb_shape_plan_destroy
-
-foreignUnicodeFuncs :: Ptr UnicodeFuncs -> IO UnicodeFuncs
-foreignUnicodeFuncs = fmap UnicodeFuncs . newForeignPtr _hb_unicode_funcs_destroy
-
-foreign import ccall "hb.h &hb_blob_destroy"          _hb_blob_destroy          :: FinalizerPtr Blob
-foreign import ccall "hb.h &hb_buffer_destroy"        _hb_buffer_destroy        :: FinalizerPtr Buffer
-foreign import ccall "hb.h &hb_face_destroy"          _hb_face_destroy          :: FinalizerPtr Face
-foreign import ccall "hb.h &hb_font_destroy"          _hb_font_destroy          :: FinalizerPtr Font
-foreign import ccall "hb.h &hb_font_funcs_destroy"    _hb_font_funcs_destroy    :: FinalizerPtr FontFuncs
-foreign import ccall "hb.h &hb_map_destroy"           _hb_map_destroy           :: FinalizerPtr Map
-foreign import ccall "hb.h &hb_set_destroy"           _hb_set_destroy           :: FinalizerPtr Set
-foreign import ccall "hb.h &hb_shape_plan_destroy"    _hb_shape_plan_destroy    :: FinalizerPtr ShapePlan
-foreign import ccall "hb.h &hb_unicode_funcs_destroy" _hb_unicode_funcs_destroy :: FinalizerPtr UnicodeFuncs
-foreign import ccall "&"                               hs_free_stable_ptr       :: FinalizerPtr ()

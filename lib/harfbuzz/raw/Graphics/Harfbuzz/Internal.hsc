@@ -274,10 +274,30 @@ module Graphics.Harfbuzz.Internal
 , pattern VERSION_MINOR
 , pattern VERSION_MICRO
 -- * internals
+, foreignBlob
+, foreignBuffer
+, foreignFace
+, foreignFont
+, foreignFontFuncs
+, foreignMap
+, foreignSet
+, foreignShapePlan
+, foreignUnicodeFuncs
+, _hb_blob_destroy
+, _hb_buffer_destroy
+, _hb_face_destroy
+, _hb_font_destroy
+, _hb_font_funcs_destroy
+, _hb_map_destroy
+, _hb_set_destroy
+, _hb_shape_plan_destroy
+, _hb_unicode_funcs_destroy
+-- * internals
 , withSelf, withPtr
 , cbool, boolc, w2c,c2w
 , newByteStringCStringLen
 , harfbuzzCtx
+, hs_free_stable_ptr
 ) where
 
 import Control.Applicative
@@ -1278,6 +1298,46 @@ pattern BUFFER_DIFF_FLAG_POSITION_MISMATCH = (#const HB_BUFFER_DIFF_FLAG_POSITIO
 pattern SHAPER_INVALID = Shaper NULL :: Shaper
 
 #endif
+
+-- * Finalization
+
+foreignBlob :: Ptr Blob -> IO Blob
+foreignBlob = fmap Blob . newForeignPtr _hb_blob_destroy
+
+foreignBuffer :: Ptr Buffer -> IO Buffer
+foreignBuffer = fmap Buffer . newForeignPtr _hb_buffer_destroy
+
+foreignFace :: Ptr Face -> IO Face
+foreignFace = fmap Face . newForeignPtr _hb_face_destroy
+
+foreignFont :: Ptr Font -> IO Font
+foreignFont = fmap Font . newForeignPtr _hb_font_destroy
+
+foreignFontFuncs :: Ptr FontFuncs -> IO FontFuncs
+foreignFontFuncs = fmap FontFuncs . newForeignPtr _hb_font_funcs_destroy
+
+foreignMap :: Ptr Map -> IO Map
+foreignMap = fmap Map . newForeignPtr _hb_map_destroy
+
+foreignSet :: Ptr Set -> IO Set
+foreignSet = fmap Set . newForeignPtr _hb_set_destroy
+
+foreignShapePlan :: Ptr ShapePlan -> IO ShapePlan
+foreignShapePlan = fmap ShapePlan . newForeignPtr _hb_shape_plan_destroy
+
+foreignUnicodeFuncs :: Ptr UnicodeFuncs -> IO UnicodeFuncs
+foreignUnicodeFuncs = fmap UnicodeFuncs . newForeignPtr _hb_unicode_funcs_destroy
+
+foreign import ccall "hb.h &hb_blob_destroy"          _hb_blob_destroy          :: FinalizerPtr Blob
+foreign import ccall "hb.h &hb_buffer_destroy"        _hb_buffer_destroy        :: FinalizerPtr Buffer
+foreign import ccall "hb.h &hb_face_destroy"          _hb_face_destroy          :: FinalizerPtr Face
+foreign import ccall "hb.h &hb_font_destroy"          _hb_font_destroy          :: FinalizerPtr Font
+foreign import ccall "hb.h &hb_font_funcs_destroy"    _hb_font_funcs_destroy    :: FinalizerPtr FontFuncs
+foreign import ccall "hb.h &hb_map_destroy"           _hb_map_destroy           :: FinalizerPtr Map
+foreign import ccall "hb.h &hb_set_destroy"           _hb_set_destroy           :: FinalizerPtr Set
+foreign import ccall "hb.h &hb_shape_plan_destroy"    _hb_shape_plan_destroy    :: FinalizerPtr ShapePlan
+foreign import ccall "hb.h &hb_unicode_funcs_destroy" _hb_unicode_funcs_destroy :: FinalizerPtr UnicodeFuncs
+foreign import ccall "&"                               hs_free_stable_ptr       :: FinalizerPtr ()
 
 -- * Inline C context
 
