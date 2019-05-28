@@ -30,6 +30,7 @@ module Graphics.Harfbuzz
   , buffer_reverse_range
   , buffer_reverse_clusters
   , buffer_add
+  , buffer_add_char
   , buffer_add_string -- String
   , buffer_add_text -- Text
   , buffer_add_latin1 -- Char8.ByteString
@@ -74,6 +75,9 @@ module Graphics.Harfbuzz
   , direction_is_vertical, direction_is_horizontal
 
   , Face(..)
+  , face_collect_unicodes
+  , face_collect_variation_selectors
+  , face_collect_variation_unicodes
   , face_count
   , face_create
   , face_create_for_tables
@@ -331,6 +335,9 @@ buffer_add :: MonadIO m => Buffer -> Codepoint -> Int -> m ()
 buffer_add buffer codepoint (fromIntegral -> cluster) = liftIO
   [C.block|void { hb_buffer_add($buffer:buffer,$(hb_codepoint_t codepoint),$(unsigned int cluster)); }|]
 
+buffer_add_char :: MonadIO m => Buffer -> Char -> Int -> m ()
+buffer_add_char buffer = buffer_add buffer . c2w
+
 buffer_add_string :: MonadIO m => Buffer -> String -> Int -> Int -> m ()
 buffer_add_string buffer text (fromIntegral -> item_offset) (fromIntegral -> item_length) = liftIO $
   withCWStringLen text $ \(castPtr -> cwstr,fromIntegral -> len) ->
@@ -467,6 +474,16 @@ face_reference_blob f = liftIO $ [C.exp|hb_blob_t * { hb_face_reference_blob($fa
 
 face_reference_table :: MonadIO m => Face -> Tag -> m Blob
 face_reference_table f t = liftIO $ [C.exp|hb_blob_t * { hb_face_reference_table($face:f,$(hb_tag_t t)) }|] >>= foreignBlob
+
+-- add the unicode codepoints present in the face to the given set
+face_collect_unicodes :: MonadIO m => Face -> Set -> m ()
+face_collect_unicodes f s = liftIO [C.block|void { hb_face_collect_unicodes($face:f,$set:s); }|]
+
+face_collect_variation_selectors :: MonadIO m => Face -> Set -> m ()
+face_collect_variation_selectors f s = liftIO [C.block|void { hb_face_collect_variation_selectors($face:f,$set:s); }|]
+
+face_collect_variation_unicodes :: MonadIO m => Face -> Codepoint -> Set -> m ()
+face_collect_variation_unicodes f variation s = liftIO [C.block|void { hb_face_collect_variation_unicodes($face:f,$(hb_codepoint_t variation),$set:s); }|]
 
 face_count :: MonadIO m => Blob -> m Int
 face_count b = liftIO $ [C.exp|int { hb_face_count($blob:b) }|] <&> fromIntegral
@@ -637,7 +654,6 @@ set_symmetric_difference s other = liftIO [C.block|void { hb_set_symmetric_diffe
 
 set_union :: MonadIO m => Set -> Set -> m ()
 set_union s other = liftIO [C.block|void { hb_set_union($set:s,$set:other); }|]
-
 
 -- * 4 character tags
 
