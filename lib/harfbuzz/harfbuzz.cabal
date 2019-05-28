@@ -30,10 +30,8 @@ common base
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
     -Wredundant-constraints -Widentities -Wmissing-export-lists
 
-library
+common lib
   import: base
-  hs-source-dirs: src
-  build-tool-depends: hsc2hs:hsc2hs
   pkgconfig-depends: harfbuzz
   extra-libraries: harfbuzz
   build-depends:
@@ -46,9 +44,18 @@ library
     text,
     transformers
 
-  exposed-modules:
-    Graphics.Harfbuzz
-    Graphics.Harfbuzz.Internal
+library internal
+  import: lib
+  hs-source-dirs: raw
+  build-tool-depends: hsc2hs:hsc2hs
+  exposed-modules: Graphics.Harfbuzz.Internal
+
+library
+  import: lib
+  build-depends: internal
+  hs-source-dirs: src
+  exposed-modules: Graphics.Harfbuzz
+  reexported-modules: Graphics.Harfbuzz.Internal
 
 test-suite spec
   import: base
