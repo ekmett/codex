@@ -42,6 +42,7 @@ module Graphics.Harfbuzz
   , buffer_direction -- statevar
   , buffer_flags -- statevar
   , buffer_get_glyph_positions
+  , buffer_get_glyph_flags
   , buffer_get_length
   , buffer_guess_segment_properties
   , buffer_invisible_glyph
@@ -77,7 +78,7 @@ module Graphics.Harfbuzz
   , direction_is_backward, direction_is_forward
   , direction_is_vertical, direction_is_horizontal
 
-  , Face(..)
+  , Face
   , face_collect_unicodes
   , face_collect_variation_selectors
   , face_collect_variation_unicodes
@@ -99,6 +100,7 @@ module Graphics.Harfbuzz
 
   , Font(..)
 
+  , GlyphInfo
   , GlyphPosition(..)
 
   , Key(..) -- hb_user_data_key
@@ -170,7 +172,7 @@ module Graphics.Harfbuzz
   , tag_from_string, tag_to_string
 
   , UnicodeCombiningClass(..)
-  , UnicodeFuncs(..)
+  , UnicodeFuncs
   , UnicodeGeneralCategory(..)
   , unicode_funcs_create
   , unicode_funcs_get_default
@@ -228,6 +230,7 @@ import Data.StateVar
 import Data.String
 import Data.Text (Text)
 import qualified Data.Text.Foreign as Text
+import Data.Traversable (for)
 import Data.Version (Version, makeVersion)
 import Foreign.C.String
 import Foreign.C.Types
@@ -425,6 +428,15 @@ buffer_get_glyph_positions b = liftIO $ alloca $ \plen -> do
   positions <- [C.exp|hb_glyph_position_t * { hb_buffer_get_glyph_positions($buffer:b,$(unsigned int * plen)) }|]
   len <- peek plen
   peekArray (fromIntegral len) positions -- we don't own the array, its valid as long as the buffer is unmodified, so don't deallocate
+
+-- @hb_buffer_get_glyph_infos@ only gives us access to @hb_glyph_info_glyph_flags@, so just map
+-- that over the list rather than trying to deal with memory management on an opaque object we know nothing about.
+buffer_get_glyph_flags :: MonadIO m => Buffer -> m [GlyphFlags]
+buffer_get_glyph_flags b = liftIO $ alloca $ \plen -> do
+  pinfos <- [C.exp|hb_glyph_info_t * { hb_buffer_get_glyph_infos($buffer:b,$(unsigned int * plen)) }|]
+  len <- peek plen
+  infos <- peekArray (fromIntegral len) pinfos 
+  for infos $ \info -> [C.exp|hb_glyph_flags_t { hb_glyph_info_get_glyph_flags($glyph-info:info) }|]
 
 buffer_guess_segment_properties :: MonadIO m => Buffer -> m ()
 buffer_guess_segment_properties b = liftIO [C.block|void { hb_buffer_guess_segment_properties($buffer:b); }|]
