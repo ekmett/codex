@@ -110,8 +110,24 @@ module Graphics.Harfbuzz
   , SegmentProperties(..)
   -- segment_properties_equal
   -- segment_properties_hash
+
   , Set(..)
+  , set_add
+  , set_add_range
+  , set_allocation_successful
+  , set_clear
   , set_create
+  , set_del
+  , set_del_range
+  , set_get_max
+  , set_get_min
+  , set_get_population
+  , set_has
+  , set_intersect
+  , set_is_empty
+  , set_is_equal
+  , set_is_subset
+  , set_next
 
   , Tag(..)
   , tag_from_string, tag_to_string
@@ -517,8 +533,57 @@ instance IsObject Set where
   set_user_data b k (castPtr -> v) (castFunPtr -> d) (boolc -> replace) = liftIO $
     [C.exp|hb_bool_t { hb_set_set_user_data($set:b,$key:k,$(void * v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|] <&> cbool
 
+set_add :: MonadIO m => Set -> Char -> m ()
+set_add s c = liftIO $ [C.block|void { hb_set_add($set:s,$(hb_codepoint_t c)); }|]
+
+set_add_range :: MonadIO m => Set -> Char -> Char -> m ()
+set_add_range s lo hi = liftIO $ [C.block|void { hb_set_add_range($set:s,$(hb_codepoint_t lo),$(hb_codepoint_t hi)); }|]
+
+set_allocation_successful :: MonadIO m => Set -> m Bool
+set_allocation_successful s = liftIO $ [C.exp|hb_bool_t { hb_set_allocation_successful($set:s) }|] <&> cbool
+
+set_clear :: MonadIO m => Set -> m ()
+set_clear s = liftIO $ [C.block|void { hb_set_clear($set:s); }|]
+
 set_create :: MonadIO m => m Set
 set_create = liftIO $ [C.exp|hb_set_t * { hb_set_create() }|] >>= foreignSet
+
+set_del :: MonadIO m => Set -> Char -> m ()
+set_del s c = liftIO $ [C.block|void { hb_set_del($set:s,$(hb_codepoint_t c)); }|]
+
+set_del_range :: MonadIO m => Set -> Char -> Char -> m ()
+set_del_range s lo hi = liftIO $ [C.block|void { hb_set_del_range($set:s,$(hb_codepoint_t lo),$(hb_codepoint_t hi)); }|]
+
+set_get_max :: MonadIO m => Set -> m Char
+set_get_max s = liftIO [C.exp|hb_codepoint_t { hb_set_get_max($set:s) }|]
+
+set_get_min :: MonadIO m => Set -> m Char
+set_get_min s = liftIO [C.exp|hb_codepoint_t { hb_set_get_min($set:s) }|]
+
+set_get_population :: MonadIO m => Set -> m Int
+set_get_population s = liftIO $ [C.exp|unsigned int { hb_set_get_population($set:s) }|] <&> fromIntegral
+
+set_has :: MonadIO m => Set -> Char -> m Bool
+set_has s c = liftIO $ [C.exp|hb_bool_t { hb_set_has($set:s,$(hb_codepoint_t c)) }|] <&> cbool
+
+set_intersect :: MonadIO m => Set -> Set -> m ()
+set_intersect s other = liftIO [C.block|void { hb_set_has($set:s,$set:other); }|]
+
+set_is_empty :: MonadIO m => Set -> m Bool
+set_is_empty s = liftIO $ [C.exp|hb_bool_t { hb_set_is_empty($set:s) }|] <&> cbool
+
+set_is_equal :: MonadIO m => Set -> Set -> m Bool
+set_is_equal s t = liftIO $ [C.exp|hb_bool_t { hb_set_is_equal($set:s,$set:t) }|] <&> cbool
+
+set_is_subset :: MonadIO m => Set -> Set -> m Bool
+set_is_subset s t = liftIO $ [C.exp|hb_bool_t { hb_set_is_subset($set:s,$set:t) }|] <&> cbool
+
+-- | Start with SET_VALUE_INVALID
+set_next :: MonadIO m => Set -> Char -> m (Maybe Char)
+set_next s c = liftIO $ with c $ \p -> do
+  b <- [C.exp|hb_bool_t { hb_set_next($set:s,$(hb_codepoint_t * p)) }|]
+  if cbool b then Just <$> peek p else pure Nothing
+  
 
 -- * 4 character tags
 
