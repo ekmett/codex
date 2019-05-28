@@ -91,6 +91,7 @@ module Graphics.Harfbuzz.Internal
   , GLYPH_FLAG_UNSAFE_TO_BREAK
   , GLYPH_FLAG_DEFINED
   )
+, GlyphInfo(..)
 , GlyphPosition(..)
 , Language
   ( Language
@@ -354,6 +355,8 @@ instance Storable Feature where
 newtype Font = Font (ForeignPtr Font) deriving (Eq,Ord,Show,Data)
 
 newtype GlyphFlags = GlyphFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
+
+newtype GlyphInfo = GlyphInfo (Ptr GlyphInfo) deriving (Eq,Ord,Data,Storable) -- we never manage
 
 data GlyphPosition = GlyphPosition
   { glyph_position_x_advance
@@ -1516,6 +1519,8 @@ harfbuzzCtx = mempty
     , (C.TypeName "hb_face_t", [t|Face|])
     , (C.TypeName "hb_feature_t", [t|Feature|])
     , (C.TypeName "hb_font_t", [t|Font|])
+    , (C.TypeName "hb_glyph_flags_t", [t|GlyphFlags|])
+    , (C.TypeName "hb_glyph_info_t", [t|GlyphInfo|])
     , (C.TypeName "hb_glyph_position_t", [t|GlyphPosition|])
     , (C.TypeName "hb_language_t", [t|Ptr Language|])
     , (C.TypeName "hb_language_impl_t", [t|Language|])
@@ -1547,6 +1552,7 @@ harfbuzzCtx = mempty
     , ("face", anti (ptr $ C.TypeName "hb_face_t") [t|Face|] [|withSelf|])
     , ("feature", anti (ptr $ C.TypeName "hb_feature_t") [t|Feature|] [|with|])
     , ("font", anti (ptr $ C.TypeName "hb_font_t") [t|Font|] [|withSelf|])
+    , ("glyph-info", anti (ptr $ C.TypeName "hb_glyph_info_t") [t|GlyphInfo|] [|withPtr|])
     , ("key", anti (ptr $ C.TypeName "hb_user_data_key_t") [t|OpaqueKey|] [|withKey|])
     , ("language", anti (C.TypeSpecifier mempty $ C.TypeName "hb_language_t") [t|Language|] [|withPtr|])
     , ("map", anti (ptr $ C.TypeName "hb_map_t") [t|Map|] [|withSelf|])
