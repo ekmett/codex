@@ -101,6 +101,9 @@ module Graphics.Harfbuzz
   , feature_to_string, feature_from_string
 
   , Font(..)
+  , font_create
+  , font_create_sub_font
+  , font_get_face
 
   , GlyphInfo
   , GlyphPosition(..)
@@ -647,6 +650,23 @@ face_is_immutable b = liftIO $ [C.exp|hb_bool_t { hb_face_is_immutable($face:b) 
 face_make_immutable :: MonadIO m => Face -> m ()
 face_make_immutable b = liftIO [C.block|void { hb_face_make_immutable($face:b); }|]
 
+font_create :: MonadIO m => Face -> m Font
+font_create face = liftIO $ [C.exp|hb_font_t * { hb_font_create($face:face) }|] >>= foreignFont
+
+font_create_sub_font :: MonadIO m => Font -> m Font
+font_create_sub_font parent = liftIO $ [C.exp|hb_font_t * {
+    hb_font_create_sub_font(hb_font_reference($font:parent))
+  }|] >>= foreignFont
+
+font_get_face :: MonadIO m => Font -> m Face
+font_get_face font = liftIO $ [C.exp|hb_face_t * { hb_face_reference(hb_font_get_face($font:font)) }|] >>= foreignFace
+
+instance IsObject Font where
+  _reference b = [C.exp|hb_font_t * { hb_font_reference($font:b) }|]
+  _destroy b = [C.block|void { hb_font_destroy($font:b); }|]
+  _get_user_data b k = [C.exp|void * { hb_font_get_user_data($font:b,$key:k) }|]
+  _set_user_data b k v d replace = [C.exp|hb_bool_t { hb_font_set_user_data($font:b,$key:k,$(void*v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|]
+
 -- * language
 
 -- | The first time this is called it calls setLocale, which isn't thread safe.
@@ -824,10 +844,8 @@ tag_to_string t = unsafeLocalState $ allocaBytes 4 $ \buf -> do
 
 unicode_funcs_create :: MonadIO m => UnicodeFuncs -> m UnicodeFuncs
 unicode_funcs_create parent = liftIO $
-  [C.block|hb_unicode_funcs_t * {
-    hb_unicode_funcs_t * p = $unicode-funcs:parent;
-    hb_unicode_funcs_reference(p);
-    return hb_unicode_funcs_create(p);
+  [C.exp|hb_unicode_funcs_t * {
+    hb_unicode_funcs_create(hb_unicode_funcs_reference($unicode-funcs:parent))
   }|] >>= foreignUnicodeFuncs
 
 unicode_funcs_get_default :: MonadIO m => m UnicodeFuncs
