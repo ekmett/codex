@@ -79,6 +79,33 @@ module Graphics.Fontconfig.Internal
   -- * utilities
   , withSelf, withMaybeSelf, withSelfMaybe
   , check, cbool, boolc, peekCUString
+
+  , foreignCache
+  , foreignCharSet
+  , foreignConfig
+  , foreignFontSet
+  , foreignLangSet
+  , foreignMatrix
+  , foreignObjectSet
+  , foreignPattern
+  , foreignRange
+  , foreignStrSet
+#if USE_FREETYPE
+  , foreignFace
+#endif
+
+  , _FcCharSetDestroy
+  , _FcConfigDestroy
+  , _FcDirCacheUnload
+  , _FcFontSetDestroy
+  , _FcLangSetDestroy
+  , _FcObjectSetDestroy
+  , _FcPatternDestroy
+  , _FcRangeDestroy
+  , _FcStrSetDestroy
+  , _FcValueDestroy
+
+
   ) where
 
 import Control.Exception
@@ -89,7 +116,9 @@ import Data.Data (Data)
 import Data.Default (Default(..))
 import qualified Data.Map as Map
 import Foreign.C
+import qualified Foreign.Concurrent as Concurrent
 import Foreign.ForeignPtr
+import Foreign.Marshal.Alloc
 import Foreign.Ptr
 import Foreign.Storable
 import GHC.Generics (Generic)
@@ -325,6 +354,55 @@ boolc = fromIntegral . fromEnum
 
 peekCUString :: Ptr CUChar -> IO String
 peekCUString = peekCString . castPtr
+
+foreign import ccall "fontconfig/fontconfig.h &FcConfigDestroy" _FcConfigDestroy :: FinalizerPtr Config
+foreign import ccall "fontconfig/fontconfig.h &FcObjectSetDestroy" _FcObjectSetDestroy:: FinalizerPtr ObjectSet
+foreign import ccall "fontconfig/fontconfig.h &FcPatternDestroy" _FcPatternDestroy :: FinalizerPtr Pattern
+foreign import ccall "fontconfig/fontconfig.h &FcFontSetDestroy" _FcFontSetDestroy :: FinalizerPtr FontSet
+foreign import ccall "fontconfig/fontconfig.h &FcDirCacheUnload" _FcDirCacheUnload :: FinalizerPtr Cache
+foreign import ccall "fontconfig/fontconfig.h &FcRangeDestroy" _FcRangeDestroy :: FinalizerPtr Range
+foreign import ccall "fontconfig/fontconfig.h &FcCharSetDestroy" _FcCharSetDestroy :: FinalizerPtr CharSet
+foreign import ccall "fontconfig/fontconfig.h &FcLangSetDestroy" _FcLangSetDestroy :: FinalizerPtr LangSet
+foreign import ccall "fontconfig/fontconfig.h &FcStrSetDestroy" _FcStrSetDestroy :: FinalizerPtr StrSet
+foreign import ccall "fontconfig/fontconfig.h &FcValueDestroy" _FcValueDestroy :: FinalizerPtr Value
+
+-- * claim ownership of these objects by the GC
+
+foreignCache :: Ptr Cache -> IO Cache
+foreignCache = fmap Cache . newForeignPtr _FcDirCacheUnload
+
+foreignCharSet :: Ptr CharSet -> IO CharSet
+foreignCharSet = fmap CharSet . newForeignPtr _FcCharSetDestroy
+
+foreignConfig :: Ptr Config -> IO Config
+foreignConfig = fmap (Config . Just) . newForeignPtr _FcConfigDestroy
+
+foreignFontSet :: Ptr FontSet -> IO FontSet
+foreignFontSet = fmap FontSet . newForeignPtr _FcFontSetDestroy
+
+foreignLangSet :: Ptr LangSet -> IO LangSet
+foreignLangSet = fmap LangSet . newForeignPtr _FcLangSetDestroy
+
+foreignObjectSet :: Ptr ObjectSet -> IO ObjectSet
+foreignObjectSet = fmap ObjectSet . newForeignPtr _FcObjectSetDestroy
+
+foreignPattern :: Ptr Pattern -> IO Pattern
+foreignPattern = fmap Pattern . newForeignPtr _FcPatternDestroy
+
+foreignRange :: Ptr Range -> IO Range
+foreignRange = fmap Range . newForeignPtr _FcRangeDestroy
+
+foreignStrSet :: Ptr StrSet -> IO StrSet
+foreignStrSet = fmap StrSet . newForeignPtr _FcStrSetDestroy
+
+foreignMatrix :: Ptr Matrix -> IO Matrix
+foreignMatrix = fmap Matrix . newForeignPtr finalizerFree
+
+#if USE_FREETYPE
+foreignFace :: Ptr Face -> IO Face
+foreignFace p = Face <$> Concurrent.newForeignPtr p [C.block|void { FT_Done_Face($(struct FT_FaceRec_ * p)); }|]
+#endif
+
 
 -- * Inline C context
 
