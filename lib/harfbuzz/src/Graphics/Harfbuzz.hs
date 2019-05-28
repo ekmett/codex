@@ -24,6 +24,7 @@ module Graphics.Harfbuzz
   , BufferContentType(..)
   , BufferClusterLevel(..)
   , BufferSerializeFormat(..)
+  , buffer_serialize_format_from_string, buffer_serialize_format_to_string
   , pattern BUFFER_REPLACEMENT_CODEPOINT_DEFAULT
 
   , buffer_add
@@ -56,8 +57,6 @@ module Graphics.Harfbuzz
   , buffer_segment_properties
   , buffer_set_length
   , buffer_unicode_funcs -- statevar
-  , buffer_serialize_format_from_string
-  , buffer_serialize_format_to_string
   -- , buffer_get_glyph_infos
   -- , buffer_serialize_glyphs
   -- , buffer_deserialize_glyphs
@@ -116,8 +115,8 @@ module Graphics.Harfbuzz
   , script_from_string, script_to_string
 
   , SegmentProperties(..)
-  -- segment_properties_equal
-  -- segment_properties_hash
+  -- , (==) provides hb_segment_properties_equal
+  -- , hash provides hb_segment_properties_hash
 
   , Set(..)
   , set_add
@@ -560,7 +559,7 @@ script_to_string :: Script -> String
 script_to_string = tag_to_string . script_to_iso15924_tag
 
 -- * sets
---
+
 instance IsObject Set where
   reference b = liftIO [C.exp|hb_set_t * { hb_set_reference($set:b) }|]
   destroy b = liftIO [C.block|void { hb_set_destroy($set:b); }|]

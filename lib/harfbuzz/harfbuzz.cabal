@@ -43,6 +43,7 @@ library
   build-depends:
     bytestring,
     containers >= 0.6,
+    hashable,
     inline-c,
     StateVar,
     template-haskell,
