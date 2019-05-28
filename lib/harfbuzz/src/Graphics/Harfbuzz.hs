@@ -104,6 +104,9 @@ module Graphics.Harfbuzz
   , font_create
   , font_create_sub_font
   , font_get_face
+  , font_get_glyph
+  , font_get_glyph_advance_for_direction
+  , font_get_glyph_contour_point
 
   , GlyphInfo
   , GlyphPosition(..)
@@ -660,6 +663,35 @@ font_create_sub_font parent = liftIO $ [C.exp|hb_font_t * {
 
 font_get_face :: MonadIO m => Font -> m Face
 font_get_face font = liftIO $ [C.exp|hb_face_t * { hb_face_reference(hb_font_get_face($font:font)) }|] >>= foreignFace
+
+font_get_glyph :: MonadIO m => Font -> Codepoint -> Codepoint -> m (Maybe Codepoint)
+font_get_glyph font unicode variation_selector = liftIO $ alloca $ \pglyph -> do
+  b <- [C.exp|hb_bool_t {
+    hb_font_get_glyph($font:font,$(hb_codepoint_t unicode),$(hb_codepoint_t variation_selector),$(hb_codepoint_t * pglyph))
+  }|]
+  if cbool b then Just <$> peek pglyph else pure Nothing
+
+font_get_glyph_advance_for_direction :: MonadIO m => Font -> Codepoint -> Direction -> m (Position, Position)
+font_get_glyph_advance_for_direction font glyph dir = liftIO $ allocaArray 2 $ \xy -> do
+  [C.block|void {
+    hb_position_t * xy = $(hb_position_t * xy);
+    hb_font_get_glyph_advance_for_direction($font:font,$(hb_codepoint_t glyph),$(hb_direction_t dir),xy,xy+1);
+  }|]
+  (,) <$> peek xy <*> peek (advancePtr xy 1)
+
+font_get_glyph_contour_point :: MonadIO m => Font -> Codepoint -> Int -> m (Maybe (Position, Position))
+font_get_glyph_contour_point font glyph (fromIntegral -> point_index) = liftIO $ allocaArray 2 $ \xy -> do
+  b <- [C.exp|hb_bool_t {
+    hb_position_t * xy = $(hb_position_t * xy);
+    hb_font_get_glyph_contour_point($font:font,$(hb_codepoint_t glyph),$(unsigned int point_index),xy,xy+1);
+  }|]
+  if cbool b
+  then do
+    x <- peek xy
+    y <- peek (advancePtr xy 1)
+    pure $ Just (x,y)
+  else pure Nothing
+
 
 instance IsObject Font where
   _reference b = [C.exp|hb_font_t * { hb_font_reference($font:b) }|]
