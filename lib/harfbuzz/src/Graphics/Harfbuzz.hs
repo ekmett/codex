@@ -131,6 +131,12 @@ module Graphics.Harfbuzz
   , set_is_subset
   , set_next
   , set_next_range
+  , set_previous
+  , set_previous_range
+  , set_set
+  , set_subtract
+  , set_symmetric_difference
+  , set_union
   , pattern SET_VALUE_INVALID
 
   , Tag(..)
@@ -587,7 +593,7 @@ set_next :: MonadIO m => Set -> Codepoint -> m (Maybe Codepoint)
 set_next s c = liftIO $ with c $ \p -> do
   b <- [C.exp|hb_bool_t { hb_set_next($set:s,$(hb_codepoint_t * p)) }|]
   if cbool b then Just <$> peek p else pure Nothing
-  
+
 -- | Start with SET_VALUE_INVALID
 set_next_range :: MonadIO m => Set -> Codepoint -> m (Maybe (Codepoint, Codepoint))
 set_next_range s c = liftIO $ allocaArray 2 $ \p -> do
@@ -600,7 +606,38 @@ set_next_range s c = liftIO $ allocaArray 2 $ \p -> do
     hi <- peek q
     pure $ Just (lo,hi)
   else pure Nothing
-  
+
+-- | Start with SET_VALUE_INVALID
+set_previous :: MonadIO m => Set -> Codepoint -> m (Maybe Codepoint)
+set_previous s c = liftIO $ with c $ \p -> do
+  b <- [C.exp|hb_bool_t { hb_set_previous($set:s,$(hb_codepoint_t * p)) }|]
+  if cbool b then Just <$> peek p else pure Nothing
+
+-- | Start with SET_VALUE_INVALID
+set_previous_range :: MonadIO m => Set -> Codepoint -> m (Maybe (Codepoint, Codepoint))
+set_previous_range s c = liftIO $ allocaArray 2 $ \p -> do
+  let q = advancePtr p 1
+  poke p c
+  b <- [C.exp|hb_bool_t { hb_set_previous_range($set:s,$(hb_codepoint_t * p),$(hb_codepoint_t * q)) }|]
+  if cbool b
+  then do
+    lo <- peek p
+    hi <- peek q
+    pure $ Just (lo,hi)
+  else pure Nothing
+
+set_set :: MonadIO m => Set -> Set -> m ()
+set_set s t = liftIO [C.block|void { hb_set_set($set:s,$set:t); }|]
+
+set_subtract :: MonadIO m => Set -> Set -> m ()
+set_subtract s other = liftIO [C.block|void { hb_set_subtract($set:s,$set:other); }|]
+
+set_symmetric_difference :: MonadIO m => Set -> Set -> m ()
+set_symmetric_difference s other = liftIO [C.block|void { hb_set_symmetric_difference($set:s,$set:other); }|]
+
+set_union :: MonadIO m => Set -> Set -> m ()
+set_union s other = liftIO [C.block|void { hb_set_union($set:s,$set:other); }|]
+
 
 -- * 4 character tags
 
@@ -717,7 +754,7 @@ unicode_decompose uf (c2w -> a) = liftIO $ allocaArray 2 $ \ pbc -> do
     b <- peek pbc
     c <- peek (advancePtr pbc 1)
     pure $ Just (w2c b, w2c c)
-  else pure Nothing 
+  else pure Nothing
 
 unicode_general_category :: MonadIO m => UnicodeFuncs -> Char -> m UnicodeGeneralCategory
 unicode_general_category uf (c2w -> codepoint) = liftIO $ [C.exp|hb_unicode_general_category_t { hb_unicode_general_category($unicode-funcs:uf,$(hb_codepoint_t codepoint)) }|]
