@@ -107,6 +107,7 @@ module Graphics.Harfbuzz
   , font_get_glyph
   , font_get_glyph_advance_for_direction
   , font_get_glyph_contour_point
+  , font_get_glyph_contour_point_for_origin
 
   , GlyphInfo
   , GlyphPosition(..)
@@ -175,6 +176,10 @@ module Graphics.Harfbuzz
   , set_symmetric_difference
   , set_union
   , pattern SET_VALUE_INVALID
+
+  , shape -- the point of all of this
+  , Shaper(SHAPER_INVALID)
+  , shape_list_shapers
 
   , Tag(..)
   , tag_from_string, tag_to_string
@@ -681,9 +686,9 @@ font_get_glyph_advance_for_direction font glyph dir = liftIO $ allocaArray 2 $ \
 
 font_get_glyph_contour_point :: MonadIO m => Font -> Codepoint -> Int -> m (Maybe (Position, Position))
 font_get_glyph_contour_point font glyph (fromIntegral -> point_index) = liftIO $ allocaArray 2 $ \xy -> do
-  b <- [C.exp|hb_bool_t {
+  b <- [C.block|hb_bool_t {
     hb_position_t * xy = $(hb_position_t * xy);
-    hb_font_get_glyph_contour_point($font:font,$(hb_codepoint_t glyph),$(unsigned int point_index),xy,xy+1);
+    return hb_font_get_glyph_contour_point($font:font,$(hb_codepoint_t glyph),$(unsigned int point_index),xy,xy+1);
   }|]
   if cbool b
   then do
@@ -692,6 +697,21 @@ font_get_glyph_contour_point font glyph (fromIntegral -> point_index) = liftIO $
     pure $ Just (x,y)
   else pure Nothing
 
+font_get_glyph_contour_point_for_origin :: MonadIO m => Font -> Codepoint -> Int -> Direction -> m (Maybe (Position, Position))
+font_get_glyph_contour_point_for_origin font glyph (fromIntegral -> point_index) dir = liftIO $ allocaArray 2 $ \xy -> do
+  b <- [C.block|hb_bool_t {
+    hb_position_t * xy = $(hb_position_t * xy);
+    return hb_font_get_glyph_contour_point_for_origin($font:font,$(hb_codepoint_t glyph),$(hb_direction_t dir),$(unsigned int point_index),xy,xy+1);
+  }|]
+  if cbool b
+  then do
+    x <- peek xy
+    y <- peek (advancePtr xy 1)
+    pure $ Just (x,y)
+  else pure Nothing
+
+-- font_get_glyph_extents :: Font -> Glyph -> m (Maybe GlyphExtents)
+-- font_get_glyph_extents
 
 instance IsObject Font where
   _reference b = [C.exp|hb_font_t * { hb_font_reference($font:b) }|]
@@ -861,6 +881,13 @@ set_symmetric_difference s other = liftIO [C.block|void { hb_set_symmetric_diffe
 
 set_union :: MonadIO m => Set -> Set -> m ()
 set_union s other = liftIO [C.block|void { hb_set_union($set:s,$set:other); }|]
+
+shape :: MonadIO m => Font -> Buffer -> [Feature] -> m ()
+shape font buffer features = liftIO $
+  withArrayLen features $ \ (fromIntegral -> len) pfeatures -> do
+    [C.block|void{
+      hb_shape($font:font,$buffer:buffer,$(const hb_feature_t * pfeatures),$(unsigned int len));
+    }|]
 
 -- * 4 character tags
 

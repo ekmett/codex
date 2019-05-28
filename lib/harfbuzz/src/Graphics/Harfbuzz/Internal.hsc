@@ -155,6 +155,12 @@ module Graphics.Harfbuzz.Internal
   )
 , Set(..)
 , pattern SET_VALUE_INVALID
+, Shaper
+  ( Shaper
+  , SHAPER_INVALID
+  )
+, shape_list_shapers
+, shaper_to_string
 , Tag
   ( Tag, TAG
   , TAG_NONE, TAG_MAX, TAG_MAX_SIGNED
@@ -287,6 +293,8 @@ import Data.Hashable
 import qualified Data.Map as Map
 import Data.Maybe
 import Data.String
+import Data.Traversable (for)
+import Data.Tuple (swap)
 import Foreign
 import Foreign.C
 import Foreign.Marshal.Unsafe
@@ -423,6 +431,10 @@ instance Storable SegmentProperties where
     (#poke hb_segment_properties_t, reserved2) p segment_properties_reserved2
 
 newtype Set = Set (ForeignPtr Set) deriving (Eq,Ord,Show,Data)
+
+newtype Shaper = Shaper CString deriving (Eq,Ord,Storable) -- we never manage
+
+instance Default Shaper where def = Shaper nullPtr
 
 newtype Tag = Tag Word32 deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
 {-# complete Tag #-}
@@ -635,6 +647,21 @@ instance Hashable SegmentProperties where
 instance Default Set where
   def = unsafeLocalState $ [C.exp|hb_set_t * { hb_set_get_empty() }|] >>= fmap Set . newForeignPtr_
   {-# noinline def #-}
+
+shapers :: [(String,Shaper)]
+shapers = unsafeLocalState $ do
+  ss <- peekArray0 nullPtr [C.pure|const char ** { hb_shape_list_shapers() }|]
+  for ss $ \cstr -> peekCString cstr <&> \ str -> (str, Shaper cstr)
+{-# noinline shape_list_shapers #-}
+
+shape_list_shapers :: [Shaper]
+shape_list_shapers = fmap snd shapers
+
+instance IsString Shaper where
+  fromString s = fromMaybe SHAPER_INVALID $ lookup s shapers
+
+shaper_to_string :: Shaper -> Maybe String
+shaper_to_string s = lookup s (swap <$> shapers)
 
 instance Default Tag where def = TAG_NONE
 
@@ -1471,6 +1498,9 @@ pattern BUFFER_DIFF_FLAG_CODEPOINT_MISMATCH = #const HB_BUFFER_DIFF_FLAG_CODEPOI
 pattern BUFFER_DIFF_FLAG_CLUSTER_MISMATCH = #const HB_BUFFER_DIFF_FLAG_CLUSTER_MISMATCH
 pattern BUFFER_DIFF_FLAG_GLYPH_FLAGS_MISMATCH = #const HB_BUFFER_DIFF_FLAG_GLYPH_FLAGS_MISMATCH
 pattern BUFFER_DIFF_FLAG_POSITION_MISMATCH = #const HB_BUFFER_DIFF_FLAG_POSITION_MISMATCH
+
+pattern SHAPER_INVALID :: Shaper
+pattern SHAPER_INVALID = Shaper NULL
 
 #endif
 
