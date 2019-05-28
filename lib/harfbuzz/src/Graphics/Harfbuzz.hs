@@ -130,6 +130,7 @@ module Graphics.Harfbuzz
   , set_is_equal
   , set_is_subset
   , set_next
+  , set_next_range
   , pattern SET_VALUE_INVALID
 
   , Tag(..)
@@ -586,6 +587,19 @@ set_next :: MonadIO m => Set -> Codepoint -> m (Maybe Codepoint)
 set_next s c = liftIO $ with c $ \p -> do
   b <- [C.exp|hb_bool_t { hb_set_next($set:s,$(hb_codepoint_t * p)) }|]
   if cbool b then Just <$> peek p else pure Nothing
+  
+-- | Start with SET_VALUE_INVALID
+set_next_range :: MonadIO m => Set -> Codepoint -> m (Maybe (Codepoint, Codepoint))
+set_next_range s c = liftIO $ allocaArray 2 $ \p -> do
+  let q = advancePtr p 1
+  poke q c
+  b <- [C.exp|hb_bool_t { hb_set_next_range($set:s,$(hb_codepoint_t * p),$(hb_codepoint_t * q)) }|]
+  if cbool b
+  then do
+    lo <- peek p
+    hi <- peek q
+    pure $ Just (lo,hi)
+  else pure Nothing
   
 
 -- * 4 character tags
