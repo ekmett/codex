@@ -44,7 +44,7 @@ common lib
     text,
     transformers
 
-library internal
+library raw
   import: lib
   hs-source-dirs: raw
   build-tool-depends: hsc2hs:hsc2hs
@@ -52,7 +52,7 @@ library internal
 
 library
   import: lib
-  build-depends: internal
+  build-depends: raw
   hs-source-dirs: src
   exposed-modules: Graphics.Harfbuzz
   reexported-modules: Graphics.Harfbuzz.Internal
