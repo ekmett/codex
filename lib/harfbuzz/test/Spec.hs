@@ -5,8 +5,6 @@ import Data.Const.ByteString
 import Data.Default
 import Data.Functor
 import Data.StateVar
-import Foreign.Marshal.Alloc (finalizerFree)
-import Foreign.Marshal.Utils (new)
 import Graphics.Harfbuzz
 import System.Mem
 import Test.Hspec as Hspec
@@ -69,17 +67,17 @@ spec = Hspec.after_ performMajorGC $ do
       _ <- blob_create_sub_blob x 2 2
       blob_is_immutable x `shouldReturn` True
     it "supports user data" $ do
-      u <- new ()
-      v <- new ()
+      let u = 1 :: Int
+          v = 2 :: Int
       ku <- key_create
       kv <- key_create
       x <- blob_create "hello" MEMORY_MODE_READONLY
-      set_user_data x ku u finalizerFree False `shouldReturn` True
-      set_user_data x kv v finalizerFree False `shouldReturn` True
-      get_user_data x ku `shouldReturn` u
-      get_user_data x kv `shouldReturn` v
-      set_user_data x ku v finalizerFree False `shouldReturn` False
-      get_user_data x ku `shouldReturn` u
+      object_set_user_data x ku u False `shouldReturn` True
+      object_set_user_data x kv v False `shouldReturn` True
+      object_get_user_data x ku `shouldReturn` Just u
+      object_get_user_data x kv `shouldReturn` Just v
+      object_set_user_data x ku v False `shouldReturn` False
+      object_get_user_data x ku `shouldReturn` Just u
   describe "hb_direction_t" $ do
     describe "direction_from_string" $ do
       it "DIRECTION_LTR" $ do direction_from_string "l" `shouldBe` DIRECTION_LTR
