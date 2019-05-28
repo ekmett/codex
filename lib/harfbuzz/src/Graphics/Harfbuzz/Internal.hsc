@@ -263,7 +263,9 @@ import Data.Char as Char
 import Data.Coerce
 import Data.Data (Data)
 import Data.Default (Default(..))
+import Data.Functor ((<&>))
 import Data.Function ((&))
+import Data.Hashable
 import qualified Data.Map as Map
 import Data.Maybe
 import Data.String
@@ -370,7 +372,9 @@ data SegmentProperties = SegmentProperties
   { segment_properties_direction :: {-# unpack #-} !Direction
   , segment_properties_script    :: {-# unpack #-} !Script
   , segment_properties_language  :: {-# unpack #-} !Language
-  } deriving (Eq,Ord)
+  , segment_properties_reserved1 :: {-# unpack #-} !(Ptr ())
+  , segment_properties_reserved2 :: {-# unpack #-} !(Ptr ())
+  }
 
 instance Storable SegmentProperties where
   sizeOf _ = #size hb_segment_properties_t
@@ -379,10 +383,14 @@ instance Storable SegmentProperties where
     <$> (#peek hb_segment_properties_t, direction) p
     <*> (#peek hb_segment_properties_t, script) p
     <*> (#peek hb_segment_properties_t, language) p
+    <*> (#peek hb_segment_properties_t, reserved1) p
+    <*> (#peek hb_segment_properties_t, reserved2) p
   poke p SegmentProperties{..} = do
     (#poke hb_segment_properties_t, direction) p segment_properties_direction
     (#poke hb_segment_properties_t, script) p segment_properties_script
     (#poke hb_segment_properties_t, language) p segment_properties_language
+    (#poke hb_segment_properties_t, reserved1) p segment_properties_reserved1
+    (#poke hb_segment_properties_t, reserved2) p segment_properties_reserved2
 
 newtype Set = Set (ForeignPtr Set) deriving (Eq,Ord,Show,Data)
 
@@ -469,6 +477,7 @@ C.context $ C.baseCtx <> mempty
     , (C.TypeName "hb_language_impl_t", [t| Language |])
     , (C.TypeName "hb_script_t", [t| Script |])
     , (C.TypeName "hb_set_t", [t| Set |])
+    , (C.TypeName "hb_segment_properties_t", [t| SegmentProperties |])
     , (C.TypeName "hb_tag_t", [t| Tag |])
     , (C.TypeName "hb_unicode_funcs_t", [t| UnicodeFuncs |])
     , (C.TypeName "hb_user_data_key_t", [t| ForeignPtr OpaqueKey |])
@@ -557,7 +566,14 @@ instance IsString Script where
   fromString (fromString -> tag) = [C.pure|hb_script_t { hb_script_from_iso15924_tag($(hb_tag_t tag)) }|]
 
 deriving instance Show SegmentProperties
-deriving instance Read SegmentProperties
+
+-- | @hb_segment_properties_equal@
+deriving instance Eq SegmentProperties
+deriving instance Ord SegmentProperties
+
+-- | @hb_segment_properties_hash@
+instance Hashable SegmentProperties where
+  hashWithSalt i s = hashWithSalt i $ unsafeLocalState $ with s $ \sp -> [C.exp|unsigned int { hb_segment_properties_hash($(hb_segment_properties_t * sp)) }|] <&> (fromIntegral :: CUInt -> Int)
 
 instance Default Set where
   def = unsafeLocalState $ [C.exp|hb_set_t * { hb_set_get_empty() }|] >>= fmap Set . newForeignPtr_
@@ -1037,7 +1053,7 @@ pattern LANGUAGE_INVALID :: Language
 pattern LANGUAGE_INVALID = Language NULL
 
 pattern SEGMENT_PROPERTIES_DEFAULT :: SegmentProperties
-pattern SEGMENT_PROPERTIES_DEFAULT = SegmentProperties DIRECTION_INVALID SCRIPT_INVALID LANGUAGE_INVALID
+pattern SEGMENT_PROPERTIES_DEFAULT = SegmentProperties DIRECTION_INVALID SCRIPT_INVALID LANGUAGE_INVALID NULL NULL
 
 instance Default SegmentProperties where
   def = SEGMENT_PROPERTIES_DEFAULT
@@ -1455,6 +1471,7 @@ harfbuzzCtx = mempty
     , ("feature", anti (ptr $ C.TypeName "hb_feature_t") [t| Feature |] [| with |])
     , ("key", anti (ptr $ C.TypeName "hb_user_data_key_t") [t| OpaqueKey |] [| withKey |])
     , ("language", anti (C.TypeSpecifier mempty $ C.TypeName "hb_language_t") [t| Language |] [| withPtr |])
+    , ("segment-properties", anti (ptr $ C.TypeName "hb_segment_properties_t") [t| Set |] [| with |])
     , ("set", anti (ptr $ C.TypeName "hb_set_t") [t| Set |] [| withSelf |])
     , ("unicode-funcs", anti (ptr $ C.TypeName "hb_unicode_funcs_t") [t| UnicodeFuncs |] [| withSelf |])
     ]
