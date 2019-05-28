@@ -137,7 +137,7 @@ spec = Hspec.after_ performMajorGC $ do
       x <- buffer_create
       buffer_segment_properties x $= def
       buffer_content_type x $= BUFFER_CONTENT_TYPE_UNICODE
-      buffer_add_char x '\x05d3' -- a Hebrew letter, dalet
+      buffer_add_char x '\x05d3' 0 -- a Hebrew letter, dalet
       buffer_guess_segment_properties x
       get (buffer_script x) `shouldReturn` "Hebr"
       get (buffer_direction x) `shouldReturn` "rtl"
