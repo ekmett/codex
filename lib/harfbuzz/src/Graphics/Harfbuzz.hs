@@ -54,6 +54,7 @@ module Graphics.Harfbuzz
   , buffer_reverse_range
   , buffer_script -- statevar
   , buffer_segment_properties
+  , buffer_serialize_list_formats
   , buffer_set_length
   , buffer_unicode_funcs -- statevar
   -- , buffer_get_glyph_infos
@@ -298,7 +299,6 @@ blob_is_immutable b = liftIO $ [C.exp|hb_bool_t { hb_blob_is_immutable($blob:b) 
 blob_make_immutable :: MonadIO m => Blob -> m ()
 blob_make_immutable b = liftIO [C.block|void { hb_blob_make_immutable($blob:b); }|]
 
-
 -- | hb_blob_get_data is unsafe under ForeignPtr management, this is safe
 withBlobData :: Blob -> (ConstCStringLen -> IO r) -> IO r
 withBlobData bfp k = withSelf bfp $ \bp -> alloca $ \ip -> do
@@ -407,6 +407,13 @@ buffer_guess_segment_properties b = liftIO [C.block|void { hb_buffer_guess_segme
 
 buffer_normalize_glyphs :: MonadIO m => Buffer -> m ()
 buffer_normalize_glyphs b = liftIO [C.block|void { hb_buffer_normalize_glyphs($buffer:b); }|]
+
+buffer_serialize_list_formats :: [BufferSerializeFormat]
+buffer_serialize_list_formats = unsafeLocalState $ do
+  pstrs <- [C.exp|const char ** { hb_buffer_serialize_list_formats() }|]
+  cstrs <- peekArray0 nullPtr pstrs
+  traverse (fmap fromString . peekCString) cstrs
+{-# noinline buffer_serialize_list_formats #-}
 
 buffer_direction :: Buffer -> StateVar Direction
 buffer_direction b = StateVar g s where
