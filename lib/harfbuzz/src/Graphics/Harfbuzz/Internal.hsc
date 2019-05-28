@@ -1611,7 +1611,7 @@ harfbuzzCtx = mempty
     , ("key", anti (ptr $ C.TypeName "hb_user_data_key_t") [t|OpaqueKey|] [|withKey|])
     , ("language", anti (C.TypeSpecifier mempty $ C.TypeName "hb_language_t") [t|Language|] [|withPtr|])
     , ("map", anti (ptr $ C.TypeName "hb_map_t") [t|Map|] [|withSelf|])
-    , ("segment-properties", anti (ptr $ C.TypeName "hb_segment_properties_t") [t|Set|] [|with|])
+    , ("segment-properties", anti (ptr $ C.TypeName "hb_segment_properties_t") [t|SegmentProperties|] [|with|])
     , ("set", anti (ptr $ C.TypeName "hb_set_t") [t|Set|] [|withSelf|])
     , ("shape-plan", anti (ptr $ C.TypeName "hb_shape_plan_t") [t|ShapePlan|] [|withSelf|])
     , ("unicode-funcs", anti (ptr $ C.TypeName "hb_unicode_funcs_t") [t|UnicodeFuncs|] [|withSelf|])

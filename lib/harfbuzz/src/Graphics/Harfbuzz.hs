@@ -62,15 +62,6 @@ module Graphics.Harfbuzz
   , buffer_set_length
   , buffer_set_message_func
   , buffer_unicode_funcs -- statevar
-  -- , buffer_get_glyph_infos
-  -- , buffer_serialize_glyphs
-  -- , buffer_deserialize_glyphs
-  -- , buffer_serialize_list_formats
-  -- , buffer_diff
-  -- , buffer_set_message_func
-  -- , glyph_info_get_glyph_flags
-
-  -- statevars
 
   , Codepoint
 
@@ -180,7 +171,15 @@ module Graphics.Harfbuzz
   , shape -- the point of all of this
   , shape_full
   , shape_list_shapers
+
   , ShapePlan
+  , shape_plan_create
+  , shape_plan_create_cached
+  , shape_plan_create2
+  , shape_plan_create_cached2
+  , shape_plan_execute
+  , shape_plan_get_shaper
+
   , Shaper(SHAPER_INVALID)
   , shaper_from_string, shaper_to_string
 
@@ -225,6 +224,7 @@ module Graphics.Harfbuzz
   , foreignFont
   , foreignMap
   , foreignSet
+  , foreignShapePlan
   , foreignUnicodeFuncs
 
   , _hb_blob_destroy
@@ -233,6 +233,7 @@ module Graphics.Harfbuzz
   , _hb_font_destroy
   , _hb_map_destroy
   , _hb_set_destroy
+  , _hb_shape_plan_destroy
   , _hb_unicode_funcs_destroy
   ) where
 
@@ -885,12 +886,6 @@ set_symmetric_difference s other = liftIO [C.block|void { hb_set_symmetric_diffe
 set_union :: MonadIO m => Set -> Set -> m ()
 set_union s other = liftIO [C.block|void { hb_set_union($set:s,$set:other); }|]
 
-instance IsObject ShapePlan where
-  _reference uf = [C.exp|hb_shape_plan_t * { hb_shape_plan_reference($shape-plan:uf) }|]
-  _destroy uf = [C.block|void { hb_shape_plan_destroy($shape-plan:uf); }|]
-  _get_user_data b k = [C.exp|void * { hb_shape_plan_get_user_data($shape-plan:b,$key:k) }|]
-  _set_user_data b k v d replace = [C.exp|hb_bool_t { hb_shape_plan_set_user_data($shape-plan:b,$key:k,$(void*v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|]
-
 shape :: MonadIO m => Font -> Buffer -> [Feature] -> m ()
 shape font buffer features = liftIO $
   withArrayLen features $ \ (fromIntegral -> len) pfeatures ->
@@ -905,6 +900,66 @@ shape_full font buffer features shapers = liftIO $
       [C.block|void{
          hb_shape_full($font:font,$buffer:buffer,$(const hb_feature_t * pfeatures),$(unsigned int len),$(const char * const * pshapers));
       }|]
+
+instance IsObject ShapePlan where
+  _reference uf = [C.exp|hb_shape_plan_t * { hb_shape_plan_reference($shape-plan:uf) }|]
+  _destroy uf = [C.block|void { hb_shape_plan_destroy($shape-plan:uf); }|]
+  _get_user_data b k = [C.exp|void * { hb_shape_plan_get_user_data($shape-plan:b,$key:k) }|]
+  _set_user_data b k v d replace = [C.exp|hb_bool_t { hb_shape_plan_set_user_data($shape-plan:b,$key:k,$(void*v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|]
+
+shape_plan_create :: MonadIO m => Face -> SegmentProperties -> [Feature] -> [Shaper] -> m ShapePlan
+shape_plan_create face props features shapers = liftIO $ 
+  withArrayLen features $ \ (fromIntegral -> len) pfeatures ->
+    withArray0 SHAPER_INVALID shapers $ \ (castPtr -> pshapers) ->
+      [C.exp|hb_shape_plan_t * {
+         hb_shape_plan_create($face:face,$segment-properties:props,$(const hb_feature_t * pfeatures),$(unsigned int len),$(const char * const * pshapers))
+      }|] >>= foreignShapePlan
+
+shape_plan_create_cached :: MonadIO m => Face -> SegmentProperties -> [Feature] -> [Shaper] -> m ShapePlan
+shape_plan_create_cached face props features shapers = liftIO $ 
+  withArrayLen features $ \ (fromIntegral -> len) pfeatures ->
+    withArray0 SHAPER_INVALID shapers $ \ (castPtr -> pshapers) ->
+      [C.exp|hb_shape_plan_t * {
+         hb_shape_plan_create_cached($face:face,$segment-properties:props,$(const hb_feature_t * pfeatures),$(unsigned int len),$(const char * const * pshapers))
+      }|] >>= foreignShapePlan
+
+shape_plan_create2 :: MonadIO m => Face -> SegmentProperties -> [Feature] -> [Int] -> [Shaper] -> m ShapePlan
+shape_plan_create2 face props features coords shapers = liftIO $ 
+  withArrayLen features $ \ (fromIntegral -> len) pfeatures ->
+    withArrayLen (fromIntegral <$> coords) $ \ (fromIntegral -> num_coords) pcoords ->
+      withArray0 SHAPER_INVALID shapers $ \ (castPtr -> pshapers) ->
+        [C.exp|hb_shape_plan_t * {
+           hb_shape_plan_create2(
+             $face:face,
+             $segment-properties:props,
+             $(const hb_feature_t * pfeatures),$(unsigned int len),
+             $(const int * pcoords),$(unsigned int num_coords),
+             $(const char * const * pshapers))
+        }|] >>= foreignShapePlan
+
+shape_plan_create_cached2 :: MonadIO m => Face -> SegmentProperties -> [Feature] -> [Int] -> [Shaper] -> m ShapePlan
+shape_plan_create_cached2 face props features coords shapers = liftIO $ 
+  withArrayLen features $ \ (fromIntegral -> len) pfeatures ->
+    withArrayLen (fromIntegral <$> coords) $ \ (fromIntegral -> num_coords) pcoords ->
+      withArray0 SHAPER_INVALID shapers $ \ (castPtr -> pshapers) ->
+        [C.exp|hb_shape_plan_t * {
+           hb_shape_plan_create_cached2(
+             $face:face,
+             $segment-properties:props,
+             $(const hb_feature_t * pfeatures),$(unsigned int len),
+             $(const int * pcoords),$(unsigned int num_coords),
+             $(const char * const * pshapers))
+        }|] >>= foreignShapePlan
+
+shape_plan_execute :: MonadIO m => ShapePlan -> Font -> Buffer -> [Feature] -> m Bool
+shape_plan_execute plan font buffer features = liftIO $
+  withArrayLen features $ \ (fromIntegral -> len) pfeatures ->
+    [C.exp|hb_bool_t {
+      hb_shape_plan_execute($shape-plan:plan,$font:font,$buffer:buffer,$(const hb_feature_t * pfeatures),$(unsigned int len))
+    }|] <&> cbool
+
+shape_plan_get_shaper :: MonadIO m => ShapePlan -> m Shaper
+shape_plan_get_shaper plan = liftIO $ [C.exp|const char * { hb_shape_plan_get_shaper($shape-plan:plan) }|] <&> Shaper
 
 -- * 4 character tags
 
@@ -1071,6 +1126,9 @@ foreignMap = fmap Map . newForeignPtr _hb_map_destroy
 foreignSet :: Ptr Set -> IO Set
 foreignSet = fmap Set . newForeignPtr _hb_set_destroy
 
+foreignShapePlan :: Ptr ShapePlan -> IO ShapePlan
+foreignShapePlan = fmap ShapePlan . newForeignPtr _hb_shape_plan_destroy
+
 foreignUnicodeFuncs :: Ptr UnicodeFuncs -> IO UnicodeFuncs
 foreignUnicodeFuncs = fmap UnicodeFuncs . newForeignPtr _hb_unicode_funcs_destroy
 
@@ -1080,5 +1138,6 @@ foreign import ccall "hb.h &hb_face_destroy"          _hb_face_destroy          
 foreign import ccall "hb.h &hb_font_destroy"          _hb_font_destroy          :: FinalizerPtr Font
 foreign import ccall "hb.h &hb_map_destroy"           _hb_map_destroy           :: FinalizerPtr Map
 foreign import ccall "hb.h &hb_set_destroy"           _hb_set_destroy           :: FinalizerPtr Set
+foreign import ccall "hb.h &hb_shape_plan_destroy"    _hb_shape_plan_destroy    :: FinalizerPtr ShapePlan
 foreign import ccall "hb.h &hb_unicode_funcs_destroy" _hb_unicode_funcs_destroy :: FinalizerPtr UnicodeFuncs
 foreign import ccall "&"                               hs_free_stable_ptr       :: FinalizerPtr ()
