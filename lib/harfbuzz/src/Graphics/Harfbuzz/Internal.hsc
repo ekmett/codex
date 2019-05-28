@@ -85,6 +85,8 @@ module Graphics.Harfbuzz.Internal
   , LANGUAGE_INVALID
   )
 , language_to_string, language_from_string
+, Map(..)
+, pattern MAP_VALUE_INVALID
 , MemoryMode
   ( MemoryMode
   , MEMORY_MODE_DUPLICATE, MEMORY_MODE_READONLY
@@ -365,6 +367,8 @@ newtype Key a = Key (ForeignPtr OpaqueKey) deriving (Eq,Ord,Show,Data)
 
 newtype Language = Language (Ptr Language) deriving (Eq,Ord,Data,Storable) -- we never manage
 
+newtype Map = Map (ForeignPtr Map) deriving (Eq,Ord,Show,Data)
+
 newtype MemoryMode = MemoryMode CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 
 type Position = Word32
@@ -485,6 +489,7 @@ C.context $ C.baseCtx <> mempty
     , (C.TypeName "hb_font_t", [t|Font|])
     , (C.TypeName "hb_language_t", [t|Ptr Language|])
     , (C.TypeName "hb_language_impl_t", [t|Language|])
+    , (C.TypeName "hb_map_t", [t|Map|])
     , (C.TypeName "hb_script_t", [t|Script|])
     , (C.TypeName "hb_set_t", [t|Set|])
     , (C.TypeName "hb_segment_properties_t", [t|SegmentProperties|])
@@ -592,6 +597,10 @@ language_from_string = fromString
 language_to_string :: Language -> String
 language_to_string (Language l) = unsafeLocalState (peekCString cstr) where
   cstr = [C.pure|const char * { hb_language_to_string($(hb_language_t l)) }|]
+
+instance Default Map where
+  def = unsafeLocalState $ [C.exp|hb_map_t * { hb_map_get_empty() }|] >>= fmap Map . newForeignPtr_
+  {-# noinline def #-}
 
 instance IsString Script where
   fromString (fromString -> tag) = [C.pure|hb_script_t { hb_script_from_iso15924_tag($(hb_tag_t tag)) }|]
@@ -1398,6 +1407,9 @@ pattern BUFFER_REPLACEMENT_CODEPOINT_DEFAULT = #const HB_BUFFER_REPLACEMENT_CODE
 pattern SET_VALUE_INVALID :: Codepoint
 pattern SET_VALUE_INVALID = #const HB_SET_VALUE_INVALID
 
+pattern MAP_VALUE_INVALID :: Codepoint
+pattern MAP_VALUE_INVALID = #const HB_MAP_VALUE_INVALID
+
 pattern VERSION_MAJOR :: Int
 pattern VERSION_MAJOR = #const HB_VERSION_MAJOR
 
@@ -1472,6 +1484,7 @@ harfbuzzCtx = mempty
     , (C.TypeName "hb_glyph_position_t", [t|GlyphPosition|])
     , (C.TypeName "hb_language_t", [t|Ptr Language|])
     , (C.TypeName "hb_language_impl_t", [t|Language|])
+    , (C.TypeName "hb_map_t", [t|Map|])
     , (C.TypeName "hb_memory_mode_t", [t|MemoryMode|])
     , (C.TypeName "hb_position_t", [t|Position|])
     , (C.TypeName "hb_reference_table_func_t", [t|FunPtr (ReferenceTableFunc ())|])
@@ -1501,6 +1514,7 @@ harfbuzzCtx = mempty
     , ("font", anti (ptr $ C.TypeName "hb_font_t") [t|Font|] [|withSelf|])
     , ("key", anti (ptr $ C.TypeName "hb_user_data_key_t") [t|OpaqueKey|] [|withKey|])
     , ("language", anti (C.TypeSpecifier mempty $ C.TypeName "hb_language_t") [t|Language|] [|withPtr|])
+    , ("map", anti (ptr $ C.TypeName "hb_map_t") [t|Map|] [|withSelf|])
     , ("segment-properties", anti (ptr $ C.TypeName "hb_segment_properties_t") [t|Set|] [|with|])
     , ("set", anti (ptr $ C.TypeName "hb_set_t") [t|Set|] [|withSelf|])
     , ("unicode-funcs", anti (ptr $ C.TypeName "hb_unicode_funcs_t") [t|UnicodeFuncs|] [|withSelf|])
