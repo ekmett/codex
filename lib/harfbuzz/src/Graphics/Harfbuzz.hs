@@ -91,19 +91,39 @@ module Graphics.Harfbuzz
   , Feature(..)
   , feature_to_string, feature_from_string
 
-  , Font(..)
+  , Font
   , font_create
   , font_create_sub_font
   , font_get_face
   , font_get_glyph
   , font_get_glyph_advance_for_direction
+  , font_get_glyph_advances_for_direction
   , font_get_glyph_contour_point
   , font_get_glyph_contour_point_for_origin
+  , font_get_glyph_extents
+  , font_get_extents_for_direction
+
+  , FontFuncs
+  , font_funcs_create
+  , font_funcs_is_immutable
+  , font_funcs_make_immutable
+--  , font_funcs_set_glyph_contour_point_func
+--  , font_funcs_set_glyph_extents_func
+--  , font_funcs_set_glyph_from_name_func
+--  , font_funcs_set_glyph_h_advance_func
+--  , font_funcs_set_glyph_h_advances_func
+--  , font_funcs_set_glyph_h_origin_func
+--  , font_funcs_set_glyph_name_func
+--  , font_funcs_set_glyph_v_advance_func
+--  , font_funcs_set_glyph_v_advances_func
+--  , font_funcs_set_glyph_v_origin_func
+--  , font_funcs_set_glyph_nominal_glyph_func
+--  , font_funcs_set_variation_glyph_func
 
   , GlyphInfo
   , GlyphPosition(..)
 
-  , Key(..) -- hb_user_data_key
+  , Key
   , key_create
   , key_create_n
 
@@ -111,7 +131,7 @@ module Graphics.Harfbuzz
   , language_from_string, language_to_string
   , language_get_default
 
-  , Map(..)
+  , Map
   , map_allocation_successful
   , map_create
   , map_clear
@@ -142,7 +162,7 @@ module Graphics.Harfbuzz
   -- , (==) provides hb_segment_properties_equal
   -- , hash provides hb_segment_properties_hash
 
-  , Set(..)
+  , Set
   , set_add
   , set_add_range
   , set_allocation_successful
@@ -688,6 +708,22 @@ font_get_glyph_advance_for_direction font glyph dir = liftIO $ allocaArray 2 $ \
   }|]
   (,) <$> peek xy <*> peek (advancePtr xy 1)
 
+-- You'll need to manage the glyphs and advances yourself
+font_get_glyph_advances_for_direction :: MonadIO m => Font -> Direction -> Int -> Ptr Codepoint -> Int -> Ptr Position -> Int -> m ()
+font_get_glyph_advances_for_direction
+  font dir (fromIntegral -> count) first_glyph (fromIntegral -> glyph_stride) first_advance (fromIntegral -> advance_stride) = liftIO $
+  [C.block|void {
+    hb_font_get_glyph_advances_for_direction(
+      $font:font,
+      $(hb_direction_t dir),
+      $(unsigned int count),
+      $(const hb_codepoint_t * first_glyph),
+      $(unsigned int glyph_stride),
+      $(hb_position_t * first_advance),
+      $(unsigned int advance_stride)
+    );
+  }|]
+
 font_get_glyph_contour_point :: MonadIO m => Font -> Codepoint -> Int -> m (Maybe (Position, Position))
 font_get_glyph_contour_point font glyph (fromIntegral -> point_index) = liftIO $ allocaArray 2 $ \xy -> do
   b <- [C.block|hb_bool_t {
@@ -714,14 +750,39 @@ font_get_glyph_contour_point_for_origin font glyph (fromIntegral -> point_index)
     pure $ Just (x,y)
   else pure Nothing
 
--- font_get_glyph_extents :: Font -> Glyph -> m (Maybe GlyphExtents)
--- font_get_glyph_extents
+font_get_glyph_extents :: MonadIO m => Font -> Codepoint -> m (Maybe GlyphExtents)
+font_get_glyph_extents font glyph = liftIO $ alloca $ \extents -> do
+  b <- [C.exp|hb_bool_t { hb_font_get_glyph_extents($font:font,$(hb_codepoint_t glyph),$(hb_glyph_extents_t * extents)) }|]
+  if cbool b then Just <$> peek extents else pure Nothing
+
+font_get_extents_for_direction :: MonadIO m => Font -> Direction -> m FontExtents
+font_get_extents_for_direction font dir = liftIO $ alloca $ \ extents ->
+  [C.block|void {
+    hb_font_get_extents_for_direction($font:font,$(hb_direction_t dir),$(hb_font_extents_t * extents));
+  }|] *> peek extents
+   
 
 instance IsObject Font where
   _reference b = [C.exp|hb_font_t * { hb_font_reference($font:b) }|]
   _destroy b = [C.block|void { hb_font_destroy($font:b); }|]
   _get_user_data b k = [C.exp|void * { hb_font_get_user_data($font:b,$key:k) }|]
   _set_user_data b k v d replace = [C.exp|hb_bool_t { hb_font_set_user_data($font:b,$key:k,$(void*v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|]
+
+instance IsObject FontFuncs where
+  _reference b = [C.exp|hb_font_funcs_t * { hb_font_funcs_reference($font-funcs:b) }|]
+  _destroy b = [C.block|void { hb_font_funcs_destroy($font-funcs:b); }|]
+  _get_user_data b k = [C.exp|void * { hb_font_funcs_get_user_data($font-funcs:b,$key:k) }|]
+  _set_user_data b k v d replace = [C.exp|hb_bool_t { hb_font_funcs_set_user_data($font-funcs:b,$key:k,$(void*v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|]
+
+font_funcs_create :: MonadIO m => m FontFuncs
+font_funcs_create = liftIO $ [C.exp|hb_font_funcs_t * { hb_font_funcs_create() }|] >>= foreignFontFuncs
+
+font_funcs_is_immutable :: MonadIO m => FontFuncs -> m Bool
+font_funcs_is_immutable b = liftIO $ [C.exp|hb_bool_t { hb_font_funcs_is_immutable($font-funcs:b) }|] <&> cbool
+
+font_funcs_make_immutable :: MonadIO m => FontFuncs -> m ()
+font_funcs_make_immutable b = liftIO [C.block|void { hb_font_funcs_make_immutable($font-funcs:b); }|]
+
 
 -- * language
 
@@ -1120,6 +1181,9 @@ foreignFace = fmap Face . newForeignPtr _hb_face_destroy
 foreignFont :: Ptr Font -> IO Font
 foreignFont = fmap Font . newForeignPtr _hb_font_destroy
 
+foreignFontFuncs :: Ptr FontFuncs -> IO FontFuncs
+foreignFontFuncs = fmap FontFuncs . newForeignPtr _hb_font_funcs_destroy
+
 foreignMap :: Ptr Map -> IO Map
 foreignMap = fmap Map . newForeignPtr _hb_map_destroy
 
@@ -1136,6 +1200,7 @@ foreign import ccall "hb.h &hb_blob_destroy"          _hb_blob_destroy          
 foreign import ccall "hb.h &hb_buffer_destroy"        _hb_buffer_destroy        :: FinalizerPtr Buffer
 foreign import ccall "hb.h &hb_face_destroy"          _hb_face_destroy          :: FinalizerPtr Face
 foreign import ccall "hb.h &hb_font_destroy"          _hb_font_destroy          :: FinalizerPtr Font
+foreign import ccall "hb.h &hb_font_funcs_destroy"    _hb_font_funcs_destroy    :: FinalizerPtr FontFuncs
 foreign import ccall "hb.h &hb_map_destroy"           _hb_map_destroy           :: FinalizerPtr Map
 foreign import ccall "hb.h &hb_set_destroy"           _hb_set_destroy           :: FinalizerPtr Set
 foreign import ccall "hb.h &hb_shape_plan_destroy"    _hb_shape_plan_destroy    :: FinalizerPtr ShapePlan

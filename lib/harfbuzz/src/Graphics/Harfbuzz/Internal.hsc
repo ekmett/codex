@@ -86,6 +86,9 @@ module Graphics.Harfbuzz.Internal
 , Feature(..)
 , feature_to_string, feature_from_string
 , Font(..)
+, FontExtents(..)
+, FontFuncs(..)
+, GlyphExtents(..)
 , GlyphFlags
   ( GlyphFlags
   , GLYPH_FLAG_UNSAFE_TO_BREAK
@@ -363,6 +366,74 @@ instance Storable Feature where
 
 newtype Font = Font (ForeignPtr Font) deriving (Eq,Ord,Show,Data)
 
+data FontExtents = FontExtents
+  { font_extents_ascender
+  , font_extents_descender
+  , font_extents_line_gap
+  , font_extents_reserved9
+  , font_extents_reserved8
+  , font_extents_reserved7
+  , font_extents_reserved6
+  , font_extents_reserved5
+  , font_extents_reserved4
+  , font_extents_reserved3
+  , font_extents_reserved2
+  , font_extents_reserved1 :: {-# unpack #-} !Position
+  } deriving (Show,Read)
+
+instance Storable FontExtents where
+  sizeOf _ = #size hb_font_extents_t
+  alignment _ = #alignment hb_font_extents_t
+  peek p = FontExtents
+    <$> (#peek hb_font_extents_t, ascender)  p
+    <*> (#peek hb_font_extents_t, descender) p
+    <*> (#peek hb_font_extents_t, line_gap)  p
+    <*> (#peek hb_font_extents_t, reserved9) p
+    <*> (#peek hb_font_extents_t, reserved8) p
+    <*> (#peek hb_font_extents_t, reserved7) p
+    <*> (#peek hb_font_extents_t, reserved6) p
+    <*> (#peek hb_font_extents_t, reserved5) p
+    <*> (#peek hb_font_extents_t, reserved4) p
+    <*> (#peek hb_font_extents_t, reserved3) p
+    <*> (#peek hb_font_extents_t, reserved2) p
+    <*> (#peek hb_font_extents_t, reserved1) p
+  poke p FontExtents{..} = do
+    (#poke hb_font_extents_t, ascender)  p font_extents_ascender
+    (#poke hb_font_extents_t, descender) p font_extents_descender
+    (#poke hb_font_extents_t, line_gap)  p font_extents_line_gap
+    (#poke hb_font_extents_t, reserved9) p font_extents_reserved9
+    (#poke hb_font_extents_t, reserved8) p font_extents_reserved8
+    (#poke hb_font_extents_t, reserved7) p font_extents_reserved7
+    (#poke hb_font_extents_t, reserved6) p font_extents_reserved6
+    (#poke hb_font_extents_t, reserved5) p font_extents_reserved5
+    (#poke hb_font_extents_t, reserved4) p font_extents_reserved4
+    (#poke hb_font_extents_t, reserved3) p font_extents_reserved3
+    (#poke hb_font_extents_t, reserved2) p font_extents_reserved2
+    (#poke hb_font_extents_t, reserved1) p font_extents_reserved1
+
+newtype FontFuncs = FontFuncs (ForeignPtr FontFuncs) deriving (Eq,Ord,Show,Data)
+
+data GlyphExtents = GlyphExtents
+  { glyph_extents_x_bearing
+  , glyph_extents_y_bearing
+  , glyph_extents_width
+  , glyph_extents_height :: {-# unpack #-} !Position
+  } deriving (Eq,Ord,Show,Read)
+
+instance Storable GlyphExtents where
+  sizeOf _ = #size hb_glyph_extents_t
+  alignment _ = #alignment hb_glyph_extents_t
+  peek p = GlyphExtents
+    <$> (#peek hb_glyph_extents_t, x_bearing) p
+    <*> (#peek hb_glyph_extents_t, y_bearing) p
+    <*> (#peek hb_glyph_extents_t, width) p
+    <*> (#peek hb_glyph_extents_t, height) p
+  poke p GlyphExtents{..} = do
+    (#poke hb_glyph_extents_t, x_bearing) p glyph_extents_x_bearing
+    (#poke hb_glyph_extents_t, y_bearing) p glyph_extents_y_bearing
+    (#poke hb_glyph_extents_t, width) p glyph_extents_width
+    (#poke hb_glyph_extents_t, height) p glyph_extents_height
+
 newtype GlyphFlags = GlyphFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
 
 newtype GlyphInfo = GlyphInfo (Ptr GlyphInfo) deriving (Eq,Ord,Data,Storable) -- we never manage
@@ -519,6 +590,7 @@ C.context $ C.baseCtx <> mempty
     , (C.TypeName "hb_face_t", [t|Face|])
     , (C.TypeName "hb_feature_t", [t|Feature|])
     , (C.TypeName "hb_font_t", [t|Font|])
+    , (C.TypeName "hb_font_funcs_t", [t|FontFuncs|])
     , (C.TypeName "hb_language_t", [t|Ptr Language|])
     , (C.TypeName "hb_language_impl_t", [t|Language|])
     , (C.TypeName "hb_map_t", [t|Map|])
@@ -612,6 +684,11 @@ feature_to_string feature = unsafeLocalState $
 instance IsString Feature where fromString s = fromMaybe (error $ "invalid feature: " ++ s) $ feature_from_string s
 instance Show Feature where showsPrec d = showsPrec d . feature_to_string
 instance Read Feature where readPrec = step readPrec >>= maybe empty pure . feature_from_string
+
+instance Default FontFuncs where
+  def = unsafeLocalState $
+    [C.exp|hb_font_funcs_t * { hb_font_funcs_get_empty() }|] >>= fmap FontFuncs . newForeignPtr_
+  {-# noinline def #-}
 
 instance IsString Language where
   fromString s = unsafeLocalState $
@@ -1573,6 +1650,9 @@ harfbuzzCtx = mempty
     , (C.TypeName "hb_face_t", [t|Face|])
     , (C.TypeName "hb_feature_t", [t|Feature|])
     , (C.TypeName "hb_font_t", [t|Font|])
+    , (C.TypeName "hb_font_extents_t", [t|FontExtents|])
+    , (C.TypeName "hb_font_funcs_t", [t|FontFuncs|])
+    , (C.TypeName "hb_glyph_extents_t", [t|GlyphExtents|])
     , (C.TypeName "hb_glyph_flags_t", [t|GlyphFlags|])
     , (C.TypeName "hb_glyph_info_t", [t|GlyphInfo|])
     , (C.TypeName "hb_glyph_position_t", [t|GlyphPosition|])
@@ -1607,6 +1687,9 @@ harfbuzzCtx = mempty
     , ("face", anti (ptr $ C.TypeName "hb_face_t") [t|Face|] [|withSelf|])
     , ("feature", anti (ptr $ C.TypeName "hb_feature_t") [t|Feature|] [|with|])
     , ("font", anti (ptr $ C.TypeName "hb_font_t") [t|Font|] [|withSelf|])
+    , ("font-extents", anti (ptr $ C.TypeName "hb_font_extents_t") [t|FontExtents|] [|with|])
+    , ("font-funcs", anti (ptr $ C.TypeName "hb_font_funcs_t") [t|FontFuncs|] [|withSelf|])
+    , ("glyph-extents", anti (ptr $ C.TypeName "hb_glyph_extents_t") [t|GlyphExtents|] [|with|])
     , ("glyph-info", anti (ptr $ C.TypeName "hb_glyph_info_t") [t|GlyphInfo|] [|withPtr|])
     , ("key", anti (ptr $ C.TypeName "hb_user_data_key_t") [t|OpaqueKey|] [|withKey|])
     , ("language", anti (C.TypeSpecifier mempty $ C.TypeName "hb_language_t") [t|Language|] [|withPtr|])
