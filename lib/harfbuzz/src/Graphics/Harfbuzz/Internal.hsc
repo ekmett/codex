@@ -160,7 +160,7 @@ module Graphics.Harfbuzz.Internal
   , SHAPER_INVALID
   )
 , shape_list_shapers
-, shaper_to_string
+, shaper_from_string, shaper_to_string
 , Tag
   ( Tag, TAG
   , TAG_NONE, TAG_MAX, TAG_MAX_SIGNED
@@ -662,6 +662,20 @@ instance IsString Shaper where
 
 shaper_to_string :: Shaper -> Maybe String
 shaper_to_string s = lookup s (swap <$> shapers)
+
+shaper_from_string :: String -> Shaper
+shaper_from_string = fromString
+
+instance Show Shaper where
+  showsPrec d s = case lookup s (swap <$> shapers) of
+    Just t -> showsPrec d t
+    Nothing -> showString "SHAPER_INVALID"
+
+instance Read Shaper where
+  readPrec = do str <- step readPrec
+                maybe empty pure $ lookup str shapers
+         <|> do Ident "SHAPER_INVALID" <- lexP
+                pure def
 
 instance Default Tag where def = TAG_NONE
 

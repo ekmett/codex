@@ -178,8 +178,10 @@ module Graphics.Harfbuzz
   , pattern SET_VALUE_INVALID
 
   , shape -- the point of all of this
-  , Shaper(SHAPER_INVALID)
+  , shape_full
   , shape_list_shapers
+  , Shaper(SHAPER_INVALID)
+  , shaper_from_string, shaper_to_string
 
   , Tag(..)
   , tag_from_string, tag_to_string
@@ -884,10 +886,18 @@ set_union s other = liftIO [C.block|void { hb_set_union($set:s,$set:other); }|]
 
 shape :: MonadIO m => Font -> Buffer -> [Feature] -> m ()
 shape font buffer features = liftIO $
-  withArrayLen features $ \ (fromIntegral -> len) pfeatures -> do
+  withArrayLen features $ \ (fromIntegral -> len) pfeatures ->
     [C.block|void{
       hb_shape($font:font,$buffer:buffer,$(const hb_feature_t * pfeatures),$(unsigned int len));
     }|]
+
+shape_full :: MonadIO m => Font -> Buffer -> [Feature] -> [Shaper] -> m ()
+shape_full font buffer features shapers = liftIO $
+  withArrayLen features $ \ (fromIntegral -> len) pfeatures ->
+    withArray0 SHAPER_INVALID shapers $ \ (castPtr -> pshapers) ->
+      [C.block|void{
+         hb_shape_full($font:font,$buffer:buffer,$(const hb_feature_t * pfeatures),$(unsigned int len),$(const char * const * pshapers));
+      }|]
 
 -- * 4 character tags
 
