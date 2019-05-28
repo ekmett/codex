@@ -35,6 +35,18 @@ module Graphics.Harfbuzz.Internal
   , BUFFER_CONTENT_TYPE_UNICODE
   , BUFFER_CONTENT_TYPE_GLYPHS
   )
+, BufferDiffFlags
+  ( BufferDiffFlags
+  , BUFFER_DIFF_FLAG_EQUAL
+  , BUFFER_DIFF_FLAG_CONTENT_TYPE_MISMATCH
+  , BUFFER_DIFF_FLAG_LENGTH_MISMATCH
+  , BUFFER_DIFF_FLAG_NOTDEF_PRESENT
+  , BUFFER_DIFF_FLAG_DOTTED_CIRCLE_PRESENT
+  , BUFFER_DIFF_FLAG_CODEPOINT_MISMATCH
+  , BUFFER_DIFF_FLAG_CLUSTER_MISMATCH
+  , BUFFER_DIFF_FLAG_GLYPH_FLAGS_MISMATCH
+  , BUFFER_DIFF_FLAG_POSITION_MISMATCH
+  )
 , BufferFlags
   ( BufferFlags
   , BUFFER_FLAG_DEFAULT
@@ -301,6 +313,8 @@ newtype Buffer = Buffer (ForeignPtr Buffer) deriving (Eq,Ord,Show,Data)
 newtype BufferClusterLevel = BufferClusterLevel CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 
 newtype BufferContentType = BufferContentType CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+
+newtype BufferDiffFlags = BufferDiffFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
 
 newtype BufferFlags = BufferFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
 
@@ -1435,6 +1449,26 @@ pattern BUFFER_SERIALIZE_FLAG_GLYPH_EXTENTS = #const HB_BUFFER_SERIALIZE_FLAG_GL
 pattern BUFFER_SERIALIZE_FLAG_GLYPH_FLAGS = #const HB_BUFFER_SERIALIZE_FLAG_GLYPH_FLAGS
 pattern BUFFER_SERIALIZE_FLAG_NO_ADVANCES = #const HB_BUFFER_SERIALIZE_FLAG_NO_ADVANCES
 
+pattern BUFFER_DIFF_FLAG_EQUAL :: BufferDiffFlags
+pattern BUFFER_DIFF_FLAG_CONTENT_TYPE_MISMATCH :: BufferDiffFlags
+pattern BUFFER_DIFF_FLAG_LENGTH_MISMATCH :: BufferDiffFlags
+pattern BUFFER_DIFF_FLAG_NOTDEF_PRESENT :: BufferDiffFlags
+pattern BUFFER_DIFF_FLAG_DOTTED_CIRCLE_PRESENT :: BufferDiffFlags
+pattern BUFFER_DIFF_FLAG_CODEPOINT_MISMATCH :: BufferDiffFlags
+pattern BUFFER_DIFF_FLAG_CLUSTER_MISMATCH :: BufferDiffFlags
+pattern BUFFER_DIFF_FLAG_GLYPH_FLAGS_MISMATCH :: BufferDiffFlags
+pattern BUFFER_DIFF_FLAG_POSITION_MISMATCH :: BufferDiffFlags
+
+pattern BUFFER_DIFF_FLAG_EQUAL = #const HB_BUFFER_DIFF_FLAG_EQUAL
+pattern BUFFER_DIFF_FLAG_CONTENT_TYPE_MISMATCH = #const HB_BUFFER_DIFF_FLAG_CONTENT_TYPE_MISMATCH
+pattern BUFFER_DIFF_FLAG_LENGTH_MISMATCH = #const HB_BUFFER_DIFF_FLAG_LENGTH_MISMATCH
+pattern BUFFER_DIFF_FLAG_NOTDEF_PRESENT = #const HB_BUFFER_DIFF_FLAG_NOTDEF_PRESENT
+pattern BUFFER_DIFF_FLAG_DOTTED_CIRCLE_PRESENT = #const HB_BUFFER_DIFF_FLAG_DOTTED_CIRCLE_PRESENT
+pattern BUFFER_DIFF_FLAG_CODEPOINT_MISMATCH = #const HB_BUFFER_DIFF_FLAG_CODEPOINT_MISMATCH
+pattern BUFFER_DIFF_FLAG_CLUSTER_MISMATCH = #const HB_BUFFER_DIFF_FLAG_CLUSTER_MISMATCH
+pattern BUFFER_DIFF_FLAG_GLYPH_FLAGS_MISMATCH = #const HB_BUFFER_DIFF_FLAG_GLYPH_FLAGS_MISMATCH
+pattern BUFFER_DIFF_FLAG_POSITION_MISMATCH = #const HB_BUFFER_DIFF_FLAG_POSITION_MISMATCH
+
 #endif
 
 -- * Inline C context
@@ -1470,6 +1504,7 @@ harfbuzzCtx = mempty
     , (C.TypeName "hb_buffer_t", [t|Buffer|])
     , (C.TypeName "hb_buffer_cluster_level_t", [t|BufferClusterLevel|])
     , (C.TypeName "hb_buffer_content_type_t", [t|BufferContentType|])
+    , (C.TypeName "hb_buffer_diff_flags_t", [t|BufferDiffFlags|])
     , (C.TypeName "hb_buffer_flags_t", [t|BufferFlags|])
     , (C.TypeName "hb_buffer_message_func_t", [t|FunPtr (BufferMessageFunc ())|])
     , (C.TypeName "hb_buffer_serialize_flags_t", [t|BufferSerializeFlags|])

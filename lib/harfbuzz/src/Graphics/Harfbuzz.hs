@@ -38,6 +38,7 @@ module Graphics.Harfbuzz
   , buffer_cluster_level -- statevar
   , buffer_content_type -- statevar
   , buffer_create
+  , buffer_diff
   , buffer_direction -- statevar
   , buffer_flags -- statevar
   , buffer_get_glyph_positions
@@ -341,6 +342,10 @@ instance IsObject Buffer where
 
 buffer_create :: MonadIO m => m Buffer
 buffer_create = liftIO $ [C.exp|hb_buffer_t * { hb_buffer_create() }|] >>= foreignBuffer
+
+buffer_diff :: MonadIO m => Buffer -> Buffer -> Codepoint -> Int -> m BufferDiffFlags
+buffer_diff buffer reference dottedcircle_glyph (fromIntegral -> position_fuzz) = liftIO $ 
+  [C.exp|hb_buffer_diff_flags_t { hb_buffer_diff($buffer:buffer,$buffer:reference,$(hb_codepoint_t dottedcircle_glyph),$(unsigned int position_fuzz)) }|]
 
 -- | Resets the buffer to its initial status, as if it was just newly created with 'buffer_create'
 buffer_reset :: MonadIO m => Buffer -> m ()
