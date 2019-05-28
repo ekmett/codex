@@ -504,18 +504,33 @@ instance Default BufferFlags where
 instance Default SegmentProperties where
   def = SEGMENT_PROPERTIES_DEFAULT
 
+buffer_serialize_list_strings :: [String]
+buffer_serialize_list_strings = unsafeLocalState $ do
+  pstrs <- [C.exp|const char ** { hb_buffer_serialize_list_formats() }|]
+  cstrs <- peekArray0 nullPtr pstrs
+  traverse peekCString cstrs
+{-# noinline buffer_serialize_list_strings #-}
+
+buffer_serialize_list_formats :: [(String,BufferSerializeFormat)]
+buffer_serialize_list_formats = (\s -> (s, buffer_serialize_format_from_string s)) <$> buffer_serialize_list_strings
+{-# noinline buffer_serialize_list_formats #-}
+
+-- dangerous AF, as it doesn't check the format is valid!
 buffer_serialize_format_from_string :: String -> BufferSerializeFormat
 buffer_serialize_format_from_string s = unsafeLocalState $
-  withCStringLen (take 1 s) $ \(cstr,fromIntegral -> l) ->
+  withCStringLen s $ \(cstr,fromIntegral -> l) ->
     [C.exp|hb_buffer_serialize_format_t { hb_buffer_serialize_format_from_string($(const char * cstr),$(int l)) }|]
 
 buffer_serialize_format_to_string :: BufferSerializeFormat -> String
 buffer_serialize_format_to_string t = unsafeLocalState $
   [C.exp|const char * { hb_buffer_serialize_format_to_string($(hb_buffer_serialize_format_t t)) }|] >>= peekCString
 
-instance IsString BufferSerializeFormat where fromString = buffer_serialize_format_from_string
+-- safer than the box of knives that is buffer_serialize_format_from_string!
+instance IsString BufferSerializeFormat where 
+  fromString s = fromMaybe BUFFER_SERIALIZE_FORMAT_INVALID $ lookup s buffer_serialize_list_formats
+
 instance Show BufferSerializeFormat where showsPrec d = showsPrec d . buffer_serialize_format_to_string
-instance Read BufferSerializeFormat where readPrec = buffer_serialize_format_from_string <$> step readPrec
+instance Read BufferSerializeFormat where readPrec = fromString <$> step readPrec
 
 direction_from_string :: String -> Direction
 direction_from_string s = unsafeLocalState $
@@ -1050,7 +1065,6 @@ pattern BUFFER_SERIALIZE_FORMAT_INVALID = #const HB_BUFFER_SERIALIZE_FORMAT_INVA
   BUFFER_SERIALIZE_FORMAT_TEXT,
   BUFFER_SERIALIZE_FORMAT_JSON,
   BUFFER_SERIALIZE_FORMAT_INVALID #-}
-
 
 pattern NULL :: Ptr a
 pattern NULL <- ((nullPtr ==) -> True) where
