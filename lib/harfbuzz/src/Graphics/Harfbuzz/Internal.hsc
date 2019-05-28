@@ -534,7 +534,7 @@ buffer_serialize_format_to_string t = unsafeLocalState $
   [C.exp|const char * { hb_buffer_serialize_format_to_string($(hb_buffer_serialize_format_t t)) }|] >>= peekCString
 
 -- safer than the box of knives that is buffer_serialize_format_from_string!
-instance IsString BufferSerializeFormat where 
+instance IsString BufferSerializeFormat where
   fromString s = fromMaybe BUFFER_SERIALIZE_FORMAT_INVALID $ lookup s buffer_serialize_list_formats
 
 instance Show BufferSerializeFormat where showsPrec d = showsPrec d . buffer_serialize_format_to_string
@@ -566,7 +566,7 @@ feature_from_string s = unsafeLocalState $
 
 feature_to_string :: Feature -> String
 feature_to_string feature = unsafeLocalState $
-  allocaBytes 128 $ \buf -> 
+  allocaBytes 128 $ \buf ->
     with feature $ \f -> do
       [C.block|void { hb_feature_to_string($(hb_feature_t * f),$(char * buf),128); }|]
       peekCString buf
