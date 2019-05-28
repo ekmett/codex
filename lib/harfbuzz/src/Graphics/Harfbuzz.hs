@@ -103,18 +103,17 @@ module Graphics.Harfbuzz
   , font_get_glyph_contour_point_for_origin
   , font_get_glyph_extents
   , font_get_glyph_extents_for_origin
+  , font_get_glyph_name
+  , font_get_glyph_from_name
   , font_ppem -- statevar
   , font_ptem -- statevar
   , font_scale -- statevar
   , font_set_funcs
-  -- , font_glyph_to_string
-  -- , font_glyph_from_string
+  , font_glyph_to_string
+  , font_glyph_from_string
   -- , font_get_glyph_origin_for_direction
   -- , font_add_glyph_origin_for_direction
   -- , font_subtract_glyph_origin_for_direction
-  -- , font_get_glyph_from_name
-  -- , font_get_glyph_name
-  -- , font_get_glyph
   -- , font_set_variations
   -- , font_set_var_coords_design
   -- , font_set_var_coords_normalized
@@ -787,6 +786,36 @@ font_get_extents_for_direction font dir = liftIO $ alloca $ \ extents ->
   [C.block|void {
     hb_font_get_extents_for_direction($font:font,$(hb_direction_t dir),$(hb_font_extents_t * extents));
   }|] *> peek extents
+
+font_get_glyph_name :: MonadIO m => Font -> Codepoint -> m (Maybe String)
+font_get_glyph_name font glyph = liftIO $ do
+  allocaBytes 4096 $ \buf -> do
+    b <- [C.block|hb_bool_t { hb_font_glyph_name($font:font,$(hb_codepoint_t glyph),$(char * buf),4095); }|]
+    if cbool b then Just <$> peekCString buf else pure Nothing
+
+font_get_glyph_from_name :: MonadIO m => Font -> String -> m (Maybe Codepoint)
+font_get_glyph_from_name font name = liftIO $
+  alloca $ \glyph ->
+    withCStringLen name $ \ (cstr,fromIntegral -> len) -> do
+      b <- [C.exp|hb_bool_t {
+        hb_font_glyph_from_name($font:font,$(const char * cstr),$(unsigned int len), $(hb_codepoint_t * glyph))
+      }|]
+      if cbool b then Just <$> peek glyph else pure Nothing
+
+font_glyph_to_string :: MonadIO m => Font -> Codepoint -> m String
+font_glyph_to_string font glyph = liftIO $ do
+  allocaBytes 4096 $ \buf -> do
+    [C.block|void { hb_font_glyph_to_string($font:font,$(hb_codepoint_t glyph),$(char * buf),4095); }|]
+    peekCString buf
+
+font_glyph_from_string :: MonadIO m => Font -> String -> m (Maybe Codepoint)
+font_glyph_from_string font name = liftIO $
+  alloca $ \glyph ->
+    withCStringLen name $ \ (cstr,fromIntegral -> len) -> do
+      b <- [C.exp|hb_bool_t {
+        hb_font_glyph_from_string($font:font,$(const char * cstr),$(unsigned int len), $(hb_codepoint_t * glyph))
+      }|]
+      if cbool b then Just <$> peek glyph else pure Nothing
    
 font_ppem :: Font -> StateVar (Int,Int)
 font_ppem font = StateVar g s where
