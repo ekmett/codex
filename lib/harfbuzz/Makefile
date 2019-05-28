@@ -7,6 +7,12 @@ all:
 install:
 	cabal v2-install
 
+docs:
+	@RESULT=`cabal new-haddock $(LIBRARY) | tail -n 2`; \
+	if [[ `echo $$RESULT | head -c 22` = "Documentation created:" ]]; then \
+		$(OPEN) `echo $$RESULT | tail -c +23`; \
+	fi
+
 run:
 	cabal v2-run $(LIBRARY)
 
@@ -23,3 +29,10 @@ lint:
 	find src -name "*.hs*" -print | xargs hlint
 
 .PHONY: all install run repl test watch lint
+
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+	OPEN = open
+else
+	OPEN = echo
+endif
