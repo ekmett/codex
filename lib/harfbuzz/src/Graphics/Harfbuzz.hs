@@ -38,6 +38,7 @@ module Graphics.Harfbuzz
   , buffer_cluster_level -- statevar
   , buffer_content_type -- statevar
   , buffer_create
+  , buffer_deserialize_glyphs
   , buffer_diff
   , buffer_direction -- statevar
   , buffer_flags -- statevar
@@ -348,7 +349,7 @@ buffer_create :: MonadIO m => m Buffer
 buffer_create = liftIO $ [C.exp|hb_buffer_t * { hb_buffer_create() }|] >>= foreignBuffer
 
 buffer_diff :: MonadIO m => Buffer -> Buffer -> Codepoint -> Int -> m BufferDiffFlags
-buffer_diff buffer reference dottedcircle_glyph (fromIntegral -> position_fuzz) = liftIO $ 
+buffer_diff buffer reference dottedcircle_glyph (fromIntegral -> position_fuzz) = liftIO $
   [C.exp|hb_buffer_diff_flags_t { hb_buffer_diff($buffer:buffer,$buffer:reference,$(hb_codepoint_t dottedcircle_glyph),$(unsigned int position_fuzz)) }|]
 
 -- | Resets the buffer to its initial status, as if it was just newly created with 'buffer_create'
@@ -436,7 +437,7 @@ buffer_get_glyph_flags :: MonadIO m => Buffer -> m [GlyphFlags]
 buffer_get_glyph_flags b = liftIO $ alloca $ \plen -> do
   pinfos <- [C.exp|hb_glyph_info_t * { hb_buffer_get_glyph_infos($buffer:b,$(unsigned int * plen)) }|]
   len <- peek plen
-  infos <- peekArray (fromIntegral len) pinfos 
+  infos <- peekArray (fromIntegral len) pinfos
   for infos $ \info -> [C.exp|hb_glyph_flags_t { hb_glyph_info_get_glyph_flags($glyph-info:info) }|]
 
 buffer_guess_segment_properties :: MonadIO m => Buffer -> m ()
@@ -467,6 +468,23 @@ buffer_serialize_glyphs b (fromIntegral -> start) (fromIntegral -> end) bs@(from
        result <- ByteString.packCStringLen (buf,buf_consumed)
        return (n, result)
 
+buffer_deserialize_glyphs :: MonadIO m => Buffer -> ByteString -> Font -> BufferSerializeFormat -> m (Bool, Int)
+buffer_deserialize_glyphs buffer bs font format = liftIO $
+  ByteString.useAsCStringLen bs $ \(buf, fromIntegral -> buf_len) ->
+    alloca $ \end_ptr -> do
+      b <- [C.exp|hb_bool_t {
+        hb_buffer_deserialize_glyphs(
+          $buffer:buffer,
+          $(const char * buf),
+          $(int buf_len),
+          $(const char ** end_ptr),
+          $font:font,
+          $(hb_buffer_serialize_format_t format)
+        )
+      }|] <&> cbool
+      end <- peek end_ptr
+      pure (b, minusPtr end buf)
+
 -- | Register a callback for buffer messages
 buffer_set_message_func :: MonadIO m => Buffer -> (Buffer -> Font -> String -> IO ()) -> m ()
 buffer_set_message_func b hfun = liftIO $ do
@@ -477,7 +495,7 @@ buffer_set_message_func b hfun = liftIO $ do
     hfun buffer font msg
   [C.block|void {
     hb_buffer_message_func_t f = $(hb_buffer_message_func_t f);
-    hb_buffer_set_message_func($buffer:b,f,f,(hb_destroy_func_t)hs_free_fun_ptr); 
+    hb_buffer_set_message_func($buffer:b,f,f,(hb_destroy_func_t)hs_free_fun_ptr);
   }|]
 
 buffer_direction :: Buffer -> StateVar Direction
