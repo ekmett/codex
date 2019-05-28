@@ -61,6 +61,7 @@ module Graphics.Harfbuzz.Internal
   , BUFFER_SERIALIZE_FORMAT_JSON
   , BUFFER_SERIALIZE_FORMAT_INVALID
   )
+, buffer_serialize_format_to_string, buffer_serialize_format_from_string
 , Codepoint
 , Direction
   ( Direction
@@ -296,7 +297,7 @@ newtype BufferFlags = BufferFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,
 
 newtype BufferSerializeFlags = BufferSerializeFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
 
-newtype BufferSerializeFormat = BufferSerializeFormat CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+newtype BufferSerializeFormat = BufferSerializeFormat CInt deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
 
 type Codepoint = Word32
 
@@ -460,6 +461,7 @@ C.context $ C.baseCtx <> mempty
   { C.ctxTypesTable = Map.fromList
     [ (C.TypeName "hb_blob_t", [t| Blob |])
     , (C.TypeName "hb_buffer_t", [t| Buffer |])
+    , (C.TypeName "hb_buffer_serialize_format_t", [t| BufferSerializeFormat |])
     , (C.TypeName "hb_direction_t", [t| Direction |])
     , (C.TypeName "hb_face_t", [t| Face |])
     , (C.TypeName "hb_feature_t", [t| Feature |])
@@ -484,6 +486,19 @@ instance Default Blob where
 instance Default Buffer where
   def = unsafeLocalState $ [C.exp|hb_buffer_t * { hb_buffer_get_empty() }|] >>= fmap Buffer . newForeignPtr_
   {-# noinline def #-}
+
+buffer_serialize_format_from_string :: String -> BufferSerializeFormat
+buffer_serialize_format_from_string s = unsafeLocalState $
+  withCStringLen (take 1 s) $ \(cstr,fromIntegral -> l) ->
+    [C.exp|hb_buffer_serialize_format_t { hb_buffer_serialize_format_from_string($(const char * cstr),$(int l)) }|]
+
+buffer_serialize_format_to_string :: BufferSerializeFormat -> String
+buffer_serialize_format_to_string t = unsafeLocalState $
+  [C.exp|const char * { hb_buffer_serialize_format_to_string($(hb_buffer_serialize_format_t t)) }|] >>= peekCString
+
+instance IsString BufferSerializeFormat where fromString = buffer_serialize_format_from_string
+instance Show BufferSerializeFormat where showsPrec d = showsPrec d . buffer_serialize_format_to_string
+instance Read BufferSerializeFormat where readPrec = buffer_serialize_format_from_string <$> step readPrec
 
 direction_from_string :: String -> Direction
 direction_from_string s = unsafeLocalState $
