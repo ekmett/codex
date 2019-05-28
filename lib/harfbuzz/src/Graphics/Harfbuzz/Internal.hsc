@@ -45,6 +45,7 @@ module Graphics.Harfbuzz.Internal
   , BUFFER_FLAG_DO_NOT_INSERT_DOTTED_CIRCLE
   )
 , pattern BUFFER_REPLACEMENT_CODEPOINT_DEFAULT
+, Codepoint
 , Direction
   ( Direction
   , DIRECTION_INVALID, DIRECTION_LTR, DIRECTION_RTL, DIRECTION_BTT, DIRECTION_TTB
@@ -116,6 +117,7 @@ module Graphics.Harfbuzz.Internal
   , SEGMENT_PROPERTIES_DEFAULT
   )
 , Set(..)
+, pattern SET_VALUE_INVALID
 , Tag
   ( Tag, TAG
   , TAG_NONE, TAG_MAX, TAG_MAX_SIGNED
@@ -229,7 +231,7 @@ module Graphics.Harfbuzz.Internal
 , pattern VERSION_MICRO
 -- * internals
 , withSelf, withPtr
-, cbool, boolc
+, cbool, boolc, w2c,c2w
 , newByteStringCStringLen
 , harfbuzzCtx
 ) where
@@ -267,6 +269,8 @@ newtype BufferClusterLevel = BufferClusterLevel CInt deriving (Eq,Ord,Show,Read,
 newtype BufferContentType = BufferContentType CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 
 newtype BufferFlags = BufferFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
+
+type Codepoint = Word32
 
 newtype Direction = Direction Word32  deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
 
@@ -1263,9 +1267,8 @@ pattern GLYPH_FLAG_DEFINED = #const HB_GLYPH_FLAG_DEFINED
 pattern BUFFER_REPLACEMENT_CODEPOINT_DEFAULT :: Int
 pattern BUFFER_REPLACEMENT_CODEPOINT_DEFAULT = #const HB_BUFFER_REPLACEMENT_CODEPOINT_DEFAULT
 
--- this is going to force me to use Word32s as codepoints
--- pattern SET_VALUE_INVALID :: Char
--- pattern SET_VALUE_INVALID = #const HB_SET_VALUE_INVALID
+pattern SET_VALUE_INVALID :: Codepoint
+pattern SET_VALUE_INVALID = #const HB_SET_VALUE_INVALID
 
 pattern VERSION_MAJOR :: Int
 pattern VERSION_MAJOR = #const HB_VERSION_MAJOR
@@ -1311,7 +1314,7 @@ harfbuzzCtx = mempty
     , (C.TypeName "hb_buffer_content_type_t", [t| BufferContentType |])
     , (C.TypeName "hb_buffer_flags_t", [t| BufferFlags |])
     , (C.TypeName "hb_bool_t", [t| CInt |])
-    , (C.TypeName "hb_codepoint_t", [t| Char |])
+    , (C.TypeName "hb_codepoint_t", [t| Codepoint |])
     , (C.TypeName "hb_destroy_func_t", [t| FinalizerPtr () |])
     , (C.TypeName "hb_direction_t", [t| Direction |])
     , (C.TypeName "hb_feature_t", [t| Feature |])
