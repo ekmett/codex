@@ -260,8 +260,14 @@ import Text.Read
 
 #include <hb.h>
 
+-- | A 'Blob' wraps a chunk of binary data to handle lifecycle management of data while it is passed between client and HarfBuzz.
+-- Blobs are primarily used to create font faces, but also to access font face tables, as well as pass around other binary data.
 newtype Blob = Blob (ForeignPtr Blob) deriving (Eq,Ord,Show,Data)
 
+
+-- | Buffers serve dual role in HarfBuzz; they hold the input characters that are passed to hb_shape(), and after shaping they
+--
+--hold the output glyphs.
 newtype Buffer = Buffer (ForeignPtr Buffer) deriving (Eq,Ord,Show,Data)
 
 newtype BufferClusterLevel = BufferClusterLevel CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
@@ -274,6 +280,9 @@ type Codepoint = Word32
 
 newtype Direction = Direction Word32  deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
 
+-- | A font 'Face' represents a single face in a font family. More exactly a font 'Face' is a single
+-- face in a binary font file. Faces are typically built from a binary blob and a face index. Faces
+-- are used to create fonts.
 newtype Face = Face (ForeignPtr Face) deriving (Eq,Ord,Show,Data)
 
 data Feature = Feature
@@ -912,9 +921,13 @@ pattern BUFFER_FLAG_DO_NOT_INSERT_DOTTED_CIRCLE = #const HB_BUFFER_FLAG_DO_NOT_I
 instance Default BufferFlags where
   def = BUFFER_FLAG_DEFAULT
 
+-- | Return cluster values grouped by graphemes into monotone order.
 pattern BUFFER_CLUSTER_LEVEL_MONOTONE_GRAPHEMES  :: BufferClusterLevel
+-- | Return cluster values grouped into monotone order.
 pattern BUFFER_CLUSTER_LEVEL_MONOTONE_CHARACTERS :: BufferClusterLevel
+-- | Don't group cluster values
 pattern BUFFER_CLUSTER_LEVEL_CHARACTERS :: BufferClusterLevel
+-- | Default cluster level, equal to 'BUFFER_CLUSTER_LEVEL_MONOTONE_GRAPHEMES'
 pattern BUFFER_CLUSTER_LEVEL_DEFAULT :: BufferClusterLevel
 
 pattern BUFFER_CLUSTER_LEVEL_MONOTONE_GRAPHEMES  = #const HB_BUFFER_CLUSTER_LEVEL_MONOTONE_GRAPHEMES

@@ -114,30 +114,30 @@ spec = Hspec.after_ performMajorGC $ do
       (buffer_create >>= buffer_get_length) `shouldReturn` 0
     it "can add to a buffer" $ do
       x <- buffer_create
-      buffer_add x 'a' 0
+      buffer_add_char x 'a' 0
       buffer_get_length x `shouldReturn` 1
     it "can be reset" $ do
       x <- buffer_create
-      buffer_add x 'a' 0
+      buffer_add_char x 'a' 0
       buffer_reset x
       buffer_get_length x `shouldReturn` 0
     it "can append" $ do
       x <- buffer_create
-      buffer_add x 'a' 0
-      buffer_add x 'b' 0
+      buffer_add_char x 'a' 0
+      buffer_add_char x 'b' 0
       buffer_get_length x `shouldReturn` 2
       y <- buffer_create
-      buffer_add y 'c' 0
-      buffer_add y 'd' 0
-      buffer_add y 'e' 0
-      buffer_add y 'f' 0
+      buffer_add_char y 'c' 0
+      buffer_add_char y 'd' 0
+      buffer_add_char y 'e' 0
+      buffer_add_char y 'f' 0
       buffer_append x y 1 3 -- abde
       buffer_get_length x `shouldReturn` 4
     it "can guess" $ do
       x <- buffer_create
       buffer_segment_properties x $= def
       buffer_content_type x $= BUFFER_CONTENT_TYPE_UNICODE
-      buffer_add x 'ד' 0 -- a hebrew character
+      buffer_add_char x '\x05d3' -- a Hebrew letter, dalet
       buffer_guess_segment_properties x
       get (buffer_script x) `shouldReturn` "Hebr"
       get (buffer_direction x) `shouldReturn` "rtl"
