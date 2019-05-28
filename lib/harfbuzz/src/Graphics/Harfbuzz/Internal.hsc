@@ -45,6 +45,22 @@ module Graphics.Harfbuzz.Internal
   , BUFFER_FLAG_DO_NOT_INSERT_DOTTED_CIRCLE
   )
 , pattern BUFFER_REPLACEMENT_CODEPOINT_DEFAULT
+, BufferSerializeFlags
+  ( BufferSerializeFlags
+  , BUFFER_SERIALIZE_FLAG_DEFAULT
+  , BUFFER_SERIALIZE_FLAG_NO_CLUSTERS
+  , BUFFER_SERIALIZE_FLAG_NO_POSITIONS
+  , BUFFER_SERIALIZE_FLAG_NO_GLYPH_NAMES
+  , BUFFER_SERIALIZE_FLAG_GLYPH_EXTENTS
+  , BUFFER_SERIALIZE_FLAG_GLYPH_FLAGS
+  , BUFFER_SERIALIZE_FLAG_NO_ADVANCES
+  )
+, BufferSerializeFormat
+  ( BufferSerializeFormat
+  , BUFFER_SERIALIZE_FORMAT_TEXT
+  , BUFFER_SERIALIZE_FORMAT_JSON
+  , BUFFER_SERIALIZE_FORMAT_INVALID
+  )
 , Codepoint
 , Direction
   ( Direction
@@ -59,6 +75,7 @@ module Graphics.Harfbuzz.Internal
   , GLYPH_FLAG_UNSAFE_TO_BREAK
   , GLYPH_FLAG_DEFINED
   )
+, GlyphPosition(..)
 , Language
   ( Language
   , LANGUAGE_INVALID
@@ -69,6 +86,7 @@ module Graphics.Harfbuzz.Internal
   , MEMORY_MODE_DUPLICATE, MEMORY_MODE_READONLY
   , MEMORY_MODE_WRITABLE, MEMORY_MODE_READONLY_MAY_MAKE_WRITABLE
   )
+, Position
 , ReferenceTableFunc
 , Script
   ( Script
@@ -276,6 +294,10 @@ newtype BufferContentType = BufferContentType CInt deriving (Eq,Ord,Show,Read,Nu
 
 newtype BufferFlags = BufferFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
 
+newtype BufferSerializeFlags = BufferSerializeFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
+
+newtype BufferSerializeFormat = BufferSerializeFormat CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+
 type Codepoint = Word32
 
 newtype Direction = Direction Word32  deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
@@ -307,12 +329,35 @@ instance Storable Feature where
 
 newtype GlyphFlags = GlyphFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
 
+data GlyphPosition = GlyphPosition
+  { glyph_position_x_advance
+  , glyph_position_y_advance
+  , glyph_position_x_offset
+  , glyph_position_y_offset :: {-# unpack #-} !Position
+  } deriving (Eq,Ord,Show,Read)
+
+instance Storable GlyphPosition where
+  sizeOf _ = #size hb_glyph_position_t
+  alignment _ = #alignment hb_glyph_position_t
+  peek p = GlyphPosition
+    <$> (#peek hb_glyph_position_t, x_advance) p
+    <*> (#peek hb_glyph_position_t, y_advance) p
+    <*> (#peek hb_glyph_position_t, x_offset) p
+    <*> (#peek hb_glyph_position_t, y_offset) p
+  poke p GlyphPosition{..} = do
+    (#poke hb_glyph_position_t, x_advance) p glyph_position_x_advance
+    (#poke hb_glyph_position_t, y_advance) p glyph_position_y_advance
+    (#poke hb_glyph_position_t, x_offset) p glyph_position_x_offset
+    (#poke hb_glyph_position_t, y_offset) p glyph_position_y_offset
+
 data OpaqueKey deriving Data
 newtype Key a = Key (ForeignPtr OpaqueKey) deriving (Eq,Ord,Show,Data)
 
 newtype Language = Language (Ptr Language) deriving (Eq,Ord,Data,Storable) -- we never manage
 
 newtype MemoryMode = MemoryMode CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+
+type Position = Word32
 
 type ReferenceTableFunc a = Ptr Face -> Tag -> Ptr a -> IO (Ptr Blob)
 
@@ -956,6 +1001,19 @@ pattern BUFFER_CONTENT_TYPE_GLYPHS = #const HB_BUFFER_CONTENT_TYPE_GLYPHS
   BUFFER_CONTENT_TYPE_UNICODE,
   BUFFER_CONTENT_TYPE_GLYPHS #-}
 
+pattern BUFFER_SERIALIZE_FORMAT_TEXT :: BufferSerializeFormat
+pattern BUFFER_SERIALIZE_FORMAT_JSON :: BufferSerializeFormat
+pattern BUFFER_SERIALIZE_FORMAT_INVALID :: BufferSerializeFormat
+
+pattern BUFFER_SERIALIZE_FORMAT_TEXT = #const HB_BUFFER_SERIALIZE_FORMAT_TEXT
+pattern BUFFER_SERIALIZE_FORMAT_JSON = #const HB_BUFFER_SERIALIZE_FORMAT_JSON
+pattern BUFFER_SERIALIZE_FORMAT_INVALID = #const HB_BUFFER_SERIALIZE_FORMAT_INVALID
+
+{-# complete
+  BUFFER_SERIALIZE_FORMAT_TEXT,
+  BUFFER_SERIALIZE_FORMAT_JSON,
+  BUFFER_SERIALIZE_FORMAT_INVALID #-}
+
 pattern NULL :: Ptr a
 pattern NULL <- ((nullPtr ==) -> True) where
   NULL = nullPtr
@@ -1292,6 +1350,23 @@ pattern VERSION_MINOR = #const HB_VERSION_MINOR
 pattern VERSION_MICRO :: Int
 pattern VERSION_MICRO = #const HB_VERSION_MICRO
 
+pattern BUFFER_SERIALIZE_FLAG_DEFAULT :: BufferSerializeFlags
+pattern BUFFER_SERIALIZE_FLAG_NO_CLUSTERS :: BufferSerializeFlags
+pattern BUFFER_SERIALIZE_FLAG_NO_POSITIONS :: BufferSerializeFlags
+pattern BUFFER_SERIALIZE_FLAG_NO_GLYPH_NAMES :: BufferSerializeFlags
+pattern BUFFER_SERIALIZE_FLAG_GLYPH_EXTENTS :: BufferSerializeFlags
+pattern BUFFER_SERIALIZE_FLAG_GLYPH_FLAGS :: BufferSerializeFlags
+pattern BUFFER_SERIALIZE_FLAG_NO_ADVANCES :: BufferSerializeFlags
+
+pattern BUFFER_SERIALIZE_FLAG_DEFAULT = #const HB_BUFFER_SERIALIZE_FLAG_DEFAULT
+pattern BUFFER_SERIALIZE_FLAG_NO_CLUSTERS = #const HB_BUFFER_SERIALIZE_FLAG_NO_CLUSTERS
+pattern BUFFER_SERIALIZE_FLAG_NO_POSITIONS = #const HB_BUFFER_SERIALIZE_FLAG_NO_POSITIONS
+pattern BUFFER_SERIALIZE_FLAG_NO_GLYPH_NAMES = #const HB_BUFFER_SERIALIZE_FLAG_NO_GLYPH_NAMES
+pattern BUFFER_SERIALIZE_FLAG_GLYPH_EXTENTS = #const HB_BUFFER_SERIALIZE_FLAG_GLYPH_EXTENTS
+pattern BUFFER_SERIALIZE_FLAG_GLYPH_FLAGS = #const HB_BUFFER_SERIALIZE_FLAG_GLYPH_FLAGS
+pattern BUFFER_SERIALIZE_FLAG_NO_ADVANCES = #const HB_BUFFER_SERIALIZE_FLAG_NO_ADVANCES
+
+
 -- * Inline C context
 
 getHsVariable :: String -> C.HaskellIdentifier -> TH.ExpQ
@@ -1326,15 +1401,19 @@ harfbuzzCtx = mempty
     , (C.TypeName "hb_buffer_cluster_level_t", [t| BufferClusterLevel |])
     , (C.TypeName "hb_buffer_content_type_t", [t| BufferContentType |])
     , (C.TypeName "hb_buffer_flags_t", [t| BufferFlags |])
+    , (C.TypeName "hb_buffer_serialize_flags_t", [t| BufferSerializeFlags |])
+    , (C.TypeName "hb_buffer_serialize_format_t", [t| BufferSerializeFormat |])
     , (C.TypeName "hb_bool_t", [t| CInt |])
     , (C.TypeName "hb_codepoint_t", [t| Codepoint |])
     , (C.TypeName "hb_destroy_func_t", [t| FinalizerPtr () |])
     , (C.TypeName "hb_direction_t", [t| Direction |])
     , (C.TypeName "hb_feature_t", [t| Feature |])
     , (C.TypeName "hb_face_t", [t| Face |])
+    , (C.TypeName "hb_glyph_position_t", [t| GlyphPosition |])
     , (C.TypeName "hb_language_t", [t| Ptr Language |])
     , (C.TypeName "hb_language_impl_t", [t| Language |])
     , (C.TypeName "hb_memory_mode_t", [t| MemoryMode |])
+    , (C.TypeName "hb_position_t", [t| Position |])
     , (C.TypeName "hb_reference_table_func_t", [t| FunPtr (ReferenceTableFunc ()) |])
     , (C.TypeName "hb_script_t", [t| Script |])
     , (C.TypeName "hb_segment_properties_t", [t| SegmentProperties |])
