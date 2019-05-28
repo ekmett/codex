@@ -56,6 +56,7 @@ module Graphics.Harfbuzz
   , buffer_segment_properties
   , buffer_serialize_list_formats
   , buffer_set_length
+  , buffer_set_message_func
   , buffer_unicode_funcs -- statevar
   -- , buffer_get_glyph_infos
   -- , buffer_serialize_glyphs
@@ -94,6 +95,8 @@ module Graphics.Harfbuzz
 
   , Feature(..)
   , feature_to_string, feature_from_string
+
+  , Font(..)
 
   , GlyphPosition(..)
 
@@ -188,6 +191,7 @@ module Graphics.Harfbuzz
   , foreignBlob
   , foreignBuffer
   , foreignFace
+  , foreignFont
   , foreignSet
   , foreignUnicodeFuncs
 
@@ -195,6 +199,7 @@ module Graphics.Harfbuzz
   , _hb_buffer_destroy
   , _hb_set_destroy
   , _hb_face_destroy
+  , _hb_font_destroy
   , _hb_unicode_funcs_destroy
   ) where
 
@@ -408,12 +413,18 @@ buffer_guess_segment_properties b = liftIO [C.block|void { hb_buffer_guess_segme
 buffer_normalize_glyphs :: MonadIO m => Buffer -> m ()
 buffer_normalize_glyphs b = liftIO [C.block|void { hb_buffer_normalize_glyphs($buffer:b); }|]
 
-buffer_serialize_list_formats :: [BufferSerializeFormat]
-buffer_serialize_list_formats = unsafeLocalState $ do
-  pstrs <- [C.exp|const char ** { hb_buffer_serialize_list_formats() }|]
-  cstrs <- peekArray0 nullPtr pstrs
-  traverse (fmap fromString . peekCString) cstrs
-{-# noinline buffer_serialize_list_formats #-}
+-- | Register a callback for buffer messages
+buffer_set_message_func :: MonadIO m => Buffer -> (Buffer -> Font -> String -> IO ()) -> m ()
+buffer_set_message_func b hfun = liftIO $ do
+  (castFunPtr -> f) <- mkBufferMessageFunc $ \pbuffer pfont cmsg _ -> do
+    buffer <- [C.exp|hb_buffer_t * { hb_buffer_reference($(hb_buffer_t * pbuffer)) }|] >>= foreignBuffer
+    font <- [C.exp|hb_font_t * { hb_font_reference($(hb_font_t * pfont)) }|] >>= foreignFont
+    msg <- peekCString cmsg
+    hfun buffer font msg
+  [C.block|void {
+    hb_buffer_message_func_t f = $(hb_buffer_message_func_t f);
+    hb_buffer_set_message_func($buffer:b,f,f,(hb_destroy_func_t)hs_free_fun_ptr); 
+  }|]
 
 buffer_direction :: Buffer -> StateVar Direction
 buffer_direction b = StateVar g s where
@@ -736,6 +747,7 @@ foreign import ccall "wrapper" mkUnicodeGeneralCategoryFunc :: UnicodeGeneralCat
 foreign import ccall "wrapper" mkUnicodeMirroringFunc :: UnicodeMirroringFunc a -> IO (FunPtr (UnicodeMirroringFunc a))
 foreign import ccall "wrapper" mkUnicodeScriptFunc :: UnicodeScriptFunc a -> IO (FunPtr (UnicodeScriptFunc a))
 foreign import ccall "wrapper" mkReferenceTableFunc :: ReferenceTableFunc a -> IO (FunPtr (ReferenceTableFunc a))
+foreign import ccall "wrapper" mkBufferMessageFunc :: BufferMessageFunc a -> IO (FunPtr (BufferMessageFunc a))
 
 unicode_funcs_set_combining_class_func :: MonadIO m => UnicodeFuncs -> (Char -> IO UnicodeCombiningClass) -> m ()
 unicode_funcs_set_combining_class_func uf fun = liftIO $ do
@@ -849,6 +861,9 @@ foreignBuffer = fmap Buffer . newForeignPtr _hb_buffer_destroy
 foreignFace :: Ptr Face -> IO Face
 foreignFace = fmap Face . newForeignPtr _hb_face_destroy
 
+foreignFont :: Ptr Font -> IO Font
+foreignFont = fmap Font . newForeignPtr _hb_font_destroy
+
 foreignSet :: Ptr Set -> IO Set
 foreignSet = fmap Set . newForeignPtr _hb_set_destroy
 
@@ -858,6 +873,7 @@ foreignUnicodeFuncs = fmap UnicodeFuncs . newForeignPtr _hb_unicode_funcs_destro
 foreign import ccall "hb.h &hb_blob_destroy"          _hb_blob_destroy          :: FinalizerPtr Blob
 foreign import ccall "hb.h &hb_buffer_destroy"        _hb_buffer_destroy        :: FinalizerPtr Buffer
 foreign import ccall "hb.h &hb_face_destroy"          _hb_face_destroy          :: FinalizerPtr Face
+foreign import ccall "hb.h &hb_font_destroy"          _hb_font_destroy          :: FinalizerPtr Font
 foreign import ccall "hb.h &hb_set_destroy"           _hb_set_destroy           :: FinalizerPtr Set
 foreign import ccall "hb.h &hb_unicode_funcs_destroy" _hb_unicode_funcs_destroy :: FinalizerPtr UnicodeFuncs
 foreign import ccall "&"                               hs_free_stable_ptr       :: FinalizerPtr ()

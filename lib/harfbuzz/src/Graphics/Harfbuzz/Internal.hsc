@@ -44,6 +44,7 @@ module Graphics.Harfbuzz.Internal
   , BUFFER_FLAG_REMOVE_DEFAULT_IGNORABLES
   , BUFFER_FLAG_DO_NOT_INSERT_DOTTED_CIRCLE
   )
+, BufferMessageFunc
 , pattern BUFFER_REPLACEMENT_CODEPOINT_DEFAULT
 , BufferSerializeFlags
   ( BufferSerializeFlags
@@ -62,6 +63,7 @@ module Graphics.Harfbuzz.Internal
   , BUFFER_SERIALIZE_FORMAT_INVALID
   )
 , buffer_serialize_format_to_string, buffer_serialize_format_from_string
+, buffer_serialize_list_formats
 , Codepoint
 , Direction
   ( Direction
@@ -71,6 +73,7 @@ module Graphics.Harfbuzz.Internal
 , Face(..)
 , Feature(..)
 , feature_to_string, feature_from_string
+, Font(..)
 , GlyphFlags
   ( GlyphFlags
   , GLYPH_FLAG_UNSAFE_TO_BREAK
@@ -332,6 +335,8 @@ instance Storable Feature where
     (#poke hb_feature_t, start) p feature_start
     (#poke hb_feature_t, end) p feature_end
 
+newtype Font = Font (ForeignPtr Font) deriving (Eq,Ord,Show,Data)
+
 newtype GlyphFlags = GlyphFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
 
 data GlyphPosition = GlyphPosition
@@ -363,6 +368,8 @@ newtype Language = Language (Ptr Language) deriving (Eq,Ord,Data,Storable) -- we
 newtype MemoryMode = MemoryMode CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 
 type Position = Word32
+
+type BufferMessageFunc a = Ptr Buffer -> Ptr Font -> CString -> Ptr a -> IO ()
 
 type ReferenceTableFunc a = Ptr Face -> Tag -> Ptr a -> IO (Ptr Blob)
 
@@ -469,22 +476,23 @@ instance Storable Variation where
 
 C.context $ C.baseCtx <> mempty
   { C.ctxTypesTable = Map.fromList
-    [ (C.TypeName "hb_blob_t", [t| Blob |])
-    , (C.TypeName "hb_buffer_t", [t| Buffer |])
-    , (C.TypeName "hb_buffer_serialize_format_t", [t| BufferSerializeFormat |])
-    , (C.TypeName "hb_direction_t", [t| Direction |])
-    , (C.TypeName "hb_face_t", [t| Face |])
-    , (C.TypeName "hb_feature_t", [t| Feature |])
-    , (C.TypeName "hb_language_t", [t| Ptr Language |])
-    , (C.TypeName "hb_language_impl_t", [t| Language |])
-    , (C.TypeName "hb_script_t", [t| Script |])
-    , (C.TypeName "hb_set_t", [t| Set |])
-    , (C.TypeName "hb_segment_properties_t", [t| SegmentProperties |])
-    , (C.TypeName "hb_tag_t", [t| Tag |])
-    , (C.TypeName "hb_unicode_funcs_t", [t| UnicodeFuncs |])
-    , (C.TypeName "hb_user_data_key_t", [t| ForeignPtr OpaqueKey |])
-    , (C.TypeName "hb_variation_t", [t| Variation |])
-    , (C.TypeName "hb_bool_t", [t| CInt |])
+    [ (C.TypeName "hb_blob_t", [t|Blob|])
+    , (C.TypeName "hb_buffer_t", [t|Buffer|])
+    , (C.TypeName "hb_buffer_serialize_format_t", [t|BufferSerializeFormat|])
+    , (C.TypeName "hb_direction_t", [t|Direction|])
+    , (C.TypeName "hb_face_t", [t|Face|])
+    , (C.TypeName "hb_feature_t", [t|Feature|])
+    , (C.TypeName "hb_font_t", [t|Font|])
+    , (C.TypeName "hb_language_t", [t|Ptr Language|])
+    , (C.TypeName "hb_language_impl_t", [t|Language|])
+    , (C.TypeName "hb_script_t", [t|Script|])
+    , (C.TypeName "hb_set_t", [t|Set|])
+    , (C.TypeName "hb_segment_properties_t", [t|SegmentProperties|])
+    , (C.TypeName "hb_tag_t", [t|Tag|])
+    , (C.TypeName "hb_unicode_funcs_t", [t|UnicodeFuncs|])
+    , (C.TypeName "hb_user_data_key_t", [t|ForeignPtr OpaqueKey|])
+    , (C.TypeName "hb_variation_t", [t|Variation|])
+    , (C.TypeName "hb_bool_t", [t|CInt|])
     ]
   }
 
@@ -1434,9 +1442,9 @@ anti cTy hsTyQ w = C.SomeAntiQuoter C.AntiQuoter
     let cId = C.mangleHaskellIdentifier hId
     return (cId, cTy, hId)
   , C.aqMarshaller = \_purity _cTypes _cTy cId -> do
-    hsTy <- [t| Ptr $hsTyQ |]
+    hsTy <- [t|Ptr $hsTyQ|]
     hsExp <- getHsVariable "fontConfigCtx" cId
-    hsExp' <- [| $w (coerce $(pure hsExp)) |]
+    hsExp' <- [|$w (coerce $(pure hsExp))|]
     return (hsTy, hsExp')
   }
 
@@ -1446,52 +1454,55 @@ withKey (Key k) = withForeignPtr k
 harfbuzzCtx :: C.Context
 harfbuzzCtx = mempty
   { C.ctxTypesTable = Map.fromList
-    [ (C.TypeName "hb_blob_t", [t| Blob |])
-    , (C.TypeName "hb_buffer_t", [t| Buffer |])
-    , (C.TypeName "hb_buffer_cluster_level_t", [t| BufferClusterLevel |])
-    , (C.TypeName "hb_buffer_content_type_t", [t| BufferContentType |])
-    , (C.TypeName "hb_buffer_flags_t", [t| BufferFlags |])
-    , (C.TypeName "hb_buffer_serialize_flags_t", [t| BufferSerializeFlags |])
-    , (C.TypeName "hb_buffer_serialize_format_t", [t| BufferSerializeFormat |])
-    , (C.TypeName "hb_bool_t", [t| CInt |])
-    , (C.TypeName "hb_codepoint_t", [t| Codepoint |])
-    , (C.TypeName "hb_destroy_func_t", [t| FinalizerPtr () |])
-    , (C.TypeName "hb_direction_t", [t| Direction |])
-    , (C.TypeName "hb_feature_t", [t| Feature |])
-    , (C.TypeName "hb_face_t", [t| Face |])
-    , (C.TypeName "hb_glyph_position_t", [t| GlyphPosition |])
-    , (C.TypeName "hb_language_t", [t| Ptr Language |])
-    , (C.TypeName "hb_language_impl_t", [t| Language |])
-    , (C.TypeName "hb_memory_mode_t", [t| MemoryMode |])
-    , (C.TypeName "hb_position_t", [t| Position |])
-    , (C.TypeName "hb_reference_table_func_t", [t| FunPtr (ReferenceTableFunc ()) |])
-    , (C.TypeName "hb_script_t", [t| Script |])
-    , (C.TypeName "hb_segment_properties_t", [t| SegmentProperties |])
-    , (C.TypeName "hb_set_t", [t| Set |])
-    , (C.TypeName "hb_tag_t", [t| Tag |])
-    , (C.TypeName "hb_unicode_combining_class_t", [t| UnicodeCombiningClass |])
-    , (C.TypeName "hb_unicode_combining_class_func_t", [t| FunPtr (UnicodeCombiningClassFunc ()) |])
-    , (C.TypeName "hb_unicode_compose_func_t", [t| FunPtr (UnicodeComposeFunc ()) |])
-    , (C.TypeName "hb_unicode_decompose_func_t", [t| FunPtr (UnicodeDecomposeFunc ()) |])
-    , (C.TypeName "hb_unicode_funcs_t", [t| UnicodeFuncs |])
-    , (C.TypeName "hb_unicode_general_category_t", [t| UnicodeGeneralCategory |])
-    , (C.TypeName "hb_unicode_general_category_func_t", [t| FunPtr (UnicodeGeneralCategoryFunc ()) |])
-    , (C.TypeName "hb_unicode_mirroring_func_t", [t| FunPtr (UnicodeMirroringFunc ()) |])
-    , (C.TypeName "hb_unicode_script_func_t", [t| FunPtr (UnicodeScriptFunc ()) |])
-    , (C.TypeName "hb_user_data_key_t", [t| OpaqueKey |])
-    , (C.TypeName "hb_variation_t", [t| Variation |])
+    [ (C.TypeName "hb_blob_t", [t|Blob|])
+    , (C.TypeName "hb_buffer_t", [t|Buffer|])
+    , (C.TypeName "hb_buffer_cluster_level_t", [t|BufferClusterLevel|])
+    , (C.TypeName "hb_buffer_content_type_t", [t|BufferContentType|])
+    , (C.TypeName "hb_buffer_flags_t", [t|BufferFlags|])
+    , (C.TypeName "hb_buffer_message_func_t", [t|FunPtr (BufferMessageFunc ())|])
+    , (C.TypeName "hb_buffer_serialize_flags_t", [t|BufferSerializeFlags|])
+    , (C.TypeName "hb_buffer_serialize_format_t", [t|BufferSerializeFormat|])
+    , (C.TypeName "hb_bool_t", [t|CInt|])
+    , (C.TypeName "hb_codepoint_t", [t|Codepoint|])
+    , (C.TypeName "hb_destroy_func_t", [t|FinalizerPtr ()|])
+    , (C.TypeName "hb_direction_t", [t|Direction|])
+    , (C.TypeName "hb_face_t", [t|Face|])
+    , (C.TypeName "hb_feature_t", [t|Feature|])
+    , (C.TypeName "hb_font_t", [t|Font|])
+    , (C.TypeName "hb_glyph_position_t", [t|GlyphPosition|])
+    , (C.TypeName "hb_language_t", [t|Ptr Language|])
+    , (C.TypeName "hb_language_impl_t", [t|Language|])
+    , (C.TypeName "hb_memory_mode_t", [t|MemoryMode|])
+    , (C.TypeName "hb_position_t", [t|Position|])
+    , (C.TypeName "hb_reference_table_func_t", [t|FunPtr (ReferenceTableFunc ())|])
+    , (C.TypeName "hb_script_t", [t|Script|])
+    , (C.TypeName "hb_segment_properties_t", [t|SegmentProperties|])
+    , (C.TypeName "hb_set_t", [t|Set|])
+    , (C.TypeName "hb_tag_t", [t|Tag|])
+    , (C.TypeName "hb_unicode_combining_class_t", [t|UnicodeCombiningClass|])
+    , (C.TypeName "hb_unicode_combining_class_func_t", [t|FunPtr (UnicodeCombiningClassFunc ())|])
+    , (C.TypeName "hb_unicode_compose_func_t", [t|FunPtr (UnicodeComposeFunc ())|])
+    , (C.TypeName "hb_unicode_decompose_func_t", [t|FunPtr (UnicodeDecomposeFunc ())|])
+    , (C.TypeName "hb_unicode_funcs_t", [t|UnicodeFuncs|])
+    , (C.TypeName "hb_unicode_general_category_t", [t|UnicodeGeneralCategory|])
+    , (C.TypeName "hb_unicode_general_category_func_t", [t|FunPtr (UnicodeGeneralCategoryFunc ())|])
+    , (C.TypeName "hb_unicode_mirroring_func_t", [t|FunPtr (UnicodeMirroringFunc ())|])
+    , (C.TypeName "hb_unicode_script_func_t", [t|FunPtr (UnicodeScriptFunc ())|])
+    , (C.TypeName "hb_user_data_key_t", [t|OpaqueKey|])
+    , (C.TypeName "hb_variation_t", [t|Variation|])
     ]
   , C.ctxAntiQuoters = Map.fromList
-    [ ("ustr", anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char (Just C.Unsigned))) [t| CUChar |] [| withCUString |])
-    , ("str", anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char Nothing)) [t| CChar |] [| withCString |])
-    , ("blob", anti (ptr $ C.TypeName "hb_blob_t") [t| Blob |] [| withSelf |])
-    , ("buffer", anti (ptr $ C.TypeName "hb_buffer_t") [t| Buffer |] [| withSelf |])
-    , ("face", anti (ptr $ C.TypeName "hb_face_t") [t| Face |] [| withSelf |])
-    , ("feature", anti (ptr $ C.TypeName "hb_feature_t") [t| Feature |] [| with |])
-    , ("key", anti (ptr $ C.TypeName "hb_user_data_key_t") [t| OpaqueKey |] [| withKey |])
-    , ("language", anti (C.TypeSpecifier mempty $ C.TypeName "hb_language_t") [t| Language |] [| withPtr |])
-    , ("segment-properties", anti (ptr $ C.TypeName "hb_segment_properties_t") [t| Set |] [| with |])
-    , ("set", anti (ptr $ C.TypeName "hb_set_t") [t| Set |] [| withSelf |])
-    , ("unicode-funcs", anti (ptr $ C.TypeName "hb_unicode_funcs_t") [t| UnicodeFuncs |] [| withSelf |])
+    [ ("ustr", anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char (Just C.Unsigned))) [t|CUChar|] [|withCUString|])
+    , ("str", anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char Nothing)) [t|CChar|] [|withCString|])
+    , ("blob", anti (ptr $ C.TypeName "hb_blob_t") [t|Blob|] [|withSelf|])
+    , ("buffer", anti (ptr $ C.TypeName "hb_buffer_t") [t|Buffer|] [|withSelf|])
+    , ("face", anti (ptr $ C.TypeName "hb_face_t") [t|Face|] [|withSelf|])
+    , ("feature", anti (ptr $ C.TypeName "hb_feature_t") [t|Feature|] [|with|])
+    , ("font", anti (ptr $ C.TypeName "hb_font_t") [t|Font|] [|withSelf|])
+    , ("key", anti (ptr $ C.TypeName "hb_user_data_key_t") [t|OpaqueKey|] [|withKey|])
+    , ("language", anti (C.TypeSpecifier mempty $ C.TypeName "hb_language_t") [t|Language|] [|withPtr|])
+    , ("segment-properties", anti (ptr $ C.TypeName "hb_segment_properties_t") [t|Set|] [|with|])
+    , ("set", anti (ptr $ C.TypeName "hb_set_t") [t|Set|] [|withSelf|])
+    , ("unicode-funcs", anti (ptr $ C.TypeName "hb_unicode_funcs_t") [t|UnicodeFuncs|] [|withSelf|])
     ]
   } where ptr = C.Ptr [] . C.TypeSpecifier mempty
