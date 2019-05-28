@@ -279,7 +279,9 @@ import qualified Language.C.Types as C
 import qualified Language.Haskell.TH as TH
 import Text.Read
 
+#ifndef HLINT
 #include <hb.h>
+#endif
 
 -- | A 'Blob' wraps a chunk of binary data to handle lifecycle management of data while it is passed between client and HarfBuzz.
 -- Blobs are primarily used to create font faces, but also to access font face tables, as well as pass around other binary data.
@@ -496,6 +498,12 @@ instance Default Buffer where
   def = unsafeLocalState $ [C.exp|hb_buffer_t * { hb_buffer_get_empty() }|] >>= fmap Buffer . newForeignPtr_
   {-# noinline def #-}
 
+instance Default BufferFlags where
+  def = BUFFER_FLAG_DEFAULT
+
+instance Default SegmentProperties where
+  def = SEGMENT_PROPERTIES_DEFAULT
+
 buffer_serialize_format_from_string :: String -> BufferSerializeFormat
 buffer_serialize_format_from_string s = unsafeLocalState $
   withCStringLen (take 1 s) $ \(cstr,fromIntegral -> l) ->
@@ -535,7 +543,7 @@ feature_from_string s = unsafeLocalState $
 
 feature_to_string :: Feature -> String
 feature_to_string feature = unsafeLocalState $
-  allocaBytes 128 $ \buf -> do
+  allocaBytes 128 $ \buf -> 
     with feature $ \f -> do
       [C.block|void { hb_feature_to_string($(hb_feature_t * f),$(char * buf),128); }|]
       peekCString buf
@@ -595,7 +603,7 @@ variation_from_string s = unsafeLocalState $
 
 variation_to_string :: Variation -> String
 variation_to_string variation = unsafeLocalState $
-  allocaBytes 128 $ \buf -> do
+  allocaBytes 128 $ \buf ->
     with variation $ \f -> do
       [C.block|void { hb_variation_to_string($(hb_variation_t * f),$(char * buf),128); }|]
       peekCString buf
@@ -630,8 +638,9 @@ newByteStringCStringLen (Strict.PS fp o l) = do
 
 -- * constants
 
+#ifndef HLINT
 pattern TAG_NONE :: Tag
-pattern TAG_MAX:: Tag
+pattern TAG_MAX :: Tag
 pattern TAG_MAX_SIGNED :: Tag
 
 pattern TAG_NONE = #const HB_TAG_NONE
@@ -994,9 +1003,6 @@ pattern BUFFER_FLAG_PRESERVE_DEFAULT_IGNORABLES = #const HB_BUFFER_FLAG_PRESERVE
 pattern BUFFER_FLAG_REMOVE_DEFAULT_IGNORABLES = #const HB_BUFFER_FLAG_REMOVE_DEFAULT_IGNORABLES
 pattern BUFFER_FLAG_DO_NOT_INSERT_DOTTED_CIRCLE = #const HB_BUFFER_FLAG_DO_NOT_INSERT_DOTTED_CIRCLE
 
-instance Default BufferFlags where
-  def = BUFFER_FLAG_DEFAULT
-
 -- | Return cluster values grouped by graphemes into monotone order.
 pattern BUFFER_CLUSTER_LEVEL_MONOTONE_GRAPHEMES  :: BufferClusterLevel
 -- | Return cluster values grouped into monotone order.
@@ -1045,6 +1051,7 @@ pattern BUFFER_SERIALIZE_FORMAT_INVALID = #const HB_BUFFER_SERIALIZE_FORMAT_INVA
   BUFFER_SERIALIZE_FORMAT_JSON,
   BUFFER_SERIALIZE_FORMAT_INVALID #-}
 
+
 pattern NULL :: Ptr a
 pattern NULL <- ((nullPtr ==) -> True) where
   NULL = nullPtr
@@ -1054,9 +1061,6 @@ pattern LANGUAGE_INVALID = Language NULL
 
 pattern SEGMENT_PROPERTIES_DEFAULT :: SegmentProperties
 pattern SEGMENT_PROPERTIES_DEFAULT = SegmentProperties DIRECTION_INVALID SCRIPT_INVALID LANGUAGE_INVALID NULL NULL
-
-instance Default SegmentProperties where
-  def = SEGMENT_PROPERTIES_DEFAULT
 
 pattern UNICODE_GENERAL_CATEGORY_CONTROL :: UnicodeGeneralCategory
 pattern UNICODE_GENERAL_CATEGORY_FORMAT :: UnicodeGeneralCategory
@@ -1397,6 +1401,7 @@ pattern BUFFER_SERIALIZE_FLAG_GLYPH_EXTENTS = #const HB_BUFFER_SERIALIZE_FLAG_GL
 pattern BUFFER_SERIALIZE_FLAG_GLYPH_FLAGS = #const HB_BUFFER_SERIALIZE_FLAG_GLYPH_FLAGS
 pattern BUFFER_SERIALIZE_FLAG_NO_ADVANCES = #const HB_BUFFER_SERIALIZE_FLAG_NO_ADVANCES
 
+#endif
 
 -- * Inline C context
 
