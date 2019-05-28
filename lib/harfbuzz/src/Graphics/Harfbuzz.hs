@@ -400,7 +400,7 @@ buffer_create :: MonadIO m => m Buffer
 buffer_create = liftIO $ [C.exp|hb_buffer_t * { hb_buffer_create() }|] >>= foreignBuffer
 
 buffer_diff :: MonadIO m => Buffer -> Buffer -> Codepoint -> Int -> m BufferDiffFlags
-buffer_diff buffer reference dottedcircle_glyph (fromIntegral -> position_fuzz) = liftIO $
+buffer_diff buffer reference dottedcircle_glyph (fromIntegral -> position_fuzz) = liftIO
   [C.exp|hb_buffer_diff_flags_t { hb_buffer_diff($buffer:buffer,$buffer:reference,$(hb_codepoint_t dottedcircle_glyph),$(unsigned int position_fuzz)) }|]
 
 -- | Resets the buffer to its initial status, as if it was just newly created with 'buffer_create'
@@ -732,7 +732,7 @@ font_get_glyph_advance_for_direction font glyph dir = liftIO $ allocaArray 2 $ \
 -- You'll need to manage the glyphs and advances yourself
 font_get_glyph_advances_for_direction :: MonadIO m => Font -> Direction -> Int -> Ptr Codepoint -> Int -> Ptr Position -> Int -> m ()
 font_get_glyph_advances_for_direction
-  font dir (fromIntegral -> count) first_glyph (fromIntegral -> glyph_stride) first_advance (fromIntegral -> advance_stride) = liftIO $
+  font dir (fromIntegral -> count) first_glyph (fromIntegral -> glyph_stride) first_advance (fromIntegral -> advance_stride) = liftIO
   [C.block|void {
     hb_font_get_glyph_advances_for_direction(
       $font:font,
@@ -782,27 +782,21 @@ font_get_glyph_origin_for_direction font glyph dir = liftIO $ allocaArray 2 $ \x
 font_add_glyph_origin_for_direction :: MonadIO m => Font -> Codepoint -> Direction -> (Position,Position) -> m (Position,Position)
 font_add_glyph_origin_for_direction font glyph dir (x,y) = do
   (dx,dy) <- font_get_glyph_origin_for_direction font glyph dir
-  pure $ (x + dx, y + dy)
+  pure (x + dx, y + dy)
 
 font_subtract_glyph_origin_for_direction :: MonadIO m => Font -> Codepoint -> Direction -> (Position,Position) -> m (Position,Position)
 font_subtract_glyph_origin_for_direction font glyph dir (x,y) = do
   (dx,dy) <- font_get_glyph_origin_for_direction font glyph dir
-  pure $ (x - dx, y - dy)
+  pure (x - dx, y - dy)
 
 font_set_variations :: MonadIO m => Font -> [Variation] -> m ()
-font_set_variations font vars = liftIO $ withArrayLen vars $ \ (fromIntegral -> len) pvars -> do
-   [C.block|void{
-     hb_font_set_variations($font:font,$(const hb_variation_t * pvars),$(unsigned int len));
-   }|]
-
+font_set_variations font vars = liftIO $ withArrayLen vars $ \ (fromIntegral -> len) pvars ->
+   [C.block|void{ hb_font_set_variations($font:font,$(const hb_variation_t * pvars),$(unsigned int len)); }|]
 
 font_set_var_coords_design :: MonadIO m => Font -> [Float] -> m ()
-font_set_var_coords_design font v = liftIO $ withArrayLen (coerce <$> v) $ \ (fromIntegral -> len) pcoords -> do
-  [C.block|void{
-    hb_font_set_var_coords_design($font:font,$(const float * pcoords),$(unsigned int len));
-  }|]
+font_set_var_coords_design font v = liftIO $ withArrayLen (coerce <$> v) $ \ (fromIntegral -> len) pcoords ->
+  [C.block|void{ hb_font_set_var_coords_design($font:font,$(const float * pcoords),$(unsigned int len)); }|]
   
-
 font_var_coords_normalized :: Font -> StateVar [Int]
 font_var_coords_normalized font = StateVar g s where
   g :: IO [Int]
@@ -810,10 +804,8 @@ font_var_coords_normalized font = StateVar g s where
     result <- [C.exp|const int * { hb_font_get_var_coords_normalized($font:font,$(unsigned int * plen)) }|]
     len <- peek plen
     fmap fromIntegral <$> peekArray (fromIntegral len) result
-  s v = withArrayLen (fromIntegral <$> v) $ \ (fromIntegral -> len) pcoords -> do
-    [C.block|void{
-      hb_font_set_var_coords_normalized($font:font,$(const int * pcoords),$(unsigned int len));
-    }|]
+  s v = withArrayLen (fromIntegral <$> v) $ \ (fromIntegral -> len) pcoords ->
+    [C.block|void{ hb_font_set_var_coords_normalized($font:font,$(const int * pcoords),$(unsigned int len)); }|]
 
 font_get_glyph_extents :: MonadIO m => Font -> Codepoint -> m (Maybe GlyphExtents)
 font_get_glyph_extents font glyph = liftIO $ alloca $ \extents -> do
@@ -832,10 +824,9 @@ font_get_extents_for_direction font dir = liftIO $ alloca $ \ extents ->
   }|] *> peek extents
 
 font_get_glyph_name :: MonadIO m => Font -> Codepoint -> m (Maybe String)
-font_get_glyph_name font glyph = liftIO $ do
-  allocaBytes 4096 $ \buf -> do
-    b <- [C.exp|hb_bool_t { hb_font_get_glyph_name($font:font,$(hb_codepoint_t glyph),$(char * buf),4095) }|]
-    if cbool b then Just <$> peekCString buf else pure Nothing
+font_get_glyph_name font glyph = liftIO $ allocaBytes 4096 $ \buf -> do
+  b <- [C.exp|hb_bool_t { hb_font_get_glyph_name($font:font,$(hb_codepoint_t glyph),$(char * buf),4095) }|]
+  if cbool b then Just <$> peekCString buf else pure Nothing
 
 font_get_glyph_from_name :: MonadIO m => Font -> String -> m (Maybe Codepoint)
 font_get_glyph_from_name font name = liftIO $
@@ -847,10 +838,9 @@ font_get_glyph_from_name font name = liftIO $
       if cbool b then Just <$> peek glyph else pure Nothing
 
 font_glyph_to_string :: MonadIO m => Font -> Codepoint -> m String
-font_glyph_to_string font glyph = liftIO $ do
-  allocaBytes 4096 $ \buf -> do
-    [C.block|void { hb_font_glyph_to_string($font:font,$(hb_codepoint_t glyph),$(char * buf),4095); }|]
-    peekCString buf
+font_glyph_to_string font glyph = liftIO $ allocaBytes 4096 $ \buf -> do
+  [C.block|void { hb_font_glyph_to_string($font:font,$(hb_codepoint_t glyph),$(char * buf),4095); }|]
+  peekCString buf
 
 font_glyph_from_string :: MonadIO m => Font -> String -> m (Maybe Codepoint)
 font_glyph_from_string font name = liftIO $
