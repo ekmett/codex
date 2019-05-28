@@ -5,7 +5,7 @@
 {-# language PatternSynonyms #-}
 {-# language ForeignFunctionInterface #-}
 module Graphics.Harfbuzz
-  ( 
+  (
     Blob
   , blob_copy_writable_or_fail
   , blob_create
@@ -263,7 +263,7 @@ object_set_user_data t k v replace = liftIO $ do
 object_get_user_data :: (MonadIO m, IsObject t) => t -> Key a -> m (Maybe a)
 object_get_user_data t k = liftIO $ _get_user_data t (coerce k) >>= maybePeek (deRefStablePtr . castPtrToStablePtr)
 {-# inline object_get_user_data #-}
-  
+
 instance IsObject Blob where
   _reference b = [C.exp|hb_blob_t * { hb_blob_reference($blob:b) }|]
   _destroy b = [C.block|void { hb_blob_destroy($blob:b); }|]
