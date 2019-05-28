@@ -108,6 +108,9 @@ module Graphics.Harfbuzz
   , language_from_string, language_to_string
   , language_get_default
 
+  , Map(..)
+  , map_create
+
   , MemoryMode(..)
 
   , IsObject(..)
@@ -192,14 +195,16 @@ module Graphics.Harfbuzz
   , foreignBuffer
   , foreignFace
   , foreignFont
+  , foreignMap
   , foreignSet
   , foreignUnicodeFuncs
 
   , _hb_blob_destroy
   , _hb_buffer_destroy
-  , _hb_set_destroy
   , _hb_face_destroy
   , _hb_font_destroy
+  , _hb_map_destroy
+  , _hb_set_destroy
   , _hb_unicode_funcs_destroy
   ) where
 
@@ -583,6 +588,17 @@ language_get_default :: MonadIO m => m Language
 language_get_default = liftIO $
   Language <$> [C.exp|hb_language_t { hb_language_get_default() }|]
 
+-- * maps
+
+instance IsObject Map where
+  _reference b = [C.exp|hb_map_t * { hb_map_reference($map:b) }|]
+  _destroy b = [C.block|void { hb_map_destroy($map:b); }|]
+  _get_user_data b k = [C.exp|void * { hb_map_get_user_data($map:b,$key:k) }|]
+  _set_user_data b k v d replace = [C.exp|hb_bool_t { hb_map_set_user_data($map:b,$key:k,$(void*v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|]
+
+map_create :: MonadIO m => m Map
+map_create = liftIO $ [C.exp|hb_map_t * { hb_map_create() }|] >>= foreignMap
+
 -- * scripts
 
 script_from_iso15924_tag :: Tag -> Script
@@ -864,6 +880,9 @@ foreignFace = fmap Face . newForeignPtr _hb_face_destroy
 foreignFont :: Ptr Font -> IO Font
 foreignFont = fmap Font . newForeignPtr _hb_font_destroy
 
+foreignMap :: Ptr Map -> IO Map
+foreignMap = fmap Map . newForeignPtr _hb_map_destroy
+
 foreignSet :: Ptr Set -> IO Set
 foreignSet = fmap Set . newForeignPtr _hb_set_destroy
 
@@ -874,6 +893,7 @@ foreign import ccall "hb.h &hb_blob_destroy"          _hb_blob_destroy          
 foreign import ccall "hb.h &hb_buffer_destroy"        _hb_buffer_destroy        :: FinalizerPtr Buffer
 foreign import ccall "hb.h &hb_face_destroy"          _hb_face_destroy          :: FinalizerPtr Face
 foreign import ccall "hb.h &hb_font_destroy"          _hb_font_destroy          :: FinalizerPtr Font
+foreign import ccall "hb.h &hb_map_destroy"           _hb_map_destroy           :: FinalizerPtr Map
 foreign import ccall "hb.h &hb_set_destroy"           _hb_set_destroy           :: FinalizerPtr Set
 foreign import ccall "hb.h &hb_unicode_funcs_destroy" _hb_unicode_funcs_destroy :: FinalizerPtr UnicodeFuncs
 foreign import ccall "&"                               hs_free_stable_ptr       :: FinalizerPtr ()
