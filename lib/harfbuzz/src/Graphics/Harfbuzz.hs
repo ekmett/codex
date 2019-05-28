@@ -94,14 +94,31 @@ module Graphics.Harfbuzz
   , Font
   , font_create
   , font_create_sub_font
-  , font_get_face
+  , font_face -- statevar
+  , font_get_extents_for_direction
   , font_get_glyph
   , font_get_glyph_advance_for_direction
   , font_get_glyph_advances_for_direction
   , font_get_glyph_contour_point
   , font_get_glyph_contour_point_for_origin
   , font_get_glyph_extents
-  , font_get_extents_for_direction
+  , font_get_glyph_extents_for_origin
+  , font_ppem -- statevar
+  , font_ptem -- statevar
+  , font_scale -- statevar
+  , font_set_funcs
+  -- , font_glyph_to_string
+  -- , font_glyph_from_string
+  -- , font_get_glyph_origin_for_direction
+  -- , font_add_glyph_origin_for_direction
+  -- , font_subtract_glyph_origin_for_direction
+  -- , font_get_glyph_from_name
+  -- , font_get_glyph_name
+  -- , font_get_glyph
+  -- , font_set_variations
+  -- , font_set_var_coords_design
+  -- , font_set_var_coords_normalized
+  -- , font_get_var_coords_normalized
 
   , FontFuncs
   , font_funcs_create
@@ -690,8 +707,13 @@ font_create_sub_font parent = liftIO $ [C.exp|hb_font_t * {
     hb_font_create_sub_font(hb_font_reference($font:parent))
   }|] >>= foreignFont
 
-font_get_face :: MonadIO m => Font -> m Face
-font_get_face font = liftIO $ [C.exp|hb_face_t * { hb_face_reference(hb_font_get_face($font:font)) }|] >>= foreignFace
+-- font_get_face :: MonadIO m => Font -> m Face
+-- font_get_face font = liftIO $ [C.exp|hb_face_t * { hb_face_reference(hb_font_get_face($font:font)) }|] >>= foreignFace
+
+font_face :: Font -> StateVar Face
+font_face font = StateVar g s where
+  g = [C.exp|hb_face_t * { hb_face_reference(hb_font_get_face($font:font)) }|] >>= foreignFace
+  s face = [C.block|void { hb_font_set_face($font:font,hb_face_reference($face:face)) }|]
 
 font_get_glyph :: MonadIO m => Font -> Codepoint -> Codepoint -> m (Maybe Codepoint)
 font_get_glyph font unicode variation_selector = liftIO $ alloca $ \pglyph -> do
@@ -755,12 +777,55 @@ font_get_glyph_extents font glyph = liftIO $ alloca $ \extents -> do
   b <- [C.exp|hb_bool_t { hb_font_get_glyph_extents($font:font,$(hb_codepoint_t glyph),$(hb_glyph_extents_t * extents)) }|]
   if cbool b then Just <$> peek extents else pure Nothing
 
+font_get_glyph_extents_for_origin :: MonadIO m => Font -> Codepoint -> Direction -> m (Maybe GlyphExtents)
+font_get_glyph_extents_for_origin font glyph dir = liftIO $ alloca $ \extents -> do
+  b <- [C.exp|hb_bool_t { hb_font_get_glyph_extents_for_origin($font:font,$(hb_codepoint_t glyph),$(hb_direction_t dir),$(hb_glyph_extents_t * extents)) }|]
+  if cbool b then Just <$> peek extents else pure Nothing
+
 font_get_extents_for_direction :: MonadIO m => Font -> Direction -> m FontExtents
 font_get_extents_for_direction font dir = liftIO $ alloca $ \ extents ->
   [C.block|void {
     hb_font_get_extents_for_direction($font:font,$(hb_direction_t dir),$(hb_font_extents_t * extents));
   }|] *> peek extents
    
+font_ppem :: Font -> StateVar (Int,Int)
+font_ppem font = StateVar g s where
+  g = allocaArray 2 $ \xy -> do
+    [C.block|void {
+       unsigned int * xy = $(unsigned int * xy);
+       hb_font_get_ppem($font:font,xy,xy+1);
+    }|]
+    a <- peek xy
+    b <- peek (advancePtr xy 1)
+    return (fromIntegral a,fromIntegral b)
+  s (fromIntegral -> x, fromIntegral -> y) = [C.block|void { hb_font_set_ppem($font:font,$(unsigned int x),$(unsigned int y)); }|]
+
+font_ptem :: Font -> StateVar (Float,Float)
+font_ptem font = StateVar g s where
+  g = allocaArray 2 $ \xy -> do
+    [C.block|void {
+       float * xy = $(float * xy);
+       hb_font_get_ptem($font:font,xy,xy+1);
+    }|]
+    a <- peek xy
+    b <- peek (advancePtr xy 1)
+    return (coerce a,coerce b)
+  s (coerce -> x, coerce -> y) = [C.block|void { hb_font_set_ptem($font:font,$(float x),$(float y)); }|]
+
+font_scale :: Font -> StateVar (Int,Int)
+font_scale font = StateVar g s where
+  g = allocaArray 2 $ \xy -> do
+    [C.block|void {
+       int * xy = $(int * xy);
+       hb_font_get_scale($font:font,xy,xy+1);
+    }|]
+    a <- peek xy
+    b <- peek (advancePtr xy 1)
+    return (fromIntegral a,fromIntegral b)
+  s (fromIntegral -> x, fromIntegral -> y) = [C.block|void { hb_font_set_scale($font:font,$(int x),$(int y)); }|]
+
+font_set_funcs :: MonadIO m => Font -> FontFuncs -> m ()
+font_set_funcs font funcs = liftIO [C.block|void { hb_font_set_funcs($font:font,hb_font_funcs_reference($font-funcs:funcs)); }|]
 
 instance IsObject Font where
   _reference b = [C.exp|hb_font_t * { hb_font_reference($font:b) }|]
