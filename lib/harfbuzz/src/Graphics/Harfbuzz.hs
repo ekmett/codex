@@ -8,38 +8,39 @@ module Graphics.Harfbuzz
   ( IsObject(..)
   -- hb_blob.h
   , Blob
+  , blob_copy_writable_or_fail
   , blob_create
   , blob_create_from_file
   , blob_create_sub_blob
-  , blob_copy_writable_or_fail
   , blob_get_length
   , blob_is_immutable
   , blob_make_immutable
+
   , withBlobData
   , withBlobDataWritable
 
   , Buffer
-  , buffer_create
-  , buffer_reset
-  , buffer_clear_contents
-  , buffer_pre_allocate
-  , buffer_set_length
-  , buffer_get_length
-  , buffer_allocation_successful
-  , buffer_reverse
-  , buffer_reverse_range
-  , buffer_reverse_clusters
   , buffer_add
   , buffer_add_char
+  , buffer_add_latin1 -- Char8.ByteString
   , buffer_add_string -- String
   , buffer_add_text -- Text
-  , buffer_add_latin1 -- Char8.ByteString
   , buffer_add_utf8 -- UTF8 encoded ByteString
+  , buffer_allocation_successful
   , buffer_append
+  , buffer_clear_contents
+  , buffer_create
+  , buffer_get_length
+  , buffer_get_glyph_positions
   , buffer_guess_segment_properties
   , buffer_normalize_glyphs
+  , buffer_pre_allocate
+  , buffer_reset
+  , buffer_reverse
+  , buffer_reverse_clusters
+  , buffer_reverse_range
+  , buffer_set_length
   -- buffer_get_glyph_infos
-  -- buffer_get_glyph_positions
   -- buffer_serialize_glyphs
   -- buffer_deserialize_glyphs
   -- buffer_serialize_format_from_string
@@ -50,20 +51,21 @@ module Graphics.Harfbuzz
   -- glyph_info_get_glyph_flags
 
   -- statevars
-  , buffer_direction
-  , buffer_script
-  , buffer_language
-  , buffer_flags
   , buffer_cluster_level
-  , buffer_segment_properties
   , buffer_content_type
-  , buffer_unicode_funcs
+  , buffer_direction
+  , buffer_flags
   , buffer_invisible_glyph
+  , buffer_language
   , buffer_replacement_codepoint
+  , buffer_script
+  , buffer_segment_properties
+  , buffer_unicode_funcs
 
   , BufferFlags(..)
   , BufferContentType(..)
   , BufferClusterLevel(..)
+  , BufferSerializeFormat(..)
   , pattern BUFFER_REPLACEMENT_CODEPOINT_DEFAULT
 
   , Codepoint
@@ -81,22 +83,20 @@ module Graphics.Harfbuzz
   , face_count
   , face_create
   , face_create_for_tables
+  , face_glyph_count -- statevar
+  , face_index -- statevar
   , face_is_immutable
   , face_make_immutable
   , face_builder_create
   , face_builder_add_table
   , face_reference_blob
   , face_reference_table
-  -- face_collect_unicodes
-  -- face_collect_variation_selectors
-  -- face_collect_variation_unicodes
-  -- statevars
-  , face_glyph_count
-  , face_index
-  , face_upem
+  , face_upem -- statevar
 
   , Feature(..)
   , feature_to_string, feature_from_string
+
+  , GlyphPosition(..)
 
   , Key(..) -- hb_user_data_key
   , key_create
@@ -107,6 +107,8 @@ module Graphics.Harfbuzz
   , language_get_default
 
   , MemoryMode(..)
+
+  , Position
 
   , Script(..)
   , script_from_iso15924_tag, script_to_iso15924_tag
@@ -369,6 +371,12 @@ buffer_add_utf8 buffer text (fromIntegral -> item_offset) (fromIntegral -> item_
 buffer_append :: MonadIO m => Buffer -> Buffer -> Int -> Int -> m ()
 buffer_append buffer source (fromIntegral -> start) (fromIntegral -> end) = liftIO
   [C.block|void { hb_buffer_append($buffer:buffer,$buffer:source,$(unsigned int start),$(unsigned int end)); }|]
+
+buffer_get_glyph_positions :: MonadIO m => Buffer -> m [GlyphPosition]
+buffer_get_glyph_positions b = liftIO $ alloca $ \plen -> do
+  positions <- [C.exp|hb_glyph_position_t * { hb_buffer_get_glyph_positions($buffer:b,$(unsigned int * plen)) }|]
+  len <- peek plen
+  peekArray (fromIntegral len) positions -- we don't own the array, its valid as long as the buffer is unmodified, so don't deallocate
 
 buffer_guess_segment_properties :: MonadIO m => Buffer -> m ()
 buffer_guess_segment_properties b = liftIO [C.block|void { hb_buffer_guess_segment_properties($buffer:b); }|]
