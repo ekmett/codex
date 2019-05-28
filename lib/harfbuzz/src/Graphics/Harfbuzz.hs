@@ -180,6 +180,7 @@ module Graphics.Harfbuzz
   , shape -- the point of all of this
   , shape_full
   , shape_list_shapers
+  , ShapePlan
   , Shaper(SHAPER_INVALID)
   , shaper_from_string, shaper_to_string
 
@@ -883,6 +884,12 @@ set_symmetric_difference s other = liftIO [C.block|void { hb_set_symmetric_diffe
 
 set_union :: MonadIO m => Set -> Set -> m ()
 set_union s other = liftIO [C.block|void { hb_set_union($set:s,$set:other); }|]
+
+instance IsObject ShapePlan where
+  _reference uf = [C.exp|hb_shape_plan_t * { hb_shape_plan_reference($shape-plan:uf) }|]
+  _destroy uf = [C.block|void { hb_shape_plan_destroy($shape-plan:uf); }|]
+  _get_user_data b k = [C.exp|void * { hb_shape_plan_get_user_data($shape-plan:b,$key:k) }|]
+  _set_user_data b k v d replace = [C.exp|hb_bool_t { hb_shape_plan_set_user_data($shape-plan:b,$key:k,$(void*v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|]
 
 shape :: MonadIO m => Font -> Buffer -> [Feature] -> m ()
 shape font buffer features = liftIO $

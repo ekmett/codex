@@ -155,6 +155,7 @@ module Graphics.Harfbuzz.Internal
   )
 , Set(..)
 , pattern SET_VALUE_INVALID
+, ShapePlan(..)
 , Shaper
   ( Shaper
   , SHAPER_INVALID
@@ -432,6 +433,8 @@ instance Storable SegmentProperties where
 
 newtype Set = Set (ForeignPtr Set) deriving (Eq,Ord,Show,Data)
 
+newtype ShapePlan = ShapePlan (ForeignPtr ShapePlan) deriving (Eq,Ord,Show,Data)
+
 newtype Shaper = Shaper CString deriving (Eq,Ord,Storable) -- we never manage
 
 instance Default Shaper where def = Shaper nullPtr
@@ -522,6 +525,7 @@ C.context $ C.baseCtx <> mempty
     , (C.TypeName "hb_script_t", [t|Script|])
     , (C.TypeName "hb_set_t", [t|Set|])
     , (C.TypeName "hb_segment_properties_t", [t|SegmentProperties|])
+    , (C.TypeName "hb_shape_plan_t", [t|ShapePlan|])
     , (C.TypeName "hb_tag_t", [t|Tag|])
     , (C.TypeName "hb_unicode_funcs_t", [t|UnicodeFuncs|])
     , (C.TypeName "hb_user_data_key_t", [t|ForeignPtr OpaqueKey|])
@@ -645,7 +649,13 @@ instance Hashable SegmentProperties where
   hashWithSalt i s = hashWithSalt i $ unsafeLocalState $ with s $ \sp -> [C.exp|unsigned int { hb_segment_properties_hash($(hb_segment_properties_t * sp)) }|] <&> (fromIntegral :: CUInt -> Int)
 
 instance Default Set where
-  def = unsafeLocalState $ [C.exp|hb_set_t * { hb_set_get_empty() }|] >>= fmap Set . newForeignPtr_
+  def = unsafeLocalState $
+    [C.exp|hb_set_t * { hb_set_get_empty() }|] >>= fmap Set . newForeignPtr_
+  {-# noinline def #-}
+
+instance Default ShapePlan where
+  def = unsafeLocalState $
+    [C.exp|hb_shape_plan_t * { hb_shape_plan_get_empty() }|] >>= fmap ShapePlan . newForeignPtr_
   {-# noinline def #-}
 
 shapers :: [(String,Shaper)]
@@ -1575,6 +1585,7 @@ harfbuzzCtx = mempty
     , (C.TypeName "hb_script_t", [t|Script|])
     , (C.TypeName "hb_segment_properties_t", [t|SegmentProperties|])
     , (C.TypeName "hb_set_t", [t|Set|])
+    , (C.TypeName "hb_shape_plan_t", [t|ShapePlan|])
     , (C.TypeName "hb_tag_t", [t|Tag|])
     , (C.TypeName "hb_unicode_combining_class_t", [t|UnicodeCombiningClass|])
     , (C.TypeName "hb_unicode_combining_class_func_t", [t|FunPtr (UnicodeCombiningClassFunc ())|])
@@ -1602,6 +1613,7 @@ harfbuzzCtx = mempty
     , ("map", anti (ptr $ C.TypeName "hb_map_t") [t|Map|] [|withSelf|])
     , ("segment-properties", anti (ptr $ C.TypeName "hb_segment_properties_t") [t|Set|] [|with|])
     , ("set", anti (ptr $ C.TypeName "hb_set_t") [t|Set|] [|withSelf|])
+    , ("shape-plan", anti (ptr $ C.TypeName "hb_shape_plan_t") [t|ShapePlan|] [|withSelf|])
     , ("unicode-funcs", anti (ptr $ C.TypeName "hb_unicode_funcs_t") [t|UnicodeFuncs|] [|withSelf|])
     ]
   } where ptr = C.Ptr [] . C.TypeSpecifier mempty
