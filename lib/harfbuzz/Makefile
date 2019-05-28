@@ -8,7 +8,7 @@ install:
 	cabal v2-install
 
 docs:
-	@RESULT=`cabal new-haddock $(LIBRARY) | tail -n 2`; \
+	@RESULT=`cabal new-haddock $(LIBRARY) 2>/dev/null | tail -n 2`; \
 	if [[ `echo $$RESULT | head -c 22` = "Documentation created:" ]]; then \
 		$(OPEN) `echo $$RESULT | tail -c +23`; \
 	fi
@@ -20,7 +20,7 @@ repl:
 	cabal v2-repl $(LIBRARY) --repl-options=-fobject-code --repl-options=-v1 --repl-options=-ferror-spans --repl-options=-j
 
 test:
-	cabal v2-test spec
+	cabal v2-test
 
 watch:
 	ghcid -p $(LIBRARY) --color -c 'cabal v2-repl $(LIBRARY) --repl-options=-fno-code --repl-options=-fno-break-on-exception --repl-options=-fno-break-on-error --repl-options=-v1 --repl-options=-ferror-spans --repl-options=-j'

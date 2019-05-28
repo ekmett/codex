@@ -591,25 +591,25 @@ instance IsObject Set where
   _set_user_data b k v d replace = [C.exp|hb_bool_t { hb_set_set_user_data($set:b,$key:k,$(void*v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|]
 
 set_add :: MonadIO m => Set -> Codepoint -> m ()
-set_add s c = liftIO $ [C.block|void { hb_set_add($set:s,$(hb_codepoint_t c)); }|]
+set_add s c = liftIO [C.block|void { hb_set_add($set:s,$(hb_codepoint_t c)); }|]
 
 set_add_range :: MonadIO m => Set -> Codepoint -> Codepoint -> m ()
-set_add_range s lo hi = liftIO $ [C.block|void { hb_set_add_range($set:s,$(hb_codepoint_t lo),$(hb_codepoint_t hi)); }|]
+set_add_range s lo hi = liftIO [C.block|void { hb_set_add_range($set:s,$(hb_codepoint_t lo),$(hb_codepoint_t hi)); }|]
 
 set_allocation_successful :: MonadIO m => Set -> m Bool
 set_allocation_successful s = liftIO $ [C.exp|hb_bool_t { hb_set_allocation_successful($set:s) }|] <&> cbool
 
 set_clear :: MonadIO m => Set -> m ()
-set_clear s = liftIO $ [C.block|void { hb_set_clear($set:s); }|]
+set_clear s = liftIO [C.block|void { hb_set_clear($set:s); }|]
 
 set_create :: MonadIO m => m Set
 set_create = liftIO $ [C.exp|hb_set_t * { hb_set_create() }|] >>= foreignSet
 
 set_del :: MonadIO m => Set -> Codepoint -> m ()
-set_del s c = liftIO $ [C.block|void { hb_set_del($set:s,$(hb_codepoint_t c)); }|]
+set_del s c = liftIO [C.block|void { hb_set_del($set:s,$(hb_codepoint_t c)); }|]
 
 set_del_range :: MonadIO m => Set -> Codepoint -> Codepoint -> m ()
-set_del_range s lo hi = liftIO $ [C.block|void { hb_set_del_range($set:s,$(hb_codepoint_t lo),$(hb_codepoint_t hi)); }|]
+set_del_range s lo hi = liftIO [C.block|void { hb_set_del_range($set:s,$(hb_codepoint_t lo),$(hb_codepoint_t hi)); }|]
 
 set_get_max :: MonadIO m => Set -> m Codepoint
 set_get_max s = liftIO [C.exp|hb_codepoint_t { hb_set_get_max($set:s) }|]
@@ -783,7 +783,7 @@ unicode_funcs_set_script_func uf fun = liftIO $ do
   }|]
 
 unicode_combining_class :: MonadIO m => UnicodeFuncs -> Char -> m UnicodeCombiningClass
-unicode_combining_class uf (c2w -> codepoint) = liftIO $ [C.exp|hb_unicode_combining_class_t { hb_unicode_combining_class($unicode-funcs:uf,$(hb_codepoint_t codepoint)) }|]
+unicode_combining_class uf (c2w -> codepoint) = liftIO [C.exp|hb_unicode_combining_class_t { hb_unicode_combining_class($unicode-funcs:uf,$(hb_codepoint_t codepoint)) }|]
 
 unicode_compose :: MonadIO m => UnicodeFuncs -> Char -> Char -> m (Maybe Char)
 unicode_compose uf (c2w -> a) (c2w -> b) = liftIO $ alloca $ \c -> do
@@ -803,7 +803,7 @@ unicode_decompose uf (c2w -> a) = liftIO $ allocaArray 2 $ \ pbc -> do
   else pure Nothing
 
 unicode_general_category :: MonadIO m => UnicodeFuncs -> Char -> m UnicodeGeneralCategory
-unicode_general_category uf (c2w -> codepoint) = liftIO $ [C.exp|hb_unicode_general_category_t { hb_unicode_general_category($unicode-funcs:uf,$(hb_codepoint_t codepoint)) }|]
+unicode_general_category uf (c2w -> codepoint) = liftIO [C.exp|hb_unicode_general_category_t { hb_unicode_general_category($unicode-funcs:uf,$(hb_codepoint_t codepoint)) }|]
 
 unicode_mirroring :: MonadIO m => UnicodeFuncs -> Char -> m Char
 unicode_mirroring uf (c2w -> a) = liftIO $ [C.exp|hb_codepoint_t { hb_unicode_mirroring($unicode-funcs:uf,$(hb_codepoint_t a)) }|] <&> w2c
