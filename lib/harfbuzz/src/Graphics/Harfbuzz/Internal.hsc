@@ -1,7 +1,6 @@
 {-# language GeneralizedNewtypeDeriving #-}
 {-# language ScopedTypeVariables #-}
 {-# language DeriveDataTypeable #-}
-{-# language DerivingStrategies #-}
 {-# language StandaloneDeriving #-}
 {-# language OverloadedStrings #-}
 {-# language FlexibleContexts #-}
@@ -9,12 +8,9 @@
 {-# language RecordWildCards #-}
 {-# language PatternSynonyms #-}
 {-# language TemplateHaskell #-}
-{-# language DeriveFunctor #-}
-{-# language DeriveGeneric #-}
 {-# language ViewPatterns #-}
 {-# language QuasiQuotes #-}
 {-# language LambdaCase #-}
-{-# language CPP #-}
 
 -- | ffi to the harfbuzz library
 --
