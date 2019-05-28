@@ -242,7 +242,7 @@ module Graphics.Harfbuzz.Internal
 , UnicodeGeneralCategoryFunc
 , UnicodeMirroringFunc
 , UnicodeScriptFunc
-, Key(..), withKey
+, Key(..), OpaqueKey, withKey
 , Variation(..)
 , variation_to_string, variation_from_string
 , pattern VERSION_MAJOR

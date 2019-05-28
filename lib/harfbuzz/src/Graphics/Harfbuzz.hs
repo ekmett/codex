@@ -5,9 +5,8 @@
 {-# language PatternSynonyms #-}
 {-# language ForeignFunctionInterface #-}
 module Graphics.Harfbuzz
-  ( IsObject(..)
-  -- hb_blob.h
-  , Blob
+  ( 
+    Blob
   , blob_copy_writable_or_fail
   , blob_create
   , blob_create_from_file
@@ -107,6 +106,12 @@ module Graphics.Harfbuzz
 
   , MemoryMode(..)
 
+  , IsObject(..)
+  , object_reference
+  , object_destroy
+  , object_set_user_data
+  , object_get_user_data
+
   , Position
 
   , Script(..)
@@ -192,9 +197,11 @@ module Graphics.Harfbuzz
   , _hb_unicode_funcs_destroy
   ) where
 
+import Control.Monad ((>=>))
 import Control.Monad.IO.Class
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as ByteString
+import Data.Coerce
 import Data.Const
 import Data.Functor
 import Data.StateVar
@@ -203,6 +210,7 @@ import Data.Text (Text)
 import qualified Data.Text.Foreign as Text
 import Data.Version (Version, makeVersion)
 import Foreign.C.String
+import Foreign.C.Types
 import Foreign.Const.C.String
 import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
@@ -210,6 +218,7 @@ import Foreign.Marshal.Array
 import Foreign.Marshal.Unsafe
 import Foreign.Marshal.Utils
 import Foreign.Ptr
+import Foreign.StablePtr
 import Foreign.Storable
 import qualified Language.C.Inline as C
 
@@ -232,10 +241,34 @@ key_create_n n = liftIO $ do
     else error "key_create_n: accessing an out of bound key"
 
 class IsObject t where
-  reference :: MonadIO m => t -> m (Ptr t)
-  destroy :: MonadIO m => t -> m ()
-  set_user_data :: MonadIO m => t -> Key a -> Ptr a -> FinalizerPtr a -> Bool -> m Bool
-  get_user_data :: MonadIO m => t -> Key a -> m (Ptr a)
+  _reference :: t -> IO (Ptr t)
+  _destroy :: t -> IO ()
+  _set_user_data :: t -> Key () -> Ptr () -> FinalizerPtr () -> CInt -> IO CInt
+  _get_user_data :: t -> Key () -> IO (Ptr ())
+
+object_reference :: (MonadIO m, IsObject t) => t -> m (Ptr t)
+object_reference = liftIO . _reference
+{-# inline object_reference #-}
+
+object_destroy :: (MonadIO m, IsObject t) => t -> m ()
+object_destroy = liftIO . _destroy
+{-# inline object_destroy #-}
+
+object_set_user_data :: (MonadIO m, IsObject t) => t -> Key a -> a -> Bool -> m Bool
+object_set_user_data t k v replace = liftIO $ do
+  v' <- newStablePtr v
+  cbool <$> _set_user_data t (coerce k) (castStablePtrToPtr v') hs_free_stable_ptr (boolc replace)
+{-# inline object_set_user_data #-}
+
+object_get_user_data :: (MonadIO m, IsObject t) => t -> Key a -> m (Maybe a)
+object_get_user_data t k = liftIO $ _get_user_data t (coerce k) >>= maybePeek (deRefStablePtr . castPtrToStablePtr)
+{-# inline object_get_user_data #-}
+  
+instance IsObject Blob where
+  _reference b = [C.exp|hb_blob_t * { hb_blob_reference($blob:b) }|]
+  _destroy b = [C.block|void { hb_blob_destroy($blob:b); }|]
+  _get_user_data b k = [C.exp|void * { hb_blob_get_user_data($blob:b,$key:k) }|]
+  _set_user_data b k v d replace = [C.exp|hb_bool_t { hb_blob_set_user_data($blob:b,$key:k,$(void*v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|]
 
 blob_create :: MonadIO m => ByteString -> MemoryMode -> m Blob
 blob_create bs mode = liftIO $ do
@@ -266,12 +299,6 @@ blob_is_immutable b = liftIO $ [C.exp|hb_bool_t { hb_blob_is_immutable($blob:b) 
 blob_make_immutable :: MonadIO m => Blob -> m ()
 blob_make_immutable b = liftIO [C.block|void { hb_blob_make_immutable($blob:b); }|]
 
-instance IsObject Blob where
-  reference b = liftIO [C.exp|hb_blob_t * { hb_blob_reference($blob:b) }|]
-  destroy b = liftIO [C.block|void { hb_blob_destroy($blob:b); }|]
-  get_user_data b k = liftIO $ [C.exp|void * { hb_blob_get_user_data($blob:b,$key:k) }|] <&> castPtr
-  set_user_data b k (castPtr -> v) (castFunPtr -> d) (boolc -> replace) = liftIO $
-    [C.exp|hb_bool_t { hb_blob_set_user_data($blob:b,$key:k,$(void * v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|] <&> cbool
 
 -- | hb_blob_get_data is unsafe under ForeignPtr management, this is safe
 withBlobData :: Blob -> (ConstCStringLen -> IO r) -> IO r
@@ -289,11 +316,10 @@ withBlobDataWritable bfp k = withSelf bfp $ \bp -> alloca $ \ip -> do
 -- * buffers
 
 instance IsObject Buffer where
-  reference b = liftIO [C.exp|hb_buffer_t * { hb_buffer_reference($buffer:b) }|]
-  destroy b = liftIO [C.block|void { hb_buffer_destroy($buffer:b); }|]
-  get_user_data b k = liftIO $ [C.exp|void * { hb_buffer_get_user_data($buffer:b,$key:k) }|] <&> castPtr
-  set_user_data b k (castPtr -> v) (castFunPtr -> d) (boolc -> replace) = liftIO $
-    [C.exp|hb_bool_t { hb_buffer_set_user_data($buffer:b,$key:k,$(void * v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|] <&> cbool
+  _reference b = [C.exp|hb_buffer_t * { hb_buffer_reference($buffer:b) }|]
+  _destroy b = [C.block|void { hb_buffer_destroy($buffer:b); }|]
+  _get_user_data b k = [C.exp|void * { hb_buffer_get_user_data($buffer:b,$key:k) }|]
+  _set_user_data b k v d replace = [C.exp|hb_bool_t { hb_buffer_set_user_data($buffer:b,$key:k,$(void*v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|]
 
 buffer_create :: MonadIO m => m Buffer
 buffer_create = liftIO $ [C.exp|hb_buffer_t * { hb_buffer_create() }|] >>= foreignBuffer
@@ -464,11 +490,10 @@ direction_is_valid d = cbool [C.pure|int { HB_DIRECTION_IS_VALID($(hb_direction_
 -- * font faces
 
 instance IsObject Face where
-  reference b = liftIO [C.exp|hb_face_t * { hb_face_reference($face:b) }|]
-  destroy b = liftIO [C.block|void { hb_face_destroy($face:b); }|]
-  get_user_data b k = liftIO $ [C.exp|void * { hb_face_get_user_data($face:b,$key:k) }|] <&> castPtr
-  set_user_data b k (castPtr -> v) (castFunPtr -> d) (boolc -> replace) = liftIO $
-    [C.exp|hb_bool_t { hb_face_set_user_data($face:b,$key:k,$(void * v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|] <&> cbool
+  _reference b = liftIO [C.exp|hb_face_t * { hb_face_reference($face:b) }|]
+  _destroy b = liftIO [C.block|void { hb_face_destroy($face:b); }|]
+  _get_user_data b k = [C.exp|void * { hb_face_get_user_data($face:b,$key:k) }|]
+  _set_user_data b k v d replace = [C.exp|hb_bool_t { hb_face_set_user_data($face:b,$key:k,$(void*v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|]
 
 face_builder_create :: MonadIO m => m Face
 face_builder_create = liftIO $ [C.exp|hb_face_t * { hb_face_builder_create() }|] >>= foreignFace
@@ -504,7 +529,7 @@ face_create_for_tables fun = liftIO $ do
   (castFunPtr -> f) <- mkReferenceTableFunc $ \ pface tag _ -> do
     face <- [C.exp|hb_face_t * { hb_face_reference($(hb_face_t * pface)) }|] >>= foreignFace
     b <- fun face tag
-    reference b
+    object_reference b
   [C.block|hb_face_t * {
     hb_reference_table_func_t f = $(hb_reference_table_func_t f);
     return hb_face_create_for_tables(f,f,(hb_destroy_func_t)hs_free_fun_ptr);
@@ -561,11 +586,10 @@ script_to_string = tag_to_string . script_to_iso15924_tag
 -- * sets
 
 instance IsObject Set where
-  reference b = liftIO [C.exp|hb_set_t * { hb_set_reference($set:b) }|]
-  destroy b = liftIO [C.block|void { hb_set_destroy($set:b); }|]
-  get_user_data b k = liftIO $ [C.exp|void * { hb_set_get_user_data($set:b,$key:k) }|] <&> castPtr
-  set_user_data b k (castPtr -> v) (castFunPtr -> d) (boolc -> replace) = liftIO $
-    [C.exp|hb_bool_t { hb_set_set_user_data($set:b,$key:k,$(void * v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|] <&> cbool
+  _reference b = [C.exp|hb_set_t * { hb_set_reference($set:b) }|]
+  _destroy b = [C.block|void { hb_set_destroy($set:b); }|]
+  _get_user_data b k = [C.exp|void * { hb_set_get_user_data($set:b,$key:k) }|]
+  _set_user_data b k v d replace = [C.exp|hb_bool_t { hb_set_set_user_data($set:b,$key:k,$(void*v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|]
 
 set_add :: MonadIO m => Set -> Codepoint -> m ()
 set_add s c = liftIO $ [C.block|void { hb_set_add($set:s,$(hb_codepoint_t c)); }|]
@@ -789,11 +813,10 @@ unicode_script :: MonadIO m => UnicodeFuncs -> Char -> m Script
 unicode_script uf (c2w -> a) = liftIO [C.exp|hb_script_t { hb_unicode_script($unicode-funcs:uf,$(hb_codepoint_t a)) }|]
 
 instance IsObject UnicodeFuncs where
-  reference uf = liftIO [C.exp|hb_unicode_funcs_t * { hb_unicode_funcs_reference($unicode-funcs:uf) }|]
-  destroy uf = liftIO [C.block|void { hb_unicode_funcs_destroy($unicode-funcs:uf); }|]
-  get_user_data b k = liftIO $ [C.exp|void * { hb_unicode_funcs_get_user_data($unicode-funcs:b,$key:k) }|] <&> castPtr
-  set_user_data b k (castPtr -> v) (castFunPtr -> d) (boolc -> replace) = liftIO $
-    [C.exp|hb_bool_t{ hb_unicode_funcs_set_user_data($unicode-funcs:b,$key:k,$(void * v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|] <&> cbool
+  _reference uf = [C.exp|hb_unicode_funcs_t * { hb_unicode_funcs_reference($unicode-funcs:uf) }|]
+  _destroy uf = [C.block|void { hb_unicode_funcs_destroy($unicode-funcs:uf); }|]
+  _get_user_data b k = [C.exp|void * { hb_unicode_funcs_get_user_data($unicode-funcs:b,$key:k) }|]
+  _set_user_data b k v d replace = [C.exp|hb_bool_t { hb_unicode_funcs_set_user_data($unicode-funcs:b,$key:k,$(void*v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|]
 
 version :: MonadIO m => m Version
 version = liftIO $ allocaArray 3 $ \abc -> do
@@ -831,3 +854,4 @@ foreign import ccall "hb.h &hb_buffer_destroy"        _hb_buffer_destroy        
 foreign import ccall "hb.h &hb_face_destroy"          _hb_face_destroy          :: FinalizerPtr Face
 foreign import ccall "hb.h &hb_set_destroy"           _hb_set_destroy           :: FinalizerPtr Set
 foreign import ccall "hb.h &hb_unicode_funcs_destroy" _hb_unicode_funcs_destroy :: FinalizerPtr UnicodeFuncs
+foreign import ccall "&"                               hs_free_stable_ptr       :: FinalizerPtr ()
