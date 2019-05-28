@@ -20,6 +20,12 @@ module Graphics.Harfbuzz
   , withBlobDataWritable
 
   , Buffer
+  , BufferFlags(..)
+  , BufferContentType(..)
+  , BufferClusterLevel(..)
+  , BufferSerializeFormat(..)
+  , pattern BUFFER_REPLACEMENT_CODEPOINT_DEFAULT
+
   , buffer_add
   , buffer_add_char
   , buffer_add_latin1 -- Char8.ByteString
@@ -29,44 +35,38 @@ module Graphics.Harfbuzz
   , buffer_allocation_successful
   , buffer_append
   , buffer_clear_contents
+  , buffer_cluster_level -- statevar
+  , buffer_content_type -- statevar
   , buffer_create
-  , buffer_get_length
+  , buffer_direction -- statevar
+  , buffer_flags -- statevar
   , buffer_get_glyph_positions
+  , buffer_get_length
   , buffer_guess_segment_properties
+  , buffer_invisible_glyph
+  , buffer_language -- statevar
   , buffer_normalize_glyphs
   , buffer_pre_allocate
+  , buffer_replacement_codepoint
   , buffer_reset
   , buffer_reverse
   , buffer_reverse_clusters
   , buffer_reverse_range
+  , buffer_script -- statevar
+  , buffer_segment_properties
   , buffer_set_length
-  -- buffer_get_glyph_infos
-  -- buffer_serialize_glyphs
-  -- buffer_deserialize_glyphs
-  -- buffer_serialize_format_from_string
-  -- buffer_serialize_format_to_string
-  -- buffer_serialize_list_formats
-  -- buffer_diff
-  -- buffer_set_message_func
-  -- glyph_info_get_glyph_flags
+  , buffer_unicode_funcs -- statevar
+  , buffer_serialize_format_from_string
+  , buffer_serialize_format_to_string
+  -- , buffer_get_glyph_infos
+  -- , buffer_serialize_glyphs
+  -- , buffer_deserialize_glyphs
+  -- , buffer_serialize_list_formats
+  -- , buffer_diff
+  -- , buffer_set_message_func
+  -- , glyph_info_get_glyph_flags
 
   -- statevars
-  , buffer_cluster_level
-  , buffer_content_type
-  , buffer_direction
-  , buffer_flags
-  , buffer_invisible_glyph
-  , buffer_language
-  , buffer_replacement_codepoint
-  , buffer_script
-  , buffer_segment_properties
-  , buffer_unicode_funcs
-
-  , BufferFlags(..)
-  , BufferContentType(..)
-  , BufferClusterLevel(..)
-  , BufferSerializeFormat(..)
-  , pattern BUFFER_REPLACEMENT_CODEPOINT_DEFAULT
 
   , Codepoint
 
