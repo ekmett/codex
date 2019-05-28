@@ -1,46 +1,97 @@
+
 { nixpkgs ? import ./nix/nixpkgs.nix
 , compiler ? "default"
 }:
 let
-  pkgs = import nixpkgs {};
 
-  sources = {
-    packing              = ./packing;
-    glow                 = ./glow;
-    freetype2            = import ./nix/freetype2.nix;
-    bindings-freetype-gl = import ./nix/bindings-freetype-gl.nix;
+  overlay = self: super: {
+    # We require a minimum version of fontconfig lib for specific functionality.
+    # This is a version that should be equialent for some macs, so pin it.
+    fontconfig = super.fontconfig.overrideAttrs (oldAttrs: rec {
+      version = "2.13.1";
+      name    = "fontconfig-${version}";
+      src     = pkgs.fetchurl {
+        url = "https://www.freedesktop.org/software/fontconfig/release/fontconfig-2.13.1.tar.gz";
+        sha256 = "0zzspdnydj9g5fxl9804c7rr8lsm6bmm0f7mz5awcpyp74mqa3cz";
+      };
+      buildInputs = oldAttrs.buildInputs ++
+        [ super.libuuid # new build dependency
+        ];
+    });
+
+    # Upgrade the harf of buzz, we require the Unicode 12 updates.
+    harfbuzz = super.harfbuzz.overrideAttrs (_: rec {
+      version = "2.5.0";
+      name = "harfbuzz-${version}";
+      src = pkgs.fetchurl {
+        url = "https://www.freedesktop.org/software/harfbuzz/release/harfbuzz-${version}.tar.xz";
+        sha256 = "1vqnqkzz7ws29g5djf31jj6a9dbid8a27a8y4balmy5lipwp774m";
+      };
+    });
   };
 
-  haskellPackages = if compiler == "default"
-                      then pkgs.haskellPackages
-                      else pkgs.haskell.packages.${compiler};
+  pkgs = import nixpkgs { overlays = [overlay]; };
 
+  haskellPackages = if compiler == "default"
+    then pkgs.haskellPackages
+    else pkgs.haskell.packages.${compiler};
+
+  # Codex packages                    
+  sources = {
+    atlas        = ./lib/atlas;
+    const        = ./lib/const;
+    freetype     = ./lib/freetype;
+    glow         = ./lib/glow;
+    harfbuzz     = ./lib/harfbuzz;
+    harfbuzz-icu = ./lib/harfbuzz-icu;
+    weak         = ./lib/weak;
+    fontconfig   = ./lib/fontconfig;
+  };
+
+  nihs = {
+    stb = ./nih/stb;
+  };
+
+  c2nix = p: n: args:
+    # Why type when you can function?
+    p.callCabal2nix n sources.${n} args;
+
+  # Basic overrides to include our packages
   modHaskPkgs = haskellPackages.override {
     overrides = hself: hsuper: {
-      freetype2 = hsuper.callCabal2nix "freetype2" sources.freetype2 {};
-      bindings-freetype-gl = 
-        let
-          drvArgs = if pkgs.buildPlatform.isLinux 
-                      then { GLEW = pkgs.glew; }
-                      else {};
 
-          drv = hself.callCabal2nix "bindings-freetype-gl" 
-                  sources.bindings-freetype-gl 
-                  drvArgs;
+      atlas        = (c2nix hsuper "atlas" {}).overrideAttrs (_: {
+        # nix builds don't like symlinks, move the real thing in.
+        postUnpack = ''
+          rm atlas/cbits/stb_rect_pack.h
+          cp ${nihs.stb}/stb_rect_pack.h atlas/cbits/
+        '';
+      });
 
-          # if https://github.com/lamdu/bindings-freetype-gl/pull/1 is merged
-          # then we won't need this anymore.
-          drvPatched = pkgs.haskell.lib.appendPatch drv 
-                        ./nix/bindings-freetype-gl-fix-setuphs.patch;
-        in
-          drvPatched;
-
-      packing = hsuper.callCabal2nix "packing" sources.packing {};
-      glow = hsuper.callCabal2nix "glow" sources.glow {};
+      const        = c2nix hsuper "const" {};
+      weak         = c2nix hsuper "weak" {};
+      # Provide the external lib dependency to match the cabal file
+      freetype     = c2nix hself "freetype" { freetype2 = pkgs.freetype; };
+      harfbuzz-icu = c2nix hself "harfbuzz-icu" {};
     };
   };
 
-  drv = modHaskPkgs.callPackage ./ui.nix {};
+  # Adding any of these three into the modHaskPkgs overrides will result in an
+  # infinite recursion error. :)
+  fontconfig = c2nix modHaskPkgs "fontconfig" {};
+  harfbuzz   = c2nix modHaskPkgs "harfbuzz" {};
+  glow       = c2nix modHaskPkgs "glow" {};
+
+  # Build the UI derivation and include our specific dependencies.
+  ui = modHaskPkgs.callPackage ./ui.nix { 
+    fontconfig = fontconfig;
+    harfbuzz   = harfbuzz;
+    glow       = glow;
+  };
 
 in
-  pkgs.haskell.lib.shellAware drv
+  # Working this way seems to clash with the cabal.project file? Need a better
+  # way to build an env from the combined buildInputs from ALL THE THINGS. Then
+  # I could work on all of it with impunity instead of having to 'mv
+  # cabal.project FOO' before doing anything ;<
+  pkgs.haskell.lib.shellAware ui
