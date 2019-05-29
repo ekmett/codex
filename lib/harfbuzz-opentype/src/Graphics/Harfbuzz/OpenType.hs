@@ -9,82 +9,82 @@
 {-# options_ghc -Wno-incomplete-uni-patterns #-}
 -- |
 module Graphics.Harfbuzz.OpenType
-( ot_font_set_funcs
+( font_set_funcs
 -- * Languages and Scripts
-, ot_tag_to_language
-, ot_tag_to_script
-, ot_tags_from_script_and_language
-, ot_tags_to_script_and_language
+, tag_to_language
+, tag_to_script
+, tags_from_script_and_language
+, tags_to_script_and_language
 -- * Names
-, OpenTypeName(..)
-, ot_name_list_names
-, ot_name_get
+, Name(..)
+, name_list_names
+, name_get
 -- * Color
 , Color(..)
-, OpenTypeColorLayer(..)
+, ColorLayer(..)
 -- ** svg
-, ot_color_has_svg
-, ot_color_glyph_reference_svg
+, color_has_svg
+, color_glyph_reference_svg
 -- ** png
-, ot_color_has_png
-, ot_color_glyph_reference_png
+, color_has_png
+, color_glyph_reference_png
 -- ** layered glyphs
-, ot_color_has_palettes
-, ot_color_palette_get_count
-, ot_color_palette_get_name_id
-, ot_color_palette_get_flags
-, ot_color_palette_get_colors
-, ot_color_palette_color_get_name_id
-, ot_color_has_layers
-, ot_color_glyph_get_layers
+, color_has_palettes
+, color_palette_get_count
+, color_palette_get_name_id
+, color_palette_get_flags
+, color_palette_get_colors
+, color_palette_color_get_name_id
+, color_has_layers
+, color_glyph_get_layers
 -- * Layout
-, OpenTypeLayoutGlyphClass(..)
-, pattern OT_TAG_BASE
-, pattern OT_TAG_GDEF
-, pattern OT_TAG_GPOS
-, pattern OT_TAG_GSUB
-, pattern OT_TAG_JSTF
-, pattern OT_TAG_DEFAULT_LANGUAGE
-, pattern OT_TAG_DEFAULT_SCRIPT
-, ot_layout_collect_features
-, ot_layout_collect_lookups
-, ot_layout_feature_get_characters
-, ot_layout_feature_get_lookups
+, LayoutGlyphClass(..)
+, pattern TAG_BASE
+, pattern TAG_GDEF
+, pattern TAG_GPOS
+, pattern TAG_GSUB
+, pattern TAG_JSTF
+, pattern TAG_DEFAULT_LANGUAGE
+, pattern TAG_DEFAULT_SCRIPT
+, layout_collect_features
+, layout_collect_lookups
+, layout_feature_get_characters
+, layout_feature_get_lookups
 -- ...
 -- * Math
-, OpenTypeMathConstant(..)
-, OpenTypeMathKern(..)
-, OpenTypeMathGlyphPart(..)
-, OpenTypeMathGlyphPartFlags(..)
-, OpenTypeMathGlyphVariant(..)
-, ot_math_has_data
-, ot_math_get_constant
-, ot_math_get_glyph_italics_correction
-, ot_math_get_glyph_kerning
-, ot_math_get_glyph_top_accent_attachment
-, ot_math_get_min_connector_overlap
-, ot_math_is_glyph_extended_shape
-, ot_math_get_glyph_variants
-, ot_math_get_glyph_assembly
-, pattern OT_TAG_MATH
-, pattern OT_MATH_SCRIPT
+, MathConstant(..)
+, MathKern(..)
+, MathGlyphPart(..)
+, MathGlyphPartFlags(..)
+, MathGlyphVariant(..)
+, math_has_data
+, math_get_constant
+, math_get_glyph_italics_correction
+, math_get_glyph_kerning
+, math_get_glyph_top_accent_attachment
+, math_get_min_connector_overlap
+, math_is_glyph_extended_shape
+, math_get_glyph_variants
+, math_get_glyph_assembly
+, pattern TAG_MATH
+, pattern MATH_SCRIPT
 -- * Shaping
-, ot_shape_glyphs_closure
+, shape_glyphs_closure
 -- * Variation Axes
-, pattern OT_TAG_VAR_AXIS_ITALIC
-, pattern OT_TAG_VAR_AXIS_OPTICAL_SIZE
-, pattern OT_TAG_VAR_AXIS_SLANT
-, pattern OT_TAG_VAR_AXIS_WIDTH
-, pattern OT_TAG_VAR_AXIS_WEIGHT
-, ot_var_has_data
-, ot_var_get_axis_count
-, ot_var_get_axis_infos
-, ot_var_find_axis_info
-, ot_var_get_named_instance_count
-, ot_var_named_instance_get_subfamily_name_id
-, ot_var_named_instance_get_postscript_name_id
-, ot_var_normalize_variations
-, ot_var_normalize_coords
+, pattern TAG_VAR_AXIS_ITALIC
+, pattern TAG_VAR_AXIS_OPTICAL_SIZE
+, pattern TAG_VAR_AXIS_SLANT
+, pattern TAG_VAR_AXIS_WIDTH
+, pattern TAG_VAR_AXIS_WEIGHT
+, var_has_data
+, var_get_axis_count
+, var_get_axis_infos
+, var_find_axis_info
+, var_get_named_instance_count
+, var_named_instance_get_subfamily_name_id
+, var_named_instance_get_postscript_name_id
+, var_normalize_variations
+, var_normalize_coords
 ) where
 
 import Control.Monad.IO.Class
@@ -117,19 +117,19 @@ C.include "<hb-ot.h>"
 --
 -- Note that fonts returned by 'Graphics.Harfbuzz.Font.font_create' default to using these functions, so most clients would never need to call this function directly.
 
-ot_font_set_funcs :: MonadIO m => Font -> m ()
-ot_font_set_funcs font = liftIO [C.block|void { hb_ot_font_set_funcs($font:font); }|]
+font_set_funcs :: MonadIO m => Font -> m ()
+font_set_funcs font = liftIO [C.block|void { hb_ot_font_set_funcs($font:font); }|]
 
 -- * Languages and Scripts
 
-ot_tag_to_script :: Tag -> Script
-ot_tag_to_script tag =[C.pure|hb_script_t { hb_ot_tag_to_script($(hb_tag_t tag)) }|]
+tag_to_script :: Tag -> Script
+tag_to_script tag =[C.pure|hb_script_t { hb_ot_tag_to_script($(hb_tag_t tag)) }|]
 
-ot_tag_to_language :: Tag -> Language
-ot_tag_to_language tag = Language [C.pure|hb_language_t { hb_ot_tag_to_language($(hb_tag_t tag)) }|]
+tag_to_language :: Tag -> Language
+tag_to_language tag = Language [C.pure|hb_language_t { hb_ot_tag_to_language($(hb_tag_t tag)) }|]
 
-ot_tags_from_script_and_language :: Script -> Language -> ([Tag],[Tag])
-ot_tags_from_script_and_language script language = unsafeLocalState $
+tags_from_script_and_language :: Script -> Language -> ([Tag],[Tag])
+tags_from_script_and_language script language = unsafeLocalState $
   allocaArray 256 $ \pscripts ->
     withArray [128,128] $ \pscript_count -> do
       let planguages = advancePtr pscripts 128
@@ -139,43 +139,43 @@ ot_tags_from_script_and_language script language = unsafeLocalState $
       nlanguages <- fromIntegral <$> peek planguage_count
       (,) <$> peekArray nscripts pscripts <*> peekArray nlanguages planguages
 
-ot_tags_to_script_and_language :: Tag -> Tag -> (Script,Language)
-ot_tags_to_script_and_language script_tag language_tag = unsafeLocalState $
+tags_to_script_and_language :: Tag -> Tag -> (Script,Language)
+tags_to_script_and_language script_tag language_tag = unsafeLocalState $
   alloca $ \pscript -> alloca $ \ planguage -> do
     [C.block|void { hb_ot_tags_to_script_and_language( $(hb_tag_t script_tag),$(hb_tag_t language_tag),$(hb_script_t * pscript),$(hb_language_t * planguage)); }|]
     (,) <$> peek pscript <*> (Language <$> peek planguage)
 
 -- * Color
 
-ot_color_has_svg :: MonadIO m => Face -> m Bool
-ot_color_has_svg face = liftIO $ [C.exp|hb_bool_t { hb_ot_color_has_svg($face:face) }|] <&> cbool
+color_has_svg :: MonadIO m => Face -> m Bool
+color_has_svg face = liftIO $ [C.exp|hb_bool_t { hb_ot_color_has_svg($face:face) }|] <&> cbool
 
-ot_color_glyph_reference_svg :: MonadIO m => Face -> Codepoint -> m Blob
-ot_color_glyph_reference_svg face glyph = liftIO $ [C.exp|hb_blob_t * { hb_ot_color_glyph_reference_svg($face:face,$(hb_codepoint_t glyph)) }|] >>= foreignBlob
+color_glyph_reference_svg :: MonadIO m => Face -> Codepoint -> m Blob
+color_glyph_reference_svg face glyph = liftIO $ [C.exp|hb_blob_t * { hb_ot_color_glyph_reference_svg($face:face,$(hb_codepoint_t glyph)) }|] >>= foreignBlob
 
-ot_color_has_png :: MonadIO m => Face -> m Bool
-ot_color_has_png face = liftIO $ [C.exp|hb_bool_t { hb_ot_color_has_png($face:face) }|] <&> cbool
+color_has_png :: MonadIO m => Face -> m Bool
+color_has_png face = liftIO $ [C.exp|hb_bool_t { hb_ot_color_has_png($face:face) }|] <&> cbool
 
 -- | Why does this take a font and the svg option take a face?! *sigh*
-ot_color_glyph_reference_png :: MonadIO m => Font -> Codepoint -> m Blob
-ot_color_glyph_reference_png font glyph = liftIO $ [C.exp|hb_blob_t * { hb_ot_color_glyph_reference_png($font:font,$(hb_codepoint_t glyph)) }|] >>= foreignBlob
+color_glyph_reference_png :: MonadIO m => Font -> Codepoint -> m Blob
+color_glyph_reference_png font glyph = liftIO $ [C.exp|hb_blob_t * { hb_ot_color_glyph_reference_png($font:font,$(hb_codepoint_t glyph)) }|] >>= foreignBlob
 
-ot_color_has_palettes :: MonadIO m => Face -> m Bool
-ot_color_has_palettes face = liftIO $ [C.exp|hb_bool_t { hb_ot_color_has_palettes($face:face) }|] <&> cbool
+color_has_palettes :: MonadIO m => Face -> m Bool
+color_has_palettes face = liftIO $ [C.exp|hb_bool_t { hb_ot_color_has_palettes($face:face) }|] <&> cbool
 
-ot_color_palette_get_count :: MonadIO m => Face -> m Int
-ot_color_palette_get_count face = liftIO $ [C.exp|unsigned int { hb_ot_color_palette_get_count($face:face) }|] <&> fromIntegral
+color_palette_get_count :: MonadIO m => Face -> m Int
+color_palette_get_count face = liftIO $ [C.exp|unsigned int { hb_ot_color_palette_get_count($face:face) }|] <&> fromIntegral
 
-ot_color_palette_get_name_id :: MonadIO m => Face -> Int -> m OpenTypeName
-ot_color_palette_get_name_id face (fromIntegral -> palette_index) = liftIO
+color_palette_get_name_id :: MonadIO m => Face -> Int -> m Name
+color_palette_get_name_id face (fromIntegral -> palette_index) = liftIO
   [C.exp|hb_ot_name_id_t { hb_ot_color_palette_get_name_id($face:face,$(unsigned int palette_index)) }|]
 
-ot_color_palette_color_get_name_id :: MonadIO m => Face -> Int -> m OpenTypeName
-ot_color_palette_color_get_name_id face (fromIntegral -> color_index) = liftIO
+color_palette_color_get_name_id :: MonadIO m => Face -> Int -> m Name
+color_palette_color_get_name_id face (fromIntegral -> color_index) = liftIO
   [C.exp|hb_ot_name_id_t { hb_ot_color_palette_color_get_name_id($face:face,$(unsigned int color_index)) }|]
 
-ot_color_palette_get_flags :: MonadIO m => Face -> Int -> m OpenTypeColorPaletteFlags
-ot_color_palette_get_flags face (fromIntegral -> palette_index) = liftIO
+color_palette_get_flags :: MonadIO m => Face -> Int -> m ColorPaletteFlags
+color_palette_get_flags face (fromIntegral -> palette_index) = liftIO
   [C.exp|hb_ot_color_palette_flags_t { hb_ot_color_palette_get_flags($face:face,$(unsigned int palette_index)) }|]
 
 -- still missing from Data.Primitive.PrimArray as of 0.7
@@ -183,8 +183,8 @@ copyPtrToPrimArray :: forall m a. (PrimMonad m, Prim a) => MutablePrimArray (Pri
 copyPtrToPrimArray (MutablePrimArray mba) ((I# (sizeOf# @a undefined) *) -> I# offset) (Ptr addr) ((I# (sizeOf# @a undefined) *) -> I# len) =
   primitive_ $ \s -> copyAddrToByteArray# addr mba offset len s
 
-ot_color_palette_get_colors :: MonadIO m => Face -> Int -> m (PrimArray Color)
-ot_color_palette_get_colors face (fromIntegral -> palette_index) = liftIO $
+color_palette_get_colors :: MonadIO m => Face -> Int -> m (PrimArray Color)
+color_palette_get_colors face (fromIntegral -> palette_index) = liftIO $
   withSelf face $ \f -> do
     n@(fromIntegral -> i) <- [C.exp|unsigned int { hb_ot_color_palette_get_colors($(hb_face_t * f),$(unsigned int palette_index),0,0,0) }|]
     allocaArray i $ \pcolors ->
@@ -194,11 +194,11 @@ ot_color_palette_get_colors face (fromIntegral -> palette_index) = liftIO $
         copyPtrToPrimArray mpa 0 pcolors i
         unsafeFreezePrimArray mpa
 
-ot_color_has_layers :: MonadIO m => Face -> m Bool
-ot_color_has_layers face = liftIO $ [C.exp|hb_bool_t { hb_ot_color_has_layers($face:face) }|] <&> cbool
+color_has_layers :: MonadIO m => Face -> m Bool
+color_has_layers face = liftIO $ [C.exp|hb_bool_t { hb_ot_color_has_layers($face:face) }|] <&> cbool
 
-ot_color_glyph_get_layers_ :: Face -> Codepoint -> Int -> Int -> IO (Int,Int,[OpenTypeColorLayer])
-ot_color_glyph_get_layers_ face glyph (fromIntegral -> start_offset) requested_layers_count = liftIO $
+color_glyph_get_layers_ :: Face -> Codepoint -> Int -> Int -> IO (Int,Int,[ColorLayer])
+color_glyph_get_layers_ face glyph (fromIntegral -> start_offset) requested_layers_count = liftIO $
     with (fromIntegral requested_layers_count) $ \players_count ->
       allocaArray requested_layers_count $ \players -> do
         total_number_of_layers <- [C.exp|unsigned int {
@@ -215,43 +215,43 @@ ot_color_glyph_get_layers_ face glyph (fromIntegral -> start_offset) requested_l
         pure (total_number_of_layers, retrieved_layers_count, layers)
 
 
-ot_color_glyph_get_layers :: MonadIO m => Face -> Codepoint -> m [OpenTypeColorLayer]
-ot_color_glyph_get_layers face glyph = liftIO $ do
-  (total, retrieved, layers) <- ot_color_glyph_get_layers_ face glyph 0 8
+color_glyph_get_layers :: MonadIO m => Face -> Codepoint -> m [ColorLayer]
+color_glyph_get_layers face glyph = liftIO $ do
+  (total, retrieved, layers) <- color_glyph_get_layers_ face glyph 0 8
   if total == retrieved
   then return layers
-  else ot_color_glyph_get_layers_ face glyph 8 (total - 8) <&> \(_,_,layers2) -> layers ++ layers2
+  else color_glyph_get_layers_ face glyph 8 (total - 8) <&> \(_,_,layers2) -> layers ++ layers2
 
 -- * Math
 
-ot_math_has_data :: MonadIO m => Face -> m Bool
-ot_math_has_data face = liftIO $ [C.exp|hb_bool_t { hb_ot_math_has_data($face:face) }|] <&> cbool
+math_has_data :: MonadIO m => Face -> m Bool
+math_has_data face = liftIO $ [C.exp|hb_bool_t { hb_ot_math_has_data($face:face) }|] <&> cbool
 
-ot_math_get_constant :: MonadIO m => Font -> OpenTypeMathConstant -> m Position
-ot_math_get_constant font k = liftIO
+math_get_constant :: MonadIO m => Font -> MathConstant -> m Position
+math_get_constant font k = liftIO
   [C.exp|hb_position_t { hb_ot_math_get_constant($font:font,$(hb_ot_math_constant_t k)) }|]
 
-ot_math_get_glyph_italics_correction :: MonadIO m => Font -> Codepoint -> m Position
-ot_math_get_glyph_italics_correction font glyph = liftIO
+math_get_glyph_italics_correction :: MonadIO m => Font -> Codepoint -> m Position
+math_get_glyph_italics_correction font glyph = liftIO
   [C.exp|hb_position_t { hb_ot_math_get_glyph_italics_correction($font:font,$(hb_codepoint_t glyph)) }|]
 
-ot_math_get_glyph_top_accent_attachment :: MonadIO m => Font -> Codepoint -> m Position
-ot_math_get_glyph_top_accent_attachment font glyph = liftIO
+math_get_glyph_top_accent_attachment :: MonadIO m => Font -> Codepoint -> m Position
+math_get_glyph_top_accent_attachment font glyph = liftIO
   [C.exp|hb_position_t { hb_ot_math_get_glyph_top_accent_attachment($font:font,$(hb_codepoint_t glyph)) }|]
 
-ot_math_is_glyph_extended_shape :: MonadIO m => Face -> Codepoint -> m Bool
-ot_math_is_glyph_extended_shape face glyph = liftIO $
+math_is_glyph_extended_shape :: MonadIO m => Face -> Codepoint -> m Bool
+math_is_glyph_extended_shape face glyph = liftIO $
   [C.exp|hb_bool_t { hb_ot_math_is_glyph_extended_shape($face:face,$(hb_codepoint_t glyph)) }|] <&> cbool
 
-ot_math_get_glyph_kerning :: MonadIO m => Font -> Codepoint -> OpenTypeMathKern -> Position -> m Position
-ot_math_get_glyph_kerning font glyph kern correction_height = liftIO
+math_get_glyph_kerning :: MonadIO m => Font -> Codepoint -> MathKern -> Position -> m Position
+math_get_glyph_kerning font glyph kern correction_height = liftIO
   [C.exp|hb_position_t { hb_ot_math_get_glyph_kerning($font:font,$(hb_codepoint_t glyph),$(hb_ot_math_kern_t kern),$(hb_position_t correction_height)) }|]
 
-ot_math_get_min_connector_overlap :: MonadIO m => Font -> Direction -> m Position
-ot_math_get_min_connector_overlap font dir = liftIO [C.exp|hb_position_t { hb_ot_math_get_min_connector_overlap($font:font,$(hb_direction_t dir)) }|]
+math_get_min_connector_overlap :: MonadIO m => Font -> Direction -> m Position
+math_get_min_connector_overlap font dir = liftIO [C.exp|hb_position_t { hb_ot_math_get_min_connector_overlap($font:font,$(hb_direction_t dir)) }|]
 
-ot_math_get_glyph_assembly_ :: Font -> Codepoint -> Direction -> Int -> Int -> IO (Int, Int, [OpenTypeMathGlyphPart], Position)
-ot_math_get_glyph_assembly_ font glyph dir (fromIntegral -> start_offset) requested_parts_count = liftIO $
+math_get_glyph_assembly_ :: Font -> Codepoint -> Direction -> Int -> Int -> IO (Int, Int, [MathGlyphPart], Position)
+math_get_glyph_assembly_ font glyph dir (fromIntegral -> start_offset) requested_parts_count = liftIO $
   alloca $ \pitalics_correction ->
     with (fromIntegral requested_parts_count) $ \pparts_count ->
       allocaArray requested_parts_count $ \pparts -> do
@@ -275,15 +275,15 @@ ot_math_get_glyph_assembly_ font glyph dir (fromIntegral -> start_offset) reques
 --
 -- Returned are a list of glyph parts that can be used to draw the glyph and an italics-correction value
 -- (if one is defined in the font).
-ot_math_get_glyph_assembly :: MonadIO m => Font -> Codepoint -> Direction -> m ([OpenTypeMathGlyphPart],Position)
-ot_math_get_glyph_assembly font glyph dir = liftIO $ do
-  (total, retrieved, parts, italics_correction) <- ot_math_get_glyph_assembly_ font glyph dir 0 8
+math_get_glyph_assembly :: MonadIO m => Font -> Codepoint -> Direction -> m ([MathGlyphPart],Position)
+math_get_glyph_assembly font glyph dir = liftIO $ do
+  (total, retrieved, parts, italics_correction) <- math_get_glyph_assembly_ font glyph dir 0 8
   if total == retrieved
   then return (parts, italics_correction)
-  else ot_math_get_glyph_assembly_ font glyph dir 8 (total - 8) <&> \(_,_,parts2,_) -> (parts ++ parts2, italics_correction)
+  else math_get_glyph_assembly_ font glyph dir 8 (total - 8) <&> \(_,_,parts2,_) -> (parts ++ parts2, italics_correction)
 
-ot_math_get_glyph_variants_ :: Font -> Codepoint -> Direction -> Int -> Int -> IO (Int, Int, [OpenTypeMathGlyphVariant])
-ot_math_get_glyph_variants_ font glyph dir (fromIntegral -> start_offset) requested_variants_count = liftIO $
+math_get_glyph_variants_ :: Font -> Codepoint -> Direction -> Int -> Int -> IO (Int, Int, [MathGlyphVariant])
+math_get_glyph_variants_ font glyph dir (fromIntegral -> start_offset) requested_variants_count = liftIO $
     with (fromIntegral requested_variants_count) $ \pvariants_count ->
       allocaArray requested_variants_count $ \pvariants -> do
         total_number_of_variants <- [C.exp|unsigned int {
@@ -304,24 +304,24 @@ ot_math_get_glyph_variants_ font glyph dir (fromIntegral -> start_offset) reques
 -- Fetches the MathGlyphConstruction for the specified font, glyph index, and
 -- direction. The corresponding list of size variants is returned as a list of
 -- @hb_ot_math_glyph_variant_t@ structs.
-ot_math_get_glyph_variants :: MonadIO m => Font -> Codepoint -> Direction -> m [OpenTypeMathGlyphVariant]
-ot_math_get_glyph_variants font glyph dir = liftIO $ do
-  (total, retrieved, variants) <- ot_math_get_glyph_variants_ font glyph dir 0 8
+math_get_glyph_variants :: MonadIO m => Font -> Codepoint -> Direction -> m [MathGlyphVariant]
+math_get_glyph_variants font glyph dir = liftIO $ do
+  (total, retrieved, variants) <- math_get_glyph_variants_ font glyph dir 0 8
   if total == retrieved
   then return variants
-  else ot_math_get_glyph_variants_ font glyph dir 8 (total - 8) <&> \(_,_,variants2) -> variants ++ variants2
+  else math_get_glyph_variants_ font glyph dir 8 (total - 8) <&> \(_,_,variants2) -> variants ++ variants2
 
 -- * Names
 
-ot_name_list_names :: MonadIO m => Face -> m [OpenTypeNameEntry]
-ot_name_list_names face = liftIO $
+name_list_names :: MonadIO m => Face -> m [NameEntry]
+name_list_names face = liftIO $
   alloca $ \plen -> do
     entries <- [C.exp|const hb_ot_name_entry_t * { hb_ot_name_list_names ($face:face,$(unsigned int * plen)) }|]
     len <- peek plen
     peekArray (fromIntegral len) entries -- do not free
 
-ot_name_get_ :: Face -> OpenTypeName -> Language -> Int -> IO (Either Int String)
-ot_name_get_ face name language buflen = do
+name_get_ :: Face -> Name -> Language -> Int -> IO (Either Int String)
+name_get_ face name language buflen = do
   with (fromIntegral buflen) $ \pbuflen -> do
     allocaBytes buflen $ \buf -> do
       full_len <- fromIntegral <$> [C.exp|unsigned int { hb_ot_name_get_utf32($face:face,$(hb_ot_name_id_t name),$language:language,$(unsigned int * pbuflen),$(uint32_t * buf))}|]
@@ -331,16 +331,16 @@ ot_name_get_ face name language buflen = do
         actual_len <- peek pbuflen
         peekArray (fromIntegral actual_len) (castPtr buf)
 
-ot_name_get :: MonadIO m => Face -> OpenTypeName -> Language -> m (Maybe String)
-ot_name_get face name language = liftIO $
-  ot_name_get_ face name language 1024 >>= \case
-    Left n -> ot_name_get_ face name language n >>= \case -- slow path
+name_get :: MonadIO m => Face -> Name -> Language -> m (Maybe String)
+name_get face name language = liftIO $
+  name_get_ face name language 1024 >>= \case
+    Left n -> name_get_ face name language n >>= \case -- slow path
       Left n' -> fail $ "ot_name_get: multiple fetches failed: actual length: " ++ show n'
       Right s -> pure $ Just s
     Right s -> pure $ Just s
 
-ot_shape_glyphs_closure :: MonadIO m => Font -> Buffer -> [Feature] -> Set -> m ()
-ot_shape_glyphs_closure font buffer features glyphs = liftIO $
+shape_glyphs_closure :: MonadIO m => Font -> Buffer -> [Feature] -> Set -> m ()
+shape_glyphs_closure font buffer features glyphs = liftIO $
   withArrayLen features $ \ (fromIntegral -> num_features) pfeatures ->
     [C.block|void { hb_ot_shape_glyphs_closure( $font:font, $buffer:buffer, $(const hb_feature_t * pfeatures), $(unsigned int num_features), $set:glyphs); }|]
 
@@ -349,15 +349,15 @@ ot_shape_glyphs_closure font buffer features glyphs = liftIO $
 -- | Fetches a list of all feature-lookup indexes in the specified face's GSUB table or GPOS table, underneath the specified scripts,
 -- languages, and features. If no list of scripts is provided, all scripts will be queried. If no list of languages is provided, all
 -- languages will be queried. If no list of features is provided, all features will be queried.
-ot_layout_collect_lookups :: MonadIO m => Face -> Tag -> Maybe [Tag] -> Maybe [Tag] -> Maybe [Tag] -> Set -> m ()
-ot_layout_collect_lookups face table_tag scripts languages features lookup_indices = liftIO $
+layout_collect_lookups :: MonadIO m => Face -> Tag -> Maybe [Tag] -> Maybe [Tag] -> Maybe [Tag] -> Set -> m ()
+layout_collect_lookups face table_tag scripts languages features lookup_indices = liftIO $
   [C.block|void { hb_ot_layout_collect_lookups( $face:face, $(hb_tag_t table_tag), $maybe-tags:scripts, $maybe-tags:languages, $maybe-tags:features, $set:lookup_indices); }|]
 
 -- | Fetches a list of all feature indexes in the specified face's GSUB table or GPOS table, underneath the specified scripts,
 -- languages, and features. If no list of scripts is provided, all scripts will be queried. If no list of languages is provided,
 -- all languages will be queried. If no list of features is provided, all features will be queried.
-ot_layout_collect_features :: MonadIO m => Face -> Tag -> Maybe [Tag] -> Maybe [Tag] -> Maybe [Tag] -> Set -> m ()
-ot_layout_collect_features face table_tag scripts languages features feature_indices = liftIO $
+layout_collect_features :: MonadIO m => Face -> Tag -> Maybe [Tag] -> Maybe [Tag] -> Maybe [Tag] -> Set -> m ()
+layout_collect_features face table_tag scripts languages features feature_indices = liftIO $
   [C.block|void { hb_ot_layout_collect_features( $face:face, $(hb_tag_t table_tag), $maybe-tags:scripts, $maybe-tags:languages, $maybe-tags:features, $set:feature_indices); }|]
 
 -- | Fetches a list of the characters defined as having a variant under the specified "Character Variant" ("cvXX") feature tag.
@@ -365,8 +365,8 @@ ot_layout_collect_features face table_tag scripts languages features feature_ind
 -- Note: If the length of the list of codepoints is equal to the supplied char_count then there is a chance that there where
 -- more characters defined under the feature tag than were returned. This function can be called with incrementally larger
 -- start_offset until the char_count output value is lower than its input value, or the size of the characters array can be increased.
-ot_layout_feature_get_characters :: MonadIO m => Face -> Tag -> Int -> Int -> Int -> m (Int, [Codepoint])
-ot_layout_feature_get_characters face table_tag (fromIntegral -> feature_index) (fromIntegral -> start_offset) char_count = liftIO $
+layout_feature_get_characters :: MonadIO m => Face -> Tag -> Int -> Int -> Int -> m (Int, [Codepoint])
+layout_feature_get_characters face table_tag (fromIntegral -> feature_index) (fromIntegral -> start_offset) char_count = liftIO $
   allocaArray char_count $ \ pcharacters ->
     with (fromIntegral char_count) $ \pchar_count -> do
       n <- [C.exp|unsigned int { hb_ot_layout_feature_get_characters( $face:face, $(hb_tag_t table_tag), $(unsigned int feature_index), $(unsigned int start_offset), $(unsigned int * pchar_count), $(hb_codepoint_t * pcharacters)) }|]
@@ -376,8 +376,8 @@ ot_layout_feature_get_characters face table_tag (fromIntegral -> feature_index) 
 
 -- | Fetches a list of all lookups enumerated for the specified feature, in the specified face's GSUB table or GPOS table.
 -- The list returned will begin at the offset provided.
-ot_layout_feature_get_lookups :: MonadIO m => Face -> Tag -> Int -> Int -> Int -> m (Int, [Int])
-ot_layout_feature_get_lookups face table_tag (fromIntegral -> feature_index) (fromIntegral -> start_offset) lookup_count = liftIO $
+layout_feature_get_lookups :: MonadIO m => Face -> Tag -> Int -> Int -> Int -> m (Int, [Int])
+layout_feature_get_lookups face table_tag (fromIntegral -> feature_index) (fromIntegral -> start_offset) lookup_count = liftIO $
   allocaArray lookup_count $ \plookup_indices ->
     with (fromIntegral lookup_count) $ \plookup_count -> do
       n <- [C.exp|unsigned int { hb_ot_layout_feature_get_lookups( $face:face, $(hb_tag_t table_tag), $(unsigned int feature_index), $(unsigned int start_offset), $(unsigned int * plookup_count), $(unsigned int * plookup_indices)) }|]
@@ -387,14 +387,14 @@ ot_layout_feature_get_lookups face table_tag (fromIntegral -> feature_index) (fr
 
 -- * Variation axes
 
-ot_var_has_data :: MonadIO m => Face -> m Bool
-ot_var_has_data face = liftIO $ [C.exp|hb_bool_t { hb_ot_var_has_data($face:face) }|] <&> cbool
+var_has_data :: MonadIO m => Face -> m Bool
+var_has_data face = liftIO $ [C.exp|hb_bool_t { hb_ot_var_has_data($face:face) }|] <&> cbool
 
-ot_var_get_axis_count :: MonadIO m => Face -> m Int
-ot_var_get_axis_count face = liftIO $ [C.exp|unsigned int { hb_ot_var_get_axis_count($face:face) }|] <&> fromIntegral
+var_get_axis_count :: MonadIO m => Face -> m Int
+var_get_axis_count face = liftIO $ [C.exp|unsigned int { hb_ot_var_get_axis_count($face:face) }|] <&> fromIntegral
 
-ot_var_get_axis_infos_ :: Face -> Int -> Int -> IO (Int, Int, [OpenTypeVarAxisInfo])
-ot_var_get_axis_infos_ face (fromIntegral -> start_offset) requested_axes_count = do
+var_get_axis_infos_ :: Face -> Int -> Int -> IO (Int, Int, [VarAxisInfo])
+var_get_axis_infos_ face (fromIntegral -> start_offset) requested_axes_count = do
   with (fromIntegral requested_axes_count) $ \paxes_count ->
     allocaArray requested_axes_count $ \paxes -> do
       total_axes <- [C.exp|unsigned int { hb_ot_var_get_axis_infos($face:face,$(unsigned int start_offset),$(unsigned int * paxes_count),$(hb_ot_var_axis_info_t * paxes)) }|] <&> fromIntegral
@@ -402,31 +402,31 @@ ot_var_get_axis_infos_ face (fromIntegral -> start_offset) requested_axes_count 
       axes <- peekArray retrieved_axes paxes
       pure (total_axes, retrieved_axes, axes)
 
-ot_var_get_axis_infos :: MonadIO m => Face -> m [OpenTypeVarAxisInfo]
-ot_var_get_axis_infos face = liftIO $ do
-  (tot, ret, axes) <- ot_var_get_axis_infos_ face 0 8
+var_get_axis_infos :: MonadIO m => Face -> m [VarAxisInfo]
+var_get_axis_infos face = liftIO $ do
+  (tot, ret, axes) <- var_get_axis_infos_ face 0 8
   if tot == ret
   then pure axes
-  else ot_var_get_axis_infos_ face 8 (tot - 8) <&> \(_,_,axes2) -> axes ++ axes2
+  else var_get_axis_infos_ face 8 (tot - 8) <&> \(_,_,axes2) -> axes ++ axes2
 
-ot_var_find_axis_info :: MonadIO m => Face -> Tag -> m (Maybe OpenTypeVarAxisInfo)
-ot_var_find_axis_info face axis_tag = liftIO $
+var_find_axis_info :: MonadIO m => Face -> Tag -> m (Maybe VarAxisInfo)
+var_find_axis_info face axis_tag = liftIO $
   alloca $ \paxis_info -> do
     b <- [C.exp|hb_bool_t { hb_ot_var_find_axis_info($face:face,$(hb_tag_t axis_tag),$(hb_ot_var_axis_info_t * paxis_info)) }|]
     if cbool b then Just <$> peek paxis_info else pure Nothing
 
-ot_var_get_named_instance_count :: MonadIO m => Face -> m Int
-ot_var_get_named_instance_count face = liftIO $ [C.exp|unsigned int { hb_ot_var_get_named_instance_count($face:face) }|] <&> fromIntegral
+var_get_named_instance_count :: MonadIO m => Face -> m Int
+var_get_named_instance_count face = liftIO $ [C.exp|unsigned int { hb_ot_var_get_named_instance_count($face:face) }|] <&> fromIntegral
 
-ot_var_named_instance_get_subfamily_name_id :: MonadIO m => Face -> Int -> m OpenTypeName
-ot_var_named_instance_get_subfamily_name_id face (fromIntegral -> instance_index) = liftIO [C.exp|hb_ot_name_id_t { hb_ot_var_named_instance_get_subfamily_name_id($face:face,$(unsigned int instance_index)) }|]
+var_named_instance_get_subfamily_name_id :: MonadIO m => Face -> Int -> m Name
+var_named_instance_get_subfamily_name_id face (fromIntegral -> instance_index) = liftIO [C.exp|hb_ot_name_id_t { hb_ot_var_named_instance_get_subfamily_name_id($face:face,$(unsigned int instance_index)) }|]
 
-ot_var_named_instance_get_postscript_name_id :: MonadIO m => Face -> Int -> m OpenTypeName
-ot_var_named_instance_get_postscript_name_id face (fromIntegral -> instance_index) = liftIO [C.exp|hb_ot_name_id_t { hb_ot_var_named_instance_get_postscript_name_id($face:face,$(unsigned int instance_index)) }|]
+var_named_instance_get_postscript_name_id :: MonadIO m => Face -> Int -> m Name
+var_named_instance_get_postscript_name_id face (fromIntegral -> instance_index) = liftIO [C.exp|hb_ot_name_id_t { hb_ot_var_named_instance_get_postscript_name_id($face:face,$(unsigned int instance_index)) }|]
 
-ot_var_normalize_variations :: MonadIO m => Face -> [Variation] -> m [Int]
-ot_var_normalize_variations face variations = liftIO $ do
-  n@(fromIntegral -> num_coords) <- ot_var_get_axis_count face
+var_normalize_variations :: MonadIO m => Face -> [Variation] -> m [Int]
+var_normalize_variations face variations = liftIO $ do
+  n@(fromIntegral -> num_coords) <- var_get_axis_count face
   withArrayLen variations $ \ (fromIntegral -> variations_length) pvariations ->
     allocaArray n $ \ pcoords -> do
       [C.block|void {
@@ -434,8 +434,8 @@ ot_var_normalize_variations face variations = liftIO $ do
       }|]
       fmap fromIntegral <$> peekArray n pcoords
 
-ot_var_normalize_coords :: (MonadIO m, Traversable f) => Face -> f Float -> m (f Int)
-ot_var_normalize_coords face design = liftIO $
+var_normalize_coords :: (MonadIO m, Traversable f) => Face -> f Float -> m (f Int)
+var_normalize_coords face design = liftIO $
   withArrayLen (coerce $ toList design) $ \len@(fromIntegral -> n) pdesign_coords ->
     allocaArray len $ \pnormalized_coords -> do
       [C.block|void { hb_ot_var_normalize_coords($face:face,$(unsigned int n),$(const float * pdesign_coords),$(int * pnormalized_coords)); }|]
