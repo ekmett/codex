@@ -44,7 +44,7 @@ module Graphics.Harfbuzz.OpenType.Layout
 , layout_script_select_language
 , layout_table_find_feature_variations
 -- layout_language_get_required_feature_index
--- layout_table_get_feature_tags
+, layout_table_get_feature_tags
 , layout_table_get_lookup_count
 , layout_table_get_script_tags
 -- layout_table_select_script
@@ -289,10 +289,19 @@ layout_table_get_lookup_count face table_tag = liftIO $
   [C.exp|unsigned int { hb_ot_layout_table_get_lookup_count($face:face,$(hb_tag_t table_tag))}|] <&> fromIntegral
 
 layout_table_get_script_tags :: MonadIO m => Face -> Tag -> m [Tag]
-layout_table_get_script_tags face table_tag = pump MAX_TAGS_PER_SCRIPT $ \start_offset count -> 
+layout_table_get_script_tags face table_tag = pump MAX_TAGS_PER_SCRIPT $ \start_offset count ->
   allocaArray (fromIntegral count) $ \ parray ->
     with count $ \pcount -> do
       n <- [C.exp|unsigned int { hb_ot_layout_table_get_script_tags($face:face,$(hb_tag_t table_tag),$(unsigned int start_offset),$(unsigned int * pcount),$(hb_tag_t * parray))}|]
+      actual_count <- peek pcount
+      cs <- peekArray (fromIntegral actual_count) parray
+      pure (n, actual_count, cs)
+
+layout_table_get_feature_tags :: MonadIO m => Face -> Tag -> m [Tag]
+layout_table_get_feature_tags face table_tag = pump 8 $ \start_offset count ->
+  allocaArray (fromIntegral count) $ \ parray ->
+    with count $ \pcount -> do
+      n <- [C.exp|unsigned int { hb_ot_layout_table_get_feature_tags($face:face,$(hb_tag_t table_tag),$(unsigned int start_offset),$(unsigned int * pcount),$(hb_tag_t * parray))}|]
       actual_count <- peek pcount
       cs <- peekArray (fromIntegral actual_count) parray
       pure (n, actual_count, cs)
