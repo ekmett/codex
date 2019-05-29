@@ -299,8 +299,8 @@ ot_var_find_axis_info face axis_tag = liftIO $
 ot_var_get_named_instance_count :: MonadIO m => Face -> m Int
 ot_var_get_named_instance_count face = liftIO $ [C.exp|unsigned int { hb_ot_var_get_named_instance_count($face:face) }|] <&> fromIntegral
 
-ot_var_named_instance_get_subfamily_name_id :: MonadIO m => Face -> Int -> m OpenTypeName 
+ot_var_named_instance_get_subfamily_name_id :: MonadIO m => Face -> Int -> m OpenTypeName
 ot_var_named_instance_get_subfamily_name_id face (fromIntegral -> instance_index) = liftIO [C.exp|hb_ot_name_id_t { hb_ot_var_named_instance_get_subfamily_name_id($face:face,$(unsigned int instance_index)) }|]
 
-ot_var_named_instance_get_postscript_name_id :: MonadIO m => Face -> Int -> m OpenTypeName 
+ot_var_named_instance_get_postscript_name_id :: MonadIO m => Face -> Int -> m OpenTypeName
 ot_var_named_instance_get_postscript_name_id face (fromIntegral -> instance_index) = liftIO [C.exp|hb_ot_name_id_t { hb_ot_var_named_instance_get_postscript_name_id($face:face,$(unsigned int instance_index)) }|]
