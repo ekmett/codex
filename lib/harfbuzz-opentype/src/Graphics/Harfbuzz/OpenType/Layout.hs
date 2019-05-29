@@ -22,6 +22,8 @@ module Graphics.Harfbuzz.OpenType.Layout
 , layout_collect_lookups
 , layout_feature_get_characters
 , layout_feature_get_lookups
+, layout_feature_get_name_ids
+, layout_feature_with_variations_get_lookups
 -- ...
 ) where
 
@@ -113,3 +115,30 @@ layout_feature_get_lookups face table_tag feature_index = liftIO $ do
   (tot,ret,cs) <- layout_feature_get_lookups_ face table_tag feature_index 0 256
   if tot == ret then pure cs
   else layout_feature_get_lookups_ face table_tag feature_index 256 (tot - 256) <&> \(_,_,ds) -> cs ++ ds
+
+-- | Tag = TAG_GSUB or TAG_POS
+layout_feature_get_name_ids :: MonadIO m => Face -> Tag -> Int -> m (Maybe (Name, Name, Name, Int, Name))
+layout_feature_get_name_ids face table_tag (fromIntegral -> feature_index) = liftIO $  
+  allocaArray 4 $ \ pids -> 
+    alloca $ \pnum_named_parameters -> do
+      b <- [C.block|hb_bool_t {
+         hb_ot_name_id_t * ids = $(hb_ot_name_id_t * pids);
+         return hb_ot_layout_feature_get_name_ids($face:face,$(hb_tag_t table_tag),$(unsigned int feature_index),ids,ids+1,ids+2,$(unsigned int * pnum_named_parameters),ids+3);
+      }|]
+      if cbool b then fmap Just $ (,,,,) <$> peek pids <*> peek (advancePtr pids 1) <*> peek (advancePtr pids 2) <*> (fromIntegral <$> peek pnum_named_parameters) <*> peek (advancePtr pids 3)
+      else pure Nothing
+      
+layout_feature_with_variations_get_lookups_ :: Face -> Tag -> Int -> Int -> Int -> Int -> IO (Int,Int,[Int])
+layout_feature_with_variations_get_lookups_ face table_tag (fromIntegral -> feature_index) (fromIntegral -> variations_index) (fromIntegral -> start_offset) lookup_count = do
+  allocaArray lookup_count $ \ plookup_indices ->
+    with (fromIntegral lookup_count) $ \plookup_count -> do
+      n <- [C.exp|unsigned int { hb_ot_layout_feature_with_variations_get_lookups($face:face,$(hb_tag_t table_tag),$(unsigned int feature_index),$(unsigned int variations_index),$(unsigned int start_offset),$(unsigned int * plookup_count), $(hb_codepoint_t * plookup_indices)) }|]
+      actual_lookup_count <- fromIntegral <$> peek plookup_count
+      cs <- peekArray actual_lookup_count plookup_count
+      pure (fromIntegral n, actual_lookup_count, fromIntegral <$> cs)
+
+layout_feature_with_variations_get_lookups :: MonadIO m => Face -> Tag -> Int -> Int -> m [Int]
+layout_feature_with_variations_get_lookups face table_tag feature_index variations_index = liftIO $ do
+  (tot,ret,cs) <- layout_feature_with_variations_get_lookups_ face table_tag feature_index variations_index 0 256
+  if tot == ret then pure cs
+  else layout_feature_with_variations_get_lookups_ face table_tag feature_index variations_index 256 (tot - 256) <&> \(_,_,ds) -> cs ++ ds
