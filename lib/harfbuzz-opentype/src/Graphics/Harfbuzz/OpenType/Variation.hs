@@ -46,7 +46,7 @@ var_get_axis_count :: MonadIO m => Face -> m Int
 var_get_axis_count face = liftIO $ [C.exp|unsigned int { hb_ot_var_get_axis_count($face:face) }|] <&> fromIntegral
 
 var_get_axis_infos :: MonadIO m => Face -> m [VarAxisInfo]
-var_get_axis_infos face = pump 8 $ \start_offset requested_axes_count -> 
+var_get_axis_infos face = pump 8 $ \start_offset requested_axes_count ->
   with requested_axes_count $ \paxes_count ->
     allocaArray (fromIntegral requested_axes_count) $ \paxes -> do
       total_axes <- [C.exp|unsigned int { hb_ot_var_get_axis_infos($face:face,$(unsigned int start_offset),$(unsigned int * paxes_count),$(hb_ot_var_axis_info_t * paxes)) }|]
