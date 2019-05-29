@@ -57,6 +57,7 @@ library
   reexported-modules: Graphics.Harfbuzz.Internal
   exposed-modules:
     Graphics.Harfbuzz
+    Graphics.Harfbuzz.Object
     Graphics.Harfbuzz.OpenType
     Graphics.Harfbuzz.Version
 

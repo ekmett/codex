@@ -34,3 +34,4 @@ version = liftIO $ allocaArray 3 $ \abc -> do
 
 version_string :: MonadIO m => m String
 version_string = liftIO $ [C.exp|const char * { hb_version_string() }|] >>= peekCString
+
