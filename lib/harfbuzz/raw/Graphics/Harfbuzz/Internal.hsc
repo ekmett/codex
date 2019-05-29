@@ -113,7 +113,35 @@ module Graphics.Harfbuzz.Internal
   , OT_LAYOUT_GLYPH_CLASS_MARK
   , OT_LAYOUT_GLYPH_CLASS_COMPONENT
   )
-, OpenTypeName(..)
+, OpenTypeName
+  ( OpenTypeName
+  , OT_NAME_ID_COPYRIGHT
+  , OT_NAME_ID_FONT_FAMILY
+  , OT_NAME_ID_FONT_SUBFAMILY
+  , OT_NAME_ID_UNIQUE_ID
+  , OT_NAME_ID_FULL_NAME
+  , OT_NAME_ID_POSTSCRIPT_NAME
+  , OT_NAME_ID_TRADEMARK
+  , OT_NAME_ID_MANUFACTURER
+  , OT_NAME_ID_DESIGNER
+  , OT_NAME_ID_DESCRIPTION
+  , OT_NAME_ID_VENDOR_URL
+  , OT_NAME_ID_DESIGNER_URL
+  , OT_NAME_ID_LICENSE
+  , OT_NAME_ID_LICENSE_URL
+  , OT_NAME_ID_TYPOGRAPHIC_FAMILY
+  , OT_NAME_ID_TYPOGRAPHIC_SUBFAMILY
+  , OT_NAME_ID_MAC_FULL_NAME
+  , OT_NAME_ID_SAMPLE_TEXT
+  , OT_NAME_ID_CID_FINDFONT_NAME
+  , OT_NAME_ID_WWS_FAMILY
+  , OT_NAME_ID_WWS_SUBFAMILY
+  , OT_NAME_ID_LIGHT_BACKGROUND
+  , OT_NAME_ID_DARK_BACKGROUND
+  , OT_NAME_ID_VARIATIONS_PS_PREFIX
+  , OT_NAME_ID_INVALID
+  )
+, OpenTypeNameEntry
 , Position
 , ReferenceTableFunc
 , Script
@@ -517,6 +545,24 @@ newtype OpenTypeLayoutGlyphClass = OpenTypeLayoutGlyphClass CInt deriving (Eq,Or
 -- from other APIs. These can be used to fetch name strings from a font face.
 newtype OpenTypeName = OpenTypeName Word32 deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 
+data OpenTypeNameEntry = OpenTypeNameEntry
+  { ot_name_entry_name_id  :: {-# unpack #-} !OpenTypeName
+  , ot_name_entry_var      :: {-# unpack #-} !Word32 -- private
+  , ot_name_entry_language :: {-# unpack #-} !Language
+  } deriving (Eq,Ord)
+
+instance Storable OpenTypeNameEntry where
+  sizeOf _ = #size hb_ot_name_entry_t
+  alignment _ = #alignment hb_ot_name_entry_t
+  peek p = OpenTypeNameEntry
+   <$> (#peek hb_ot_name_entry_t, name_id) p
+   <*> (#peek hb_ot_name_entry_t, var ) p
+   <*> (#peek hb_ot_name_entry_t, language) p
+  poke p OpenTypeNameEntry{..} = do
+   (#poke hb_ot_name_entry_t, name_id) p ot_name_entry_name_id
+   (#poke hb_ot_name_entry_t, var ) p ot_name_entry_var
+   (#poke hb_ot_name_entry_t, language) p ot_name_entry_language
+
 type Position = Word32
 
 type BufferMessageFunc a = Ptr Buffer -> Ptr Font -> CString -> Ptr a -> IO ()
@@ -760,6 +806,8 @@ language_to_string (Language l) = unsafeLocalState (peekCString cstr) where
 instance Default Map where
   def = unsafeLocalState $ [C.exp|hb_map_t * { hb_map_get_empty() }|] >>= fmap Map . newForeignPtr_
   {-# noinline def #-}
+
+deriving instance Show OpenTypeNameEntry
 
 instance IsString Script where
   fromString (fromString -> tag) = [C.pure|hb_script_t { hb_script_from_iso15924_tag($(hb_tag_t tag)) }|]
@@ -1344,6 +1392,32 @@ pattern OT_LAYOUT_GLYPH_CLASS_LIGATURE = (#const HB_OT_LAYOUT_GLYPH_CLASS_LIGATU
 pattern OT_LAYOUT_GLYPH_CLASS_MARK = (#const HB_OT_LAYOUT_GLYPH_CLASS_MARK) :: OpenTypeLayoutGlyphClass
 pattern OT_LAYOUT_GLYPH_CLASS_COMPONENT = (#const HB_OT_LAYOUT_GLYPH_CLASS_COMPONENT) :: OpenTypeLayoutGlyphClass
 
+pattern OT_NAME_ID_COPYRIGHT = (#const HB_OT_NAME_ID_COPYRIGHT) :: OpenTypeName
+pattern OT_NAME_ID_FONT_FAMILY = (#const HB_OT_NAME_ID_FONT_FAMILY) :: OpenTypeName
+pattern OT_NAME_ID_FONT_SUBFAMILY = (#const HB_OT_NAME_ID_FONT_SUBFAMILY) :: OpenTypeName
+pattern OT_NAME_ID_UNIQUE_ID = (#const HB_OT_NAME_ID_UNIQUE_ID) :: OpenTypeName
+pattern OT_NAME_ID_FULL_NAME = (#const HB_OT_NAME_ID_FULL_NAME) :: OpenTypeName
+pattern OT_NAME_ID_POSTSCRIPT_NAME = (#const HB_OT_NAME_ID_POSTSCRIPT_NAME) :: OpenTypeName
+pattern OT_NAME_ID_TRADEMARK = (#const HB_OT_NAME_ID_TRADEMARK) :: OpenTypeName
+pattern OT_NAME_ID_MANUFACTURER = (#const HB_OT_NAME_ID_MANUFACTURER) :: OpenTypeName
+pattern OT_NAME_ID_DESIGNER = (#const HB_OT_NAME_ID_DESIGNER) :: OpenTypeName
+pattern OT_NAME_ID_DESCRIPTION = (#const HB_OT_NAME_ID_DESCRIPTION) :: OpenTypeName
+pattern OT_NAME_ID_VENDOR_URL = (#const HB_OT_NAME_ID_VENDOR_URL) :: OpenTypeName
+pattern OT_NAME_ID_DESIGNER_URL = (#const HB_OT_NAME_ID_DESIGNER_URL) :: OpenTypeName
+pattern OT_NAME_ID_LICENSE = (#const HB_OT_NAME_ID_LICENSE) :: OpenTypeName
+pattern OT_NAME_ID_LICENSE_URL = (#const HB_OT_NAME_ID_LICENSE_URL) :: OpenTypeName
+pattern OT_NAME_ID_TYPOGRAPHIC_FAMILY = (#const HB_OT_NAME_ID_TYPOGRAPHIC_FAMILY) :: OpenTypeName
+pattern OT_NAME_ID_TYPOGRAPHIC_SUBFAMILY = (#const HB_OT_NAME_ID_TYPOGRAPHIC_SUBFAMILY) :: OpenTypeName
+pattern OT_NAME_ID_MAC_FULL_NAME = (#const HB_OT_NAME_ID_MAC_FULL_NAME) :: OpenTypeName
+pattern OT_NAME_ID_SAMPLE_TEXT = (#const HB_OT_NAME_ID_SAMPLE_TEXT) :: OpenTypeName
+pattern OT_NAME_ID_CID_FINDFONT_NAME = (#const HB_OT_NAME_ID_CID_FINDFONT_NAME) :: OpenTypeName
+pattern OT_NAME_ID_WWS_FAMILY = (#const HB_OT_NAME_ID_WWS_FAMILY) :: OpenTypeName
+pattern OT_NAME_ID_WWS_SUBFAMILY = (#const HB_OT_NAME_ID_WWS_SUBFAMILY) :: OpenTypeName
+pattern OT_NAME_ID_LIGHT_BACKGROUND = (#const HB_OT_NAME_ID_LIGHT_BACKGROUND) :: OpenTypeName
+pattern OT_NAME_ID_DARK_BACKGROUND = (#const HB_OT_NAME_ID_DARK_BACKGROUND) :: OpenTypeName
+pattern OT_NAME_ID_VARIATIONS_PS_PREFIX = (#const HB_OT_NAME_ID_VARIATIONS_PS_PREFIX) :: OpenTypeName
+pattern OT_NAME_ID_INVALID = (#const HB_OT_NAME_ID_INVALID) :: OpenTypeName
+
 #endif
 
 -- * Finalization
@@ -1414,13 +1488,16 @@ anti cTy hsTyQ w = C.SomeAntiQuoter C.AntiQuoter
     return (cId, cTy, hId)
   , C.aqMarshaller = \_purity _cTypes _cTy cId -> do
     hsTy <- hsTyQ
-    hsExp <- getHsVariable "fontConfigCtx" cId
+    hsExp <- getHsVariable "harfbuzzCtx" cId
     hsExp' <- [|$w (coerce $(pure hsExp))|]
     return (hsTy, hsExp')
   }
 
 withKey :: Key a -> (Ptr OpaqueKey -> IO r) -> IO r
 withKey (Key k) = withForeignPtr k
+
+ptr :: C.TypeSpecifier -> C.Type i
+ptr = C.Ptr [] . C.TypeSpecifier mempty
 
 harfbuzzCtx :: C.Context
 harfbuzzCtx = mempty
@@ -1491,13 +1568,18 @@ harfbuzzCtx = mempty
     , ("maybe-tags", anti (ptr $ C.TypeName "hb_tag_t") [t|Ptr Tag|] [|maybeWith (withArray0 TAG_NONE) |])
     , ("unicode-funcs", anti (ptr $ C.TypeName "hb_unicode_funcs_t") [t|Ptr UnicodeFuncs|] [|withSelf|])
     ]
-  } where ptr = C.Ptr [] . C.TypeSpecifier mempty
+  }
+
 
 harfbuzzOpenTypeCtx :: C.Context
 harfbuzzOpenTypeCtx = harfbuzzCtx <> mempty
   { C.ctxTypesTable = Map.fromList
     [ (C.TypeName "hb_ot_name_id_t", [t|OpenTypeName|])
+    , (C.TypeName "hb_ot_name_entry_t", [t|OpenTypeNameEntry|])
     , (C.TypeName "hb_ot_layout_glyph_class_t", [t|OpenTypeLayoutGlyphClass|])
+    ]
+  , C.ctxAntiQuoters = Map.fromList
+    [ ("ot-name-entry", anti (ptr $ C.TypeName "hb_ot_name_entry_t") [t|Ptr OpenTypeNameEntry|] [|with|])
     ]
   }
 
