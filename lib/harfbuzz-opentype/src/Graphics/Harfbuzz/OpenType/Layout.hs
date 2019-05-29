@@ -34,7 +34,7 @@ module Graphics.Harfbuzz.OpenType.Layout
 , layout_has_substitution
 , layout_language_find_feature
 , layout_language_get_feature_indexes
--- layout_language_get_feature_tags
+, layout_language_get_feature_tags
 -- layout_language_get_required_feature
 -- layout_lookup_collect_glyphs
 -- layout_lookup_substitute_closure
@@ -225,3 +225,12 @@ layout_language_get_feature_indexes face table_tag (fromIntegral -> script_index
       actual_count <- peek pcount
       cs <- peekArray (fromIntegral actual_count) parray
       pure (n, actual_count, fromIntegral <$> cs)
+
+layout_language_get_feature_tags :: MonadIO m => Face -> Tag -> Int -> Int -> m [Tag]
+layout_language_get_feature_tags face table_tag (fromIntegral -> script_index) (fromIntegral -> language_index) = pump 10 $ \ start_offset count ->
+  allocaArray (fromIntegral count) $ \ parray ->
+    with count $ \pcount -> do
+      n <- [C.exp|unsigned int { hb_ot_layout_language_get_feature_tags($face:face,$(hb_tag_t table_tag),$(unsigned int script_index),$(unsigned int language_index),$(unsigned int start_offset),$(unsigned int * pcount),$(hb_tag_t * parray)) }|]
+      actual_count <- peek pcount
+      cs <- peekArray (fromIntegral actual_count) parray
+      pure (n, actual_count, cs)
