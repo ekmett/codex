@@ -36,7 +36,7 @@ module Graphics.Harfbuzz.OpenType.Layout
 , layout_language_get_feature_indexes
 , layout_language_get_feature_tags
 , layout_language_get_required_feature
--- layout_lookup_collect_glyphs
+, layout_lookup_collect_glyphs
 -- layout_lookup_substitute_closure
 -- layout_lookups_substitute_closure
 -- layout_lookup_would_substitute ()
@@ -243,4 +243,6 @@ layout_language_get_required_feature face table_tag (fromIntegral -> script_inde
     then Just <$> do (,) . fromIntegral <$> peek pfeature_index <*> peek pfeature_tag
     else pure Nothing
 
-
+layout_lookup_collect_glyphs :: MonadIO m => Face -> Tag -> Int -> Maybe Set -> Maybe Set -> Maybe Set -> Maybe Set -> m ()
+layout_lookup_collect_glyphs face table_tag (fromIntegral -> lookup_index) glyphs_before glyphs_input glyphs_after glyphs_output = liftIO
+  [C.block|void{hb_ot_layout_lookup_collect_glyphs($face:face,$(hb_tag_t table_tag),$(unsigned int lookup_index),$maybe-set:glyphs_before,$maybe-set:glyphs_input,$maybe-set:glyphs_after,$maybe-set:glyphs_output);}|]
