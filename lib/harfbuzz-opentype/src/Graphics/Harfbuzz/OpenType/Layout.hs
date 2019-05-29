@@ -43,7 +43,7 @@ module Graphics.Harfbuzz.OpenType.Layout
 , layout_script_get_language_tags
 , layout_script_select_language
 , layout_table_find_feature_variations
--- layout_language_get_required_feature_index
+, layout_language_get_required_feature_index
 , layout_table_get_feature_tags
 , layout_table_get_lookup_count
 , layout_table_get_script_tags
@@ -240,6 +240,14 @@ layout_language_get_required_feature face table_tag (fromIntegral -> script_inde
     b <- [C.exp|hb_bool_t { hb_ot_layout_language_get_required_feature($face:face,$(hb_tag_t table_tag),$(unsigned int script_index),$(unsigned int language_index),$(unsigned int * pfeature_index),$(hb_tag_t * pfeature_tag))}|]
     if cbool b
     then Just <$> do (,) . fromIntegral <$> peek pfeature_index <*> peek pfeature_tag
+    else pure Nothing
+
+layout_language_get_required_feature_index :: MonadIO m => Face -> Tag -> Int -> Int -> m (Maybe Int)
+layout_language_get_required_feature_index face table_tag (fromIntegral -> script_index) (fromIntegral -> language_index) = liftIO $
+  alloca $ \pfeature_index -> do
+    b <- [C.exp|hb_bool_t { hb_ot_layout_language_get_required_feature_index($face:face,$(hb_tag_t table_tag),$(unsigned int script_index),$(unsigned int language_index),$(unsigned int * pfeature_index))}|]
+    if cbool b
+    then Just . fromIntegral <$> peek pfeature_index
     else pure Nothing
 
 layout_lookup_collect_glyphs :: MonadIO m => Face -> Tag -> Int -> Maybe Set -> Maybe Set -> Maybe Set -> Maybe Set -> m ()
