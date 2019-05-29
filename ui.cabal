@@ -67,6 +67,8 @@ common common
       fontconfig,
       freetype,
       harfbuzz,
+      harfbuzz-icu,
+      hkd,
       weak
 
   if flag(embed)

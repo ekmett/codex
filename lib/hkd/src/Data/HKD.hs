@@ -30,6 +30,9 @@ module Data.HKD
   , Tab(..)
   , indexLog
   , Element(..)
+  , Nat(..)
+  , A(..)
+  , Lim(..)
   ) where
 
 import Control.Applicative
@@ -48,6 +51,9 @@ import GHC.Generics
 (.#) :: Coercible a b => (b -> c) -> (a -> b) -> a -> c
 (.#) f _ = coerce f
 
+infixr 9 #.
+infixr 8 .#
+
 type f ~> g = forall a. f a -> g a
 
 -- * FFunctor
@@ -56,7 +62,7 @@ class FFunctor t where
   ffmap :: (f ~> g) -> t f -> t g
 
 instance (Functor f, FFunctor g) => FFunctor (Compose f g) where
-  ffmap f = Compose . fmap (ffmap f) . getCompose
+  ffmap f = Compose #. fmap (ffmap f) .# getCompose
 
 instance (FFunctor f, FFunctor g) => FFunctor (Product f g) where
   ffmap f (Pair g h) = Pair (ffmap f g) (ffmap f h)
@@ -66,7 +72,7 @@ instance (FFunctor f, FFunctor g) => FFunctor (Sum f g) where
   ffmap f (InR h) = InR (ffmap f h)
 
 instance (Functor f, FFunctor g) => FFunctor (f :.: g) where
-  ffmap f = Comp1 . fmap (ffmap f) . unComp1
+  ffmap f = Comp1 #. fmap (ffmap f) .# unComp1
 
 instance (FFunctor f, FFunctor g) => FFunctor (f :*: g) where
   ffmap f (g :*: h) = ffmap f g :*: ffmap f h
@@ -101,18 +107,9 @@ class FFoldable t where
 flength :: FFoldable t => t f -> Int
 flength = flengthAcc 0 
 
-data M m where
-  M :: m a -> M m
-
-instance Applicative m => Semigroup (M m) where
-  M m <> M n = M (m *> n)
-
-instance Applicative m => Monoid (M m) where
-  mempty = M (pure ())
-
 ftraverse_ :: (FFoldable t, Applicative m) => (forall a. f a -> m b) -> t f -> m ()
-ftraverse_ k tf = case ffoldMap (M . k) tf of
-  M mx -> () <$ mx
+ftraverse_ k tf = case ffoldMap (A . k) tf of
+  A mx -> () <$ mx
 
 ffor_ :: (FFoldable t, Applicative m) => t f -> (forall a. f a -> m b) -> m ()
 ffor_ tf k = ftraverse_ k tf
@@ -140,7 +137,7 @@ instance FFoldable V1 where
 #endif
 
 instance (Foldable f, FFoldable g) => FFoldable (Compose f g) where
-  ffoldMap f = foldMap (ffoldMap f) . getCompose
+  ffoldMap f = foldMap (ffoldMap f) .# getCompose
 
 instance (FFoldable f, FFoldable g) => FFoldable (Product f g) where
   ffoldMap f (Pair g h) = ffoldMap f g <> ffoldMap f h
@@ -151,7 +148,7 @@ instance (FFoldable f, FFoldable g) => FFoldable (Sum f g) where
   ffoldMap f (InR h) = ffoldMap f h
 
 instance (Foldable f, FFoldable g) => FFoldable (f :.: g) where
-  ffoldMap f = foldMap (ffoldMap f) . unComp1
+  ffoldMap f = foldMap (ffoldMap f) .# unComp1
 
 instance (FFoldable f, FFoldable g) => FFoldable (f :*: g) where
   ffoldMap f (g :*: h) = ffoldMap f g <> ffoldMap f h
@@ -177,10 +174,10 @@ ffor :: (FTraversable t, Applicative m) => t f -> (forall a. f a -> m (g a)) -> 
 ffor tf k = ftraverse k tf
 
 instance FTraversable (Const a) where
-  ftraverse _ (Const a) = pure (Const a)
+  ftraverse _ = pure .# (Const . getConst)
 
 instance FTraversable (K1 i a) where
-  ftraverse _ (K1 a) = pure (K1 a)
+  ftraverse _ = pure .# (K1 . unK1)
 
 instance FTraversable Proxy where
   ftraverse _ Proxy = pure Proxy
@@ -194,7 +191,7 @@ instance FTraversable V1 where
 #endif
 
 instance (Traversable f, FTraversable g) => FTraversable (Compose f g) where
-  ftraverse f = fmap Compose . traverse (ftraverse f) . getCompose
+  ftraverse f = fmap Compose . traverse (ftraverse f) .# getCompose
 
 instance (FTraversable f, FTraversable g) => FTraversable (Product f g) where
   ftraverse f (Pair g h) = Pair <$> ftraverse f g <*> ftraverse f h
@@ -204,7 +201,7 @@ instance (FTraversable f, FTraversable g) => FTraversable (Sum f g) where
   ftraverse f (InR h) = InR <$> ftraverse f h
 
 instance (Traversable f, FTraversable g) => FTraversable (f :.: g) where
-  ftraverse f = fmap Comp1 . traverse (ftraverse f) . unComp1
+  ftraverse f = fmap Comp1 . traverse (ftraverse f) .# unComp1
 
 instance (FTraversable f, FTraversable g) => FTraversable (f :*: g) where
   ftraverse f (g :*: h) = (:*:) <$> ftraverse f g <*> ftraverse f h
@@ -235,9 +232,8 @@ instance FContravariant V1 where
   fcontramap _ = \case
 #endif
 
-
 instance (Functor f, FContravariant g) => FContravariant (Compose f g) where
-  fcontramap f = Compose . fmap (fcontramap f) . getCompose
+  fcontramap f = Compose #. fmap (fcontramap f) .# getCompose
 
 instance (FContravariant f, FContravariant g) => FContravariant (Product f g) where
   fcontramap f (Pair g h) = Pair (fcontramap f g) (fcontramap f h)
@@ -247,7 +243,7 @@ instance (FContravariant f, FContravariant g) => FContravariant (Sum f g) where
   fcontramap f (InR h) = InR (fcontramap f h)
 
 instance (Functor f, FContravariant g) => FContravariant (f :.: g) where
-  fcontramap f = Comp1 . fmap (fcontramap f) . unComp1
+  fcontramap f = Comp1 #. fmap (fcontramap f) .# unComp1
 
 instance (FContravariant f, FContravariant g) => FContravariant (f :*: g) where
   fcontramap f (g :*: h) = fcontramap f g :*: fcontramap f h
@@ -271,6 +267,8 @@ newtype Tab a f = Tab { runTab :: Log f -> a }
 instance FFunctor (Tab a) where
   ffmap f g = Tab (runTab g . fcontramap f)
 
+-- * Elements
+
 newtype Element a f = Element { runElement :: f a }
 
 instance FFunctor (Element a) where
@@ -282,3 +280,38 @@ instance FFoldable (Element a) where
  
 instance FTraversable (Element a) where
   ftraverse f (Element g) = Element <$> f g
+
+-- * "natural" transformations via parametricity
+
+newtype Nat f g = Nat (f ~> g)
+
+instance FFunctor (Nat f) where
+  ffmap f (Nat g) = Nat (f . g)
+
+data A m where
+  A :: m a -> A m
+
+instance Applicative m => Semigroup (A m) where
+  A m <> A n = A (m *> n)
+
+instance Applicative m => Monoid (A m) where
+  mempty = A (pure ())
+
+instance FFunctor A where
+  ffmap f (A m) = A (f m)
+
+instance FFoldable A where
+  ffoldMap f (A m) = f m
+  flengthAcc len _ = len + 1
+
+instance FTraversable A where
+  ftraverse f (A m) = A <$> f m
+
+newtype Lim f = Lim { runLim :: forall a. f a }
+
+instance FFunctor Lim where
+  ffmap f (Lim g) = Lim (f g)
+
+instance FFoldable Lim where
+  ffoldMap f (Lim g) = f g
+  flengthAcc len _ = len + 1
