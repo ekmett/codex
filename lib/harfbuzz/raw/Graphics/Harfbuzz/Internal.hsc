@@ -105,7 +105,15 @@ module Graphics.Harfbuzz.Internal
   , MEMORY_MODE_DUPLICATE, MEMORY_MODE_READONLY
   , MEMORY_MODE_WRITABLE, MEMORY_MODE_READONLY_MAY_MAKE_WRITABLE
   )
-, Name
+, OpenTypeLayoutGlyphClass
+  ( OpenTypeLayoutGlyphClass
+  , OT_LAYOUT_GLYPH_CLASS_UNCLASSIFIED
+  , OT_LAYOUT_GLYPH_CLASS_BASE_GLYPH
+  , OT_LAYOUT_GLYPH_CLASS_LIGATURE
+  , OT_LAYOUT_GLYPH_CLASS_MARK
+  , OT_LAYOUT_GLYPH_CLASS_COMPONENT
+  )
+, OpenTypeName(..)
 , Position
 , ReferenceTableFunc
 , Script
@@ -166,6 +174,13 @@ module Graphics.Harfbuzz.Internal
 , Tag
   ( Tag, TAG
   , TAG_NONE, TAG_MAX, TAG_MAX_SIGNED
+  , OT_TAG_BASE
+  , OT_TAG_GDEF
+  , OT_TAG_GPOS
+  , OT_TAG_GSUB
+  , OT_TAG_JSTF
+  , OT_TAG_DEFAULT_LANGUAGE
+  , OT_TAG_DEFAULT_SCRIPT
   )
 , UnicodeCombiningClass
   ( UnicodeCombiningClass
@@ -329,6 +344,7 @@ import Text.Read
 
 #ifndef HLINT
 #include <hb.h>
+#include <hb-ot.h>
 #endif
 
 -- | A 'Blob' wraps a chunk of binary data to handle lifecycle management of data while it is passed between client and HarfBuzz.
@@ -486,10 +502,11 @@ newtype Map = Map (ForeignPtr Map) deriving (Eq,Ord,Show,Data)
 
 newtype MemoryMode = MemoryMode CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 
+newtype OpenTypeLayoutGlyphClass = OpenTypeLayoutGlyphClass CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+
 -- | An OpenType 'name' table identifier. There are predefined names, as well as name IDs returned
--- from other APIs. These can be used to fetch name strings from a font face. Only used for OpenType
--- integration, and not a core part of this API, therefore it is left more or less unwrapped.
-type Name = Word32
+-- from other APIs. These can be used to fetch name strings from a font face.
+newtype OpenTypeName = OpenTypeName Word32 deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 
 type Position = Word32
 
@@ -842,6 +859,14 @@ newByteStringCStringLen (Strict.PS fp o l) = do
 pattern TAG_NONE = (#const HB_TAG_NONE) :: Tag
 pattern TAG_MAX = (#const HB_TAG_MAX) :: Tag
 pattern TAG_MAX_SIGNED = (#const HB_TAG_MAX_SIGNED) :: Tag
+
+pattern OT_TAG_BASE = (#const HB_OT_TAG_BASE) :: Tag -- "BASE"
+pattern OT_TAG_GDEF = (#const HB_OT_TAG_GDEF) :: Tag -- "GDEF"
+pattern OT_TAG_GPOS = (#const HB_OT_TAG_GPOS) :: Tag -- "GPOS"
+pattern OT_TAG_GSUB = (#const HB_OT_TAG_GSUB) :: Tag -- "GSUB"
+pattern OT_TAG_JSTF = (#const HB_OT_TAG_JSTF) :: Tag -- "JSTF"
+pattern OT_TAG_DEFAULT_LANGUAGE = (#const HB_OT_TAG_DEFAULT_LANGUAGE) :: Tag -- "dflt"
+pattern OT_TAG_DEFAULT_SCRIPT = (#const HB_OT_TAG_DEFAULT_SCRIPT) :: Tag -- "DFLT"
 
 pattern DIRECTION_INVALID = (#const HB_DIRECTION_INVALID) :: Direction
 pattern DIRECTION_LTR = (#const HB_DIRECTION_LTR) :: Direction
@@ -1303,6 +1328,12 @@ pattern BUFFER_DIFF_FLAG_POSITION_MISMATCH = (#const HB_BUFFER_DIFF_FLAG_POSITIO
 
 pattern SHAPER_INVALID = Shaper NULL :: Shaper
 
+pattern OT_LAYOUT_GLYPH_CLASS_UNCLASSIFIED = (#const HB_OT_LAYOUT_GLYPH_CLASS_UNCLASSIFIED) :: OpenTypeLayoutGlyphClass
+pattern OT_LAYOUT_GLYPH_CLASS_BASE_GLYPH = (#const HB_OT_LAYOUT_GLYPH_CLASS_BASE_GLYPH) :: OpenTypeLayoutGlyphClass
+pattern OT_LAYOUT_GLYPH_CLASS_LIGATURE = (#const HB_OT_LAYOUT_GLYPH_CLASS_LIGATURE) :: OpenTypeLayoutGlyphClass
+pattern OT_LAYOUT_GLYPH_CLASS_MARK = (#const HB_OT_LAYOUT_GLYPH_CLASS_MARK) :: OpenTypeLayoutGlyphClass
+pattern OT_LAYOUT_GLYPH_CLASS_COMPONENT = (#const HB_OT_LAYOUT_GLYPH_CLASS_COMPONENT) :: OpenTypeLayoutGlyphClass
+
 #endif
 
 -- * Finalization
@@ -1400,6 +1431,8 @@ harfbuzzCtx = mempty
     , (C.TypeName "hb_language_impl_t", [t|Language|])
     , (C.TypeName "hb_map_t", [t|Map|])
     , (C.TypeName "hb_memory_mode_t", [t|MemoryMode|])
+    , (C.TypeName "hb_ot_name_id_t", [t|OpenTypeName|])
+    , (C.TypeName "hb_ot_layout_glyph_class_t", [t|OpenTypeLayoutGlyphClass|])
     , (C.TypeName "hb_position_t", [t|Position|])
     , (C.TypeName "hb_reference_table_func_t", [t|FunPtr (ReferenceTableFunc ())|])
     , (C.TypeName "hb_script_t", [t|Script|])
@@ -1432,7 +1465,7 @@ harfbuzzCtx = mempty
     , ("glyph-extents", anti (ptr $ C.TypeName "hb_glyph_extents_t") [t|Ptr GlyphExtents|] [|with|])
     , ("glyph-info", anti (ptr $ C.TypeName "hb_glyph_info_t") [t|Ptr GlyphInfo|] [|withPtr|])
     , ("key", anti (ptr $ C.TypeName "hb_user_data_key_t") [t|Ptr OpaqueKey|] [|withKey|])
-    , ("language", anti (C.TypeSpecifier mempty $ C.TypeName "hb_language_t") [t|Language|] [|withPtr|])
+    , ("language", anti (C.TypeSpecifier mempty $ C.TypeName "hb_language_t") [t|Ptr Language|] [|withPtr|])
     , ("map", anti (ptr $ C.TypeName "hb_map_t") [t|Ptr Map|] [|withSelf|])
     , ("segment-properties", anti (ptr $ C.TypeName "hb_segment_properties_t") [t|Ptr SegmentProperties|] [|with|])
     , ("set", anti (ptr $ C.TypeName "hb_set_t") [t|Ptr Set|] [|withSelf|])

@@ -1000,7 +1000,7 @@ ot_layout_feature_get_characters face table_tag (fromIntegral -> feature_index) 
   allocaArray char_count $ \ pcharacters ->
     with (fromIntegral char_count) $ \pchar_count -> do
       n <- [C.exp|unsigned int {
-        hb_ot_layout_feature_get_charactesrs(
+        hb_ot_layout_feature_get_characters(
           $face:face,
           $(hb_tag_t table_tag),
           $(unsigned int feature_index),
@@ -1021,7 +1021,7 @@ ot_layout_feature_get_lookups face table_tag (fromIntegral -> feature_index) (fr
   allocaArray lookup_count $ \plookup_indices ->
     with (fromIntegral lookup_count) $ \plookup_count -> do
       n <- [C.exp|unsigned int {
-        hb_ot_layout_feature_get_charactesrs(
+        hb_ot_layout_feature_get_lookups(
           $face:face,
           $(hb_tag_t table_tag),
           $(unsigned int feature_index),
