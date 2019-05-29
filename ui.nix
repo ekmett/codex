@@ -1,7 +1,8 @@
-{ mkDerivation, adjunctions, base, bindings-freetype-gl, bytestring
-, containers, data-default, distributive, file-embed, gl, glow
-, hedgehog, hspec, JuicyPixels, lens, linear, mtl, packing
-, primitive, sdl2, StateVar, stdenv, text, transformers, vector
+{ mkDerivation, adjunctions, atlas, base, bytestring, const
+, containers, data-default, distributive, file-embed, fontconfig
+, freetype, gl, glow, harfbuzz, hspec, JuicyPixels, lens, linear
+, mtl, primitive, sdl2, StateVar, stdenv, text, transformers
+, vector, weak
 }:
 mkDerivation {
   pname = "ui";
@@ -11,16 +12,17 @@ mkDerivation {
   isExecutable = true;
   enableSeparateDataOutput = true;
   libraryHaskellDepends = [
-    adjunctions base bindings-freetype-gl bytestring containers
-    data-default distributive file-embed gl glow JuicyPixels lens
-    linear mtl packing primitive sdl2 StateVar text transformers vector
+    adjunctions atlas base bytestring const containers data-default
+    distributive file-embed fontconfig freetype gl glow harfbuzz
+    JuicyPixels lens linear mtl primitive sdl2 StateVar text
+    transformers vector weak
   ];
   executableHaskellDepends = [ base ];
   testHaskellDepends = [
-    adjunctions base bindings-freetype-gl bytestring containers
-    data-default distributive file-embed gl glow hedgehog hspec
-    JuicyPixels lens linear mtl packing primitive sdl2 StateVar text
-    transformers vector
+    adjunctions atlas base bytestring const containers data-default
+    distributive file-embed fontconfig freetype gl glow harfbuzz hspec
+    JuicyPixels lens linear mtl primitive sdl2 StateVar text
+    transformers vector weak
   ];
   homepage = "https://github.com/ekmett/ui#readme";
   description = "UI toolbox to complement Coda";
