@@ -113,6 +113,78 @@ module Graphics.Harfbuzz.Internal
   , OT_LAYOUT_GLYPH_CLASS_MARK
   , OT_LAYOUT_GLYPH_CLASS_COMPONENT
   )
+, OpenTypeMathConstant
+  ( OpenTypeMathConstant
+  , OT_MATH_CONSTANT_SCRIPT_PERCENT_SCALE_DOWN
+  , OT_MATH_CONSTANT_SCRIPT_SCRIPT_PERCENT_SCALE_DOWN
+  , OT_MATH_CONSTANT_DELIMITED_SUB_FORMULA_MIN_HEIGHT
+  , OT_MATH_CONSTANT_DISPLAY_OPERATOR_MIN_HEIGHT
+  , OT_MATH_CONSTANT_MATH_LEADING
+  , OT_MATH_CONSTANT_AXIS_HEIGHT
+  , OT_MATH_CONSTANT_ACCENT_BASE_HEIGHT
+  , OT_MATH_CONSTANT_FLATTENED_ACCENT_BASE_HEIGHT
+  , OT_MATH_CONSTANT_SUBSCRIPT_SHIFT_DOWN
+  , OT_MATH_CONSTANT_SUBSCRIPT_TOP_MAX
+  , OT_MATH_CONSTANT_SUBSCRIPT_BASELINE_DROP_MIN
+  , OT_MATH_CONSTANT_SUPERSCRIPT_SHIFT_UP
+  , OT_MATH_CONSTANT_SUPERSCRIPT_SHIFT_UP_CRAMPED
+  , OT_MATH_CONSTANT_SUPERSCRIPT_BOTTOM_MIN
+  , OT_MATH_CONSTANT_SUPERSCRIPT_BASELINE_DROP_MAX
+  , OT_MATH_CONSTANT_SUB_SUPERSCRIPT_GAP_MIN
+  , OT_MATH_CONSTANT_SUPERSCRIPT_BOTTOM_MAX_WITH_SUBSCRIPT
+  , OT_MATH_CONSTANT_SPACE_AFTER_SCRIPT
+  , OT_MATH_CONSTANT_UPPER_LIMIT_GAP_MIN
+  , OT_MATH_CONSTANT_UPPER_LIMIT_BASELINE_RISE_MIN
+  , OT_MATH_CONSTANT_LOWER_LIMIT_GAP_MIN
+  , OT_MATH_CONSTANT_LOWER_LIMIT_BASELINE_DROP_MIN
+  , OT_MATH_CONSTANT_STACK_TOP_SHIFT_UP
+  , OT_MATH_CONSTANT_STACK_TOP_DISPLAY_STYLE_SHIFT_UP
+  , OT_MATH_CONSTANT_STACK_BOTTOM_SHIFT_DOWN
+  , OT_MATH_CONSTANT_STACK_BOTTOM_DISPLAY_STYLE_SHIFT_DOWN
+  , OT_MATH_CONSTANT_STACK_GAP_MIN
+  , OT_MATH_CONSTANT_STACK_DISPLAY_STYLE_GAP_MIN
+  , OT_MATH_CONSTANT_STRETCH_STACK_TOP_SHIFT_UP
+  , OT_MATH_CONSTANT_STRETCH_STACK_BOTTOM_SHIFT_DOWN
+  , OT_MATH_CONSTANT_STRETCH_STACK_GAP_ABOVE_MIN
+  , OT_MATH_CONSTANT_STRETCH_STACK_GAP_BELOW_MIN
+  , OT_MATH_CONSTANT_FRACTION_NUMERATOR_SHIFT_UP
+  , OT_MATH_CONSTANT_FRACTION_NUMERATOR_DISPLAY_STYLE_SHIFT_UP
+  , OT_MATH_CONSTANT_FRACTION_DENOMINATOR_SHIFT_DOWN
+  , OT_MATH_CONSTANT_FRACTION_DENOMINATOR_DISPLAY_STYLE_SHIFT_DOWN
+  , OT_MATH_CONSTANT_FRACTION_NUMERATOR_GAP_MIN
+  , OT_MATH_CONSTANT_FRACTION_NUM_DISPLAY_STYLE_GAP_MIN
+  , OT_MATH_CONSTANT_FRACTION_RULE_THICKNESS
+  , OT_MATH_CONSTANT_FRACTION_DENOMINATOR_GAP_MIN
+  , OT_MATH_CONSTANT_FRACTION_DENOM_DISPLAY_STYLE_GAP_MIN
+  , OT_MATH_CONSTANT_SKEWED_FRACTION_HORIZONTAL_GAP
+  , OT_MATH_CONSTANT_SKEWED_FRACTION_VERTICAL_GAP
+  , OT_MATH_CONSTANT_OVERBAR_VERTICAL_GAP
+  , OT_MATH_CONSTANT_OVERBAR_RULE_THICKNESS
+  , OT_MATH_CONSTANT_OVERBAR_EXTRA_ASCENDER
+  , OT_MATH_CONSTANT_UNDERBAR_VERTICAL_GAP
+  , OT_MATH_CONSTANT_UNDERBAR_RULE_THICKNESS
+  , OT_MATH_CONSTANT_UNDERBAR_EXTRA_DESCENDER
+  , OT_MATH_CONSTANT_RADICAL_VERTICAL_GAP
+  , OT_MATH_CONSTANT_RADICAL_DISPLAY_STYLE_VERTICAL_GAP
+  , OT_MATH_CONSTANT_RADICAL_RULE_THICKNESS
+  , OT_MATH_CONSTANT_RADICAL_EXTRA_ASCENDER
+  , OT_MATH_CONSTANT_RADICAL_KERN_BEFORE_DEGREE
+  , OT_MATH_CONSTANT_RADICAL_KERN_AFTER_DEGREE
+  , OT_MATH_CONSTANT_RADICAL_DEGREE_BOTTOM_RAISE_PERCENT
+  )
+, OpenTypeMathGlyphPart(..)
+, OpenTypeMathGlyphPartFlags
+  ( OpenTypeMathGlyphPartFlags
+  , OT_MATH_GLYPH_PART_FLAG_EXTENDER
+  )
+, OpenTypeMathGlyphVariant(..)
+, OpenTypeMathKern
+  ( OpenTypeMathKern
+  , OT_MATH_KERN_TOP_RIGHT
+  , OT_MATH_KERN_TOP_LEFT
+  , OT_MATH_KERN_BOTTOM_RIGHT
+  , OT_MATH_KERN_BOTTOM_LEFT
+  )
 , OpenTypeName
   ( OpenTypeName
   , OT_NAME_ID_COPYRIGHT
@@ -209,6 +281,8 @@ module Graphics.Harfbuzz.Internal
   , OT_TAG_JSTF
   , OT_TAG_DEFAULT_LANGUAGE
   , OT_TAG_DEFAULT_SCRIPT
+  , OT_TAG_MATH
+  , OT_MATH_SCRIPT
   )
 , UnicodeCombiningClass
   ( UnicodeCombiningClass
@@ -540,6 +614,51 @@ newtype Map = Map (ForeignPtr Map) deriving (Eq,Ord,Show,Data)
 newtype MemoryMode = MemoryMode CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 
 newtype OpenTypeLayoutGlyphClass = OpenTypeLayoutGlyphClass CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+
+newtype OpenTypeMathConstant = OpenTypeMathConstant CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+
+data OpenTypeMathGlyphPart = OpenTypeMathGlyphPart
+  { ot_math_glyph_part_glyph :: {-# unpack #-} !Codepoint
+  , ot_math_glyph_part_start_connector_length :: {-# unpack #-} !Position
+  , ot_math_glyph_part_end_connector_length :: {-# unpack #-} !Position
+  , ot_math_glyph_part_full_advance :: {-# unpack #-} !Position
+  , ot_math_glyph_part_flags :: {-# unpack #-} !OpenTypeMathGlyphPartFlags
+  } deriving (Eq,Ord,Show)
+
+instance Storable OpenTypeMathGlyphPart where
+  sizeOf _ = #size hb_ot_math_glyph_part_t
+  alignment _ = #alignment hb_ot_math_glyph_part_t
+  peek p = OpenTypeMathGlyphPart
+   <$> (#peek hb_ot_math_glyph_part_t, glyph) p
+   <*> (#peek hb_ot_math_glyph_part_t, start_connector_length) p
+   <*> (#peek hb_ot_math_glyph_part_t, end_connector_length) p
+   <*> (#peek hb_ot_math_glyph_part_t, full_advance) p
+   <*> (#peek hb_ot_math_glyph_part_t, flags) p
+  poke p OpenTypeMathGlyphPart{..} = do
+   (#poke hb_ot_math_glyph_part_t, glyph) p ot_math_glyph_part_glyph
+   (#poke hb_ot_math_glyph_part_t, start_connector_length) p ot_math_glyph_part_start_connector_length
+   (#poke hb_ot_math_glyph_part_t, end_connector_length) p ot_math_glyph_part_end_connector_length
+   (#poke hb_ot_math_glyph_part_t, full_advance) p ot_math_glyph_part_full_advance
+   (#poke hb_ot_math_glyph_part_t, flags) p ot_math_glyph_part_flags
+
+newtype OpenTypeMathGlyphPartFlags = OpenTypeMathGlyphPartFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
+
+data OpenTypeMathGlyphVariant = OpenTypeMathGlyphVariant
+  { ot_math_glyph_variant_glyph :: {-# unpack #-} !Codepoint
+  , ot_math_glyph_variant_advance :: {-# unpack #-} !Position
+  } deriving (Eq,Ord)
+
+instance Storable OpenTypeMathGlyphVariant where
+  sizeOf _ = #size hb_ot_math_glyph_variant_t
+  alignment _ = #alignment hb_ot_math_glyph_variant_t
+  peek p = OpenTypeMathGlyphVariant
+   <$> (#peek hb_ot_math_glyph_variant_t, glyph) p
+   <*> (#peek hb_ot_math_glyph_variant_t, advance) p
+  poke p OpenTypeMathGlyphVariant{..} = do
+   (#poke hb_ot_math_glyph_variant_t, glyph) p ot_math_glyph_variant_glyph
+   (#poke hb_ot_math_glyph_variant_t, advance) p ot_math_glyph_variant_advance
+
+newtype OpenTypeMathKern = OpenTypeMathKern CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
 
 -- | An OpenType 'name' table identifier. There are predefined names, as well as name IDs returned
 -- from other APIs. These can be used to fetch name strings from a font face.
@@ -925,6 +1044,8 @@ pattern OT_TAG_JSTF = (#const HB_OT_TAG_JSTF) :: Tag -- "JSTF"
 pattern OT_TAG_DEFAULT_LANGUAGE = (#const HB_OT_TAG_DEFAULT_LANGUAGE) :: Tag -- "dflt"
 pattern OT_TAG_DEFAULT_SCRIPT = (#const HB_OT_TAG_DEFAULT_SCRIPT) :: Tag -- "DFLT"
 
+pattern OT_TAG_MATH = (#const HB_OT_TAG_MATH) :: Tag -- "MATH"
+pattern OT_MATH_SCRIPT = (#const HB_OT_MATH_SCRIPT) :: Tag -- "math"
 
 pattern DIRECTION_INVALID = (#const HB_DIRECTION_INVALID) :: Direction
 pattern DIRECTION_LTR = (#const HB_DIRECTION_LTR) :: Direction
@@ -1392,6 +1513,70 @@ pattern OT_LAYOUT_GLYPH_CLASS_LIGATURE = (#const HB_OT_LAYOUT_GLYPH_CLASS_LIGATU
 pattern OT_LAYOUT_GLYPH_CLASS_MARK = (#const HB_OT_LAYOUT_GLYPH_CLASS_MARK) :: OpenTypeLayoutGlyphClass
 pattern OT_LAYOUT_GLYPH_CLASS_COMPONENT = (#const HB_OT_LAYOUT_GLYPH_CLASS_COMPONENT) :: OpenTypeLayoutGlyphClass
 
+pattern OT_MATH_CONSTANT_SCRIPT_PERCENT_SCALE_DOWN = (#const HB_OT_MATH_CONSTANT_SCRIPT_PERCENT_SCALE_DOWN) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_SCRIPT_SCRIPT_PERCENT_SCALE_DOWN = (#const HB_OT_MATH_CONSTANT_SCRIPT_SCRIPT_PERCENT_SCALE_DOWN) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_DELIMITED_SUB_FORMULA_MIN_HEIGHT = (#const HB_OT_MATH_CONSTANT_DELIMITED_SUB_FORMULA_MIN_HEIGHT) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_DISPLAY_OPERATOR_MIN_HEIGHT = (#const HB_OT_MATH_CONSTANT_DISPLAY_OPERATOR_MIN_HEIGHT) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_MATH_LEADING = (#const HB_OT_MATH_CONSTANT_MATH_LEADING) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_AXIS_HEIGHT = (#const HB_OT_MATH_CONSTANT_AXIS_HEIGHT) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_ACCENT_BASE_HEIGHT = (#const HB_OT_MATH_CONSTANT_ACCENT_BASE_HEIGHT) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_FLATTENED_ACCENT_BASE_HEIGHT = (#const HB_OT_MATH_CONSTANT_FLATTENED_ACCENT_BASE_HEIGHT) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_SUBSCRIPT_SHIFT_DOWN = (#const HB_OT_MATH_CONSTANT_SUBSCRIPT_SHIFT_DOWN) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_SUBSCRIPT_TOP_MAX = (#const HB_OT_MATH_CONSTANT_SUBSCRIPT_TOP_MAX) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_SUBSCRIPT_BASELINE_DROP_MIN = (#const HB_OT_MATH_CONSTANT_SUBSCRIPT_BASELINE_DROP_MIN) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_SUPERSCRIPT_SHIFT_UP = (#const HB_OT_MATH_CONSTANT_SUPERSCRIPT_SHIFT_UP) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_SUPERSCRIPT_SHIFT_UP_CRAMPED = (#const HB_OT_MATH_CONSTANT_SUPERSCRIPT_SHIFT_UP_CRAMPED) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_SUPERSCRIPT_BOTTOM_MIN = (#const HB_OT_MATH_CONSTANT_SUPERSCRIPT_BOTTOM_MIN) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_SUPERSCRIPT_BASELINE_DROP_MAX = (#const HB_OT_MATH_CONSTANT_SUPERSCRIPT_BASELINE_DROP_MAX) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_SUB_SUPERSCRIPT_GAP_MIN = (#const HB_OT_MATH_CONSTANT_SUB_SUPERSCRIPT_GAP_MIN) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_SUPERSCRIPT_BOTTOM_MAX_WITH_SUBSCRIPT = (#const HB_OT_MATH_CONSTANT_SUPERSCRIPT_BOTTOM_MAX_WITH_SUBSCRIPT) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_SPACE_AFTER_SCRIPT = (#const HB_OT_MATH_CONSTANT_SPACE_AFTER_SCRIPT) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_UPPER_LIMIT_GAP_MIN = (#const HB_OT_MATH_CONSTANT_UPPER_LIMIT_GAP_MIN) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_UPPER_LIMIT_BASELINE_RISE_MIN = (#const HB_OT_MATH_CONSTANT_UPPER_LIMIT_BASELINE_RISE_MIN) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_LOWER_LIMIT_GAP_MIN = (#const HB_OT_MATH_CONSTANT_LOWER_LIMIT_GAP_MIN) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_LOWER_LIMIT_BASELINE_DROP_MIN = (#const HB_OT_MATH_CONSTANT_LOWER_LIMIT_BASELINE_DROP_MIN) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_STACK_TOP_SHIFT_UP = (#const HB_OT_MATH_CONSTANT_STACK_TOP_SHIFT_UP) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_STACK_TOP_DISPLAY_STYLE_SHIFT_UP = (#const HB_OT_MATH_CONSTANT_STACK_TOP_DISPLAY_STYLE_SHIFT_UP) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_STACK_BOTTOM_SHIFT_DOWN = (#const HB_OT_MATH_CONSTANT_STACK_BOTTOM_SHIFT_DOWN) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_STACK_BOTTOM_DISPLAY_STYLE_SHIFT_DOWN = (#const HB_OT_MATH_CONSTANT_STACK_BOTTOM_DISPLAY_STYLE_SHIFT_DOWN) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_STACK_GAP_MIN = (#const HB_OT_MATH_CONSTANT_STACK_GAP_MIN) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_STACK_DISPLAY_STYLE_GAP_MIN = (#const HB_OT_MATH_CONSTANT_STACK_DISPLAY_STYLE_GAP_MIN) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_STRETCH_STACK_TOP_SHIFT_UP = (#const HB_OT_MATH_CONSTANT_STRETCH_STACK_TOP_SHIFT_UP) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_STRETCH_STACK_BOTTOM_SHIFT_DOWN = (#const HB_OT_MATH_CONSTANT_STRETCH_STACK_BOTTOM_SHIFT_DOWN) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_STRETCH_STACK_GAP_ABOVE_MIN = (#const HB_OT_MATH_CONSTANT_STRETCH_STACK_GAP_ABOVE_MIN) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_STRETCH_STACK_GAP_BELOW_MIN = (#const HB_OT_MATH_CONSTANT_STRETCH_STACK_GAP_BELOW_MIN) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_FRACTION_NUMERATOR_SHIFT_UP = (#const HB_OT_MATH_CONSTANT_FRACTION_NUMERATOR_SHIFT_UP) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_FRACTION_NUMERATOR_DISPLAY_STYLE_SHIFT_UP = (#const HB_OT_MATH_CONSTANT_FRACTION_NUMERATOR_DISPLAY_STYLE_SHIFT_UP) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_FRACTION_DENOMINATOR_SHIFT_DOWN = (#const HB_OT_MATH_CONSTANT_FRACTION_DENOMINATOR_SHIFT_DOWN) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_FRACTION_DENOMINATOR_DISPLAY_STYLE_SHIFT_DOWN = (#const HB_OT_MATH_CONSTANT_FRACTION_DENOMINATOR_DISPLAY_STYLE_SHIFT_DOWN) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_FRACTION_NUMERATOR_GAP_MIN = (#const HB_OT_MATH_CONSTANT_FRACTION_NUMERATOR_GAP_MIN) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_FRACTION_NUM_DISPLAY_STYLE_GAP_MIN = (#const HB_OT_MATH_CONSTANT_FRACTION_NUM_DISPLAY_STYLE_GAP_MIN) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_FRACTION_RULE_THICKNESS = (#const HB_OT_MATH_CONSTANT_FRACTION_RULE_THICKNESS) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_FRACTION_DENOMINATOR_GAP_MIN = (#const HB_OT_MATH_CONSTANT_FRACTION_DENOMINATOR_GAP_MIN) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_FRACTION_DENOM_DISPLAY_STYLE_GAP_MIN = (#const HB_OT_MATH_CONSTANT_FRACTION_DENOM_DISPLAY_STYLE_GAP_MIN) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_SKEWED_FRACTION_HORIZONTAL_GAP = (#const HB_OT_MATH_CONSTANT_SKEWED_FRACTION_HORIZONTAL_GAP) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_SKEWED_FRACTION_VERTICAL_GAP = (#const HB_OT_MATH_CONSTANT_SKEWED_FRACTION_VERTICAL_GAP) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_OVERBAR_VERTICAL_GAP = (#const HB_OT_MATH_CONSTANT_OVERBAR_VERTICAL_GAP) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_OVERBAR_RULE_THICKNESS = (#const HB_OT_MATH_CONSTANT_OVERBAR_RULE_THICKNESS) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_OVERBAR_EXTRA_ASCENDER = (#const HB_OT_MATH_CONSTANT_OVERBAR_EXTRA_ASCENDER) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_UNDERBAR_VERTICAL_GAP = (#const HB_OT_MATH_CONSTANT_UNDERBAR_VERTICAL_GAP) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_UNDERBAR_RULE_THICKNESS = (#const HB_OT_MATH_CONSTANT_UNDERBAR_RULE_THICKNESS) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_UNDERBAR_EXTRA_DESCENDER = (#const HB_OT_MATH_CONSTANT_UNDERBAR_EXTRA_DESCENDER) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_RADICAL_VERTICAL_GAP = (#const HB_OT_MATH_CONSTANT_RADICAL_VERTICAL_GAP) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_RADICAL_DISPLAY_STYLE_VERTICAL_GAP = (#const HB_OT_MATH_CONSTANT_RADICAL_DISPLAY_STYLE_VERTICAL_GAP) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_RADICAL_RULE_THICKNESS = (#const HB_OT_MATH_CONSTANT_RADICAL_RULE_THICKNESS) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_RADICAL_EXTRA_ASCENDER = (#const HB_OT_MATH_CONSTANT_RADICAL_EXTRA_ASCENDER) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_RADICAL_KERN_BEFORE_DEGREE = (#const HB_OT_MATH_CONSTANT_RADICAL_KERN_BEFORE_DEGREE) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_RADICAL_KERN_AFTER_DEGREE = (#const HB_OT_MATH_CONSTANT_RADICAL_KERN_AFTER_DEGREE) :: OpenTypeMathConstant
+pattern OT_MATH_CONSTANT_RADICAL_DEGREE_BOTTOM_RAISE_PERCENT = (#const HB_OT_MATH_CONSTANT_RADICAL_DEGREE_BOTTOM_RAISE_PERCENT) :: OpenTypeMathConstant
+
+pattern OT_MATH_GLYPH_PART_FLAG_EXTENDER = (#const HB_MATH_GLYPH_PART_FLAG_EXTENDER) :: OpenTypeMathGlyphPartFlags -- Note: HB_MATH not HB_OT_MATH :(
+
+pattern OT_MATH_KERN_TOP_RIGHT = (#const HB_OT_MATH_KERN_TOP_RIGHT) :: OpenTypeMathKern
+pattern OT_MATH_KERN_TOP_LEFT = (#const HB_OT_MATH_KERN_TOP_LEFT) :: OpenTypeMathKern
+pattern OT_MATH_KERN_BOTTOM_RIGHT = (#const HB_OT_MATH_KERN_BOTTOM_RIGHT) :: OpenTypeMathKern
+pattern OT_MATH_KERN_BOTTOM_LEFT = (#const HB_OT_MATH_KERN_BOTTOM_LEFT) :: OpenTypeMathKern
+
 pattern OT_NAME_ID_COPYRIGHT = (#const HB_OT_NAME_ID_COPYRIGHT) :: OpenTypeName
 pattern OT_NAME_ID_FONT_FAMILY = (#const HB_OT_NAME_ID_FONT_FAMILY) :: OpenTypeName
 pattern OT_NAME_ID_FONT_SUBFAMILY = (#const HB_OT_NAME_ID_FONT_SUBFAMILY) :: OpenTypeName
@@ -1574,12 +1759,19 @@ harfbuzzCtx = mempty
 harfbuzzOpenTypeCtx :: C.Context
 harfbuzzOpenTypeCtx = harfbuzzCtx <> mempty
   { C.ctxTypesTable = Map.fromList
-    [ (C.TypeName "hb_ot_name_id_t", [t|OpenTypeName|])
+    [ (C.TypeName "hb_ot_layout_glyph_class_t", [t|OpenTypeLayoutGlyphClass|])
+    , (C.TypeName "hb_ot_math_kern_t", [t|OpenTypeMathKern|])
+    , (C.TypeName "hb_ot_math_constant_t", [t|OpenTypeMathConstant|])
+    , (C.TypeName "hb_ot_math_glyph_variant_t", [t|OpenTypeMathGlyphVariant|])
+    , (C.TypeName "hb_ot_math_glyph_part_t", [t|OpenTypeMathGlyphPart|])
+    , (C.TypeName "hb_ot_math_glyph_part_flags_t", [t|OpenTypeMathGlyphPartFlags|])
+    , (C.TypeName "hb_ot_name_id_t", [t|OpenTypeName|])
     , (C.TypeName "hb_ot_name_entry_t", [t|OpenTypeNameEntry|])
-    , (C.TypeName "hb_ot_layout_glyph_class_t", [t|OpenTypeLayoutGlyphClass|])
     ]
   , C.ctxAntiQuoters = Map.fromList
     [ ("ot-name-entry", anti (ptr $ C.TypeName "hb_ot_name_entry_t") [t|Ptr OpenTypeNameEntry|] [|with|])
+    , ("ot-math-glyph-part", anti (ptr $ C.TypeName "hb_ot_math_glyph_part_t") [t|Ptr OpenTypeMathGlyphPart|] [|with|])
+    , ("ot-math-glyph-variant", anti (ptr $ C.TypeName "hb_ot_math_glyph_variant_t") [t|Ptr OpenTypeMathGlyphVariant|] [|with|])
     ]
   }
 
