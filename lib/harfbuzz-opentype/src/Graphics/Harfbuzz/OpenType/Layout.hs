@@ -48,7 +48,6 @@ module Graphics.Harfbuzz.OpenType.Layout
 -- layout_table_get_lookup_count
 -- layout_table_get_script_tags
 -- layout_table_select_script
--- shape_plan_collect_lookups
 , pattern LAYOUT_DEFAULT_LANGUAGE_INDEX
 , pattern LAYOUT_NO_FEATURE_INDEX
 , pattern LAYOUT_NO_SCRIPT_INDEX
