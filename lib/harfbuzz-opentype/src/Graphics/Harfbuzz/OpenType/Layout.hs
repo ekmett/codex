@@ -28,6 +28,11 @@ module Graphics.Harfbuzz.OpenType.Layout
 , layout_get_glyph_class
 , layout_get_glyphs_in_class
 , layout_get_ligature_carets
+, layout_get_size_params
+, layout_has_glyph_classes
+, layout_has_positioning
+, layout_has_substitution
+, layout_language_find_feature
 -- ...
 ) where
 
@@ -169,3 +174,45 @@ layout_get_ligature_carets_ font direction glyph (fromIntegral -> start_offset) 
 
 layout_get_ligature_carets :: Font -> Direction -> Codepoint -> IO [Position]
 layout_get_ligature_carets font direction glyph = pump 4 $ layout_get_ligature_carets_ font direction glyph
+
+data LayoutSizeParams = LayoutSizeParams
+  { layout_size_params_design_size       :: {-# unpack #-} !Int
+  , layout_size_params_subfamily_id      :: {-# unpack #-} !Int
+  , layout_size_params_subfamily_name_id :: {-# unpack #-} !Name
+  , layout_size_params_range_start       :: {-# unpack #-} !Int
+  , layout_size_params_range_end         :: {-# unpack #-} !Int
+  } deriving (Eq,Ord,Show)
+
+layout_get_size_params :: MonadIO m => Face -> m (Maybe LayoutSizeParams) -- packaged for convenience
+layout_get_size_params face = liftIO $
+  allocaArray 4 $ \ ss ->
+    alloca $ \ psubfamily_name_id -> do
+      b <- [C.block|hb_bool_t {
+        unsigned int * ss = $(unsigned int * ss);
+        return hb_ot_layout_get_size_params($face:face,ss,ss+1,$(hb_ot_name_id_t * psubfamily_name_id),ss+2,ss+3);
+      }|]
+      if cbool b then do
+        design_size <- fromIntegral <$> peek ss
+        subfamily_id <- fromIntegral <$> peek (advancePtr ss 1)
+        subfamily_name_id <- peek (psubfamily_name_id)
+        range_start <- fromIntegral <$> peek (advancePtr ss 2)
+        range_end <- fromIntegral <$> peek (advancePtr ss 3)
+        pure $ Just $ LayoutSizeParams design_size subfamily_id subfamily_name_id range_start range_end
+      else pure Nothing
+
+layout_has_glyph_classes :: MonadIO m => Face -> m Bool
+layout_has_glyph_classes face = liftIO $ [C.exp|hb_bool_t { hb_ot_layout_has_glyph_classes($face:face) }|] <&> cbool
+
+layout_has_positioning :: MonadIO m => Face -> m Bool
+layout_has_positioning face = liftIO $ [C.exp|hb_bool_t { hb_ot_layout_has_positioning($face:face) }|] <&> cbool
+
+layout_has_substitution :: MonadIO m => Face -> m Bool
+layout_has_substitution face = liftIO $ [C.exp|hb_bool_t { hb_ot_layout_has_substitution($face:face) }|] <&> cbool
+
+layout_language_find_feature :: MonadIO m => Face -> Tag -> Int -> Int -> Tag -> m (Maybe Int)
+layout_language_find_feature face table_tag (fromIntegral -> script_index) (fromIntegral -> language_index) feature = liftIO $
+  alloca $ \pfeature_index -> do
+    b <- [C.exp|hb_bool_t { hb_ot_layout_language_find_feature($face:face,$(hb_tag_t table_tag),$(unsigned int script_index),$(unsigned int language_index),$(hb_tag_t feature),$(unsigned int * pfeature_index)) }|]
+    if cbool b then Just . fromIntegral <$> peek pfeature_index else pure Nothing
+
+
