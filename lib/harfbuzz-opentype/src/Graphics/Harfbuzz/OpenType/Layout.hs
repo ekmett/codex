@@ -45,7 +45,7 @@ module Graphics.Harfbuzz.OpenType.Layout
 , layout_table_find_feature_variations
 -- layout_language_get_required_feature_index
 -- layout_table_get_feature_tags
--- layout_table_get_lookup_count
+, layout_table_get_lookup_count
 -- layout_table_get_script_tags
 -- layout_table_select_script
 , pattern LAYOUT_DEFAULT_LANGUAGE_INDEX
@@ -284,3 +284,6 @@ layout_script_select_language face table_tag (fromIntegral -> script_index) lang
       if cbool b then Just . fromIntegral <$> peek planguage_index
       else pure Nothing
 
+layout_table_get_lookup_count :: MonadIO m => Face -> Tag -> m Int
+layout_table_get_lookup_count face table_tag = liftIO $
+  [C.exp|unsigned int { hb_ot_layout_table_get_lookup_count($face:face,$(hb_tag_t table_tag))}|] <&> fromIntegral
