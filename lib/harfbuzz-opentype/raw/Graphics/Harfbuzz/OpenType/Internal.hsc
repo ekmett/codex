@@ -469,11 +469,4 @@ harfbuzzOpenTypeCtx = harfbuzzCtx <> mempty
     , (C.TypeName "hb_ot_var_axis_flags_t", [t|VarAxisFlags|])
     , (C.TypeName "hb_ot_var_axis_info_t", [t|VarAxisInfo|])
     ]
-  , C.ctxAntiQuoters = Map.fromList
-    [ ("ot-name-entry", anti (ptr $ C.TypeName "hb_ot_name_entry_t") [t|Ptr NameEntry|] [|with|])
-    , ("ot-math-glyph-part", anti (ptr $ C.TypeName "hb_ot_math_glyph_part_t") [t|Ptr MathGlyphPart|] [|with|])
-    , ("ot-math-glyph-variant", anti (ptr $ C.TypeName "hb_ot_math_glyph_variant_t") [t|Ptr MathGlyphVariant|] [|with|])
-    , ("ot-color-layer", anti (ptr $ C.TypeName "hb_ot_color_layer_t") [t|Ptr ColorLayer|] [|with|])
-    , ("ot-var-axis-info", anti (ptr $ C.TypeName "hb_ot_var_axis_info_t") [t|Ptr VarAxisInfo|] [|with|])
-    ]
-  } where ptr = C.Ptr [] . C.TypeSpecifier mempty
+  }

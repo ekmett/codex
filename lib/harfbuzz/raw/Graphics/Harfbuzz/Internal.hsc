@@ -307,7 +307,6 @@ module Graphics.Harfbuzz.Internal
 , withSelf, withPtr
 , cbool, boolc, w2c,c2w
 , newByteStringCStringLen
-, anti
 , harfbuzzCtx
 , hs_free_stable_ptr
 ) where
