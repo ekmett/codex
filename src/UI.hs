@@ -29,11 +29,17 @@ import qualified SDL
 import Graphics.Glow
 import UI.Shaders
 
+import qualified Graphics.Fontconfig as FC
+
 data UI = UI
   { _uiProgram  :: Program
   , _uiMouseUni :: UniformLocation
+  , _uiFontConfig :: FC.Config
   }
 makeClassy ''UI
+
+-- fontFile :: FilePath
+-- fontFile = "/nix/store/s86ppkix9v0wna7dbvf07191rnpg49kn-iosevka-1.14.3/share/fonts/iosevka/iosevka-regular.ttf"
 
 screenWidth, screenHeight :: CInt
 (screenWidth, screenHeight) = (640, 480)
@@ -43,7 +49,11 @@ initResources fsSource vsSource = do
   vs <- buildShaderFrom VertexShader vsSource
   fs <- buildShaderFrom FragmentShader fsSource
   p <- buildProgram vs fs
-  UI p <$> uniformLocation p "iMouse"
+
+  UI p
+    <$> uniformLocation p "iMouse" 
+    <*> FC.initLoadConfigAndFonts
+
 
 escOrQuit :: SDL.Event -> Bool
 escOrQuit (SDL.Event _ evt) = isAQuit evt where
@@ -53,7 +63,7 @@ escOrQuit (SDL.Event _ evt) = isAQuit evt where
     _                                                                                  -> False
 
 draw :: SDL.Window -> UI -> SDL.Point V2 CInt -> IO ()
-draw window (UI prog imouse) mouseLoc = do
+draw window (UI prog imouse _) mouseLoc = do
   glClear GL_COLOR_BUFFER_BIT
   V2 w h <- get (SDL.windowSize window) -- allow for HighDPI displays and resizing
   glViewport 0 0 (fromIntegral w) (fromIntegral h)
@@ -93,6 +103,9 @@ main = do
         events <- SDL.pollEvents
 
         mouseEvt <- SDL.getAbsoluteMouseLocation
+
+        -- x <- flip execStateT prog $ use uiTextBuffer >>= \tbuf -> uiFont >>= \font ->
+        --  B.add tbuf def font "Quick brown triangle jumped over the lazy signed distance field"
 
         glClear GL_COLOR
         draw window prog mouseEvt
