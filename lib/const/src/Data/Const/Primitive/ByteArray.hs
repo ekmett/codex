@@ -4,6 +4,7 @@
 {-# language ConstraintKinds #-}
 {-# language TypeFamilies #-}
 {-# language Trustworthy #-}
+{-# language CPP #-}
 
 -- |
 -- Copyright :  (c) 2019 Edward Kmett
@@ -37,6 +38,10 @@ import Data.Primitive.Types
 import Data.Word
 
 import Data.Const.Unsafe
+
+#if MIN_VERSION_primitive(0,7,0)
+type Addr = Ptr ()
+#endif
 
 constByteArray :: AByteArray p => p s -> ConstByteArray s
 constByteArray = constant
@@ -79,5 +84,9 @@ isAByteArrayPinned = gcoerceWith (unsafeByteArrayCoercion @p @s) $ coerce $ isMu
 
 -- | Only safe on a pinned ByteArray or pinned ConstByteArray
 constByteArrayContents :: forall s p. AByteArray p => p s -> ConstPtr Word8
+#if MIN_VERSION_primitive(0,7,0)
+constByteArrayContents = gcoerceWith (unsafeByteArrayCoercion @p @s) $ coerce $ mutableByteArrayContents @s
+#else
 constByteArrayContents = gcoerceWith (unsafeByteArrayCoercion @p @s) $ coerce $ (\(Addr a) -> Ptr a) . mutableByteArrayContents @s
+#endif
 {-# inline constByteArrayContents #-}
