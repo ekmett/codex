@@ -54,8 +54,10 @@ library
   import: lib
   build-depends: raw
   hs-source-dirs: src
-  exposed-modules: Graphics.Harfbuzz
   reexported-modules: Graphics.Harfbuzz.Internal
+  exposed-modules:
+    Graphics.Harfbuzz
+    Graphics.Harfbuzz.OpenType
 
 test-suite spec
   import: base
