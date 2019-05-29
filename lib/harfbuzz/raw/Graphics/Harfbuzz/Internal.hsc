@@ -235,6 +235,24 @@ module Graphics.Harfbuzz.Internal
   , OT_VAR_AXIS_FLAG__MAX_VALUE
   )
 , OpenTypeVarAxisInfo(..)
+-- We don't want to export these from Graphics.Harfbuzz.Common
+-- but if we put them in the Tag and hide them, and then try
+-- to re-export without the Tag data type in Graphics.Harfbuzz.OpenType
+-- haddock will crash. So I break style and put them as standalone patterns.
+, pattern OT_MATH_SCRIPT
+, pattern OT_TAG_BASE
+, pattern OT_TAG_GDEF
+, pattern OT_TAG_GPOS
+, pattern OT_TAG_GSUB
+, pattern OT_TAG_JSTF
+, pattern OT_TAG_DEFAULT_LANGUAGE
+, pattern OT_TAG_DEFAULT_SCRIPT
+, pattern OT_TAG_MATH
+, pattern OT_TAG_VAR_AXIS_ITALIC
+, pattern OT_TAG_VAR_AXIS_OPTICAL_SIZE
+, pattern OT_TAG_VAR_AXIS_SLANT
+, pattern OT_TAG_VAR_AXIS_WIDTH
+, pattern OT_TAG_VAR_AXIS_WEIGHT
 , Position
 , ReferenceTableFunc
 , Script
@@ -295,23 +313,6 @@ module Graphics.Harfbuzz.Internal
 , Tag
   ( Tag, TAG
   , TAG_NONE, TAG_MAX, TAG_MAX_SIGNED
-  -- open type tags
-  , OT_TAG_BASE
-  , OT_TAG_GDEF
-  , OT_TAG_GPOS
-  , OT_TAG_GSUB
-  , OT_TAG_JSTF
-  , OT_TAG_DEFAULT_LANGUAGE
-  , OT_TAG_DEFAULT_SCRIPT
-  -- open type math tags
-  , OT_TAG_MATH
-  , OT_MATH_SCRIPT
-  -- open type variable axis tags
-  , OT_TAG_VAR_AXIS_ITALIC
-  , OT_TAG_VAR_AXIS_OPTICAL_SIZE
-  , OT_TAG_VAR_AXIS_SLANT
-  , OT_TAG_VAR_AXIS_WIDTH
-  , OT_TAG_VAR_AXIS_WEIGHT
   )
 , UnicodeCombiningClass
   ( UnicodeCombiningClass
@@ -1150,14 +1151,11 @@ pattern OT_TAG_DEFAULT_SCRIPT = (#const HB_OT_TAG_DEFAULT_SCRIPT) :: Tag -- "DFL
 pattern OT_TAG_MATH = (#const HB_OT_TAG_MATH) :: Tag -- "MATH"
 pattern OT_MATH_SCRIPT = (#const HB_OT_MATH_SCRIPT) :: Tag -- "math"
 
-
 pattern OT_TAG_VAR_AXIS_ITALIC = (#const HB_OT_TAG_VAR_AXIS_ITALIC) :: Tag
 pattern OT_TAG_VAR_AXIS_OPTICAL_SIZE = (#const HB_OT_TAG_VAR_AXIS_OPTICAL_SIZE) :: Tag
 pattern OT_TAG_VAR_AXIS_SLANT = (#const HB_OT_TAG_VAR_AXIS_SLANT) :: Tag
 pattern OT_TAG_VAR_AXIS_WIDTH = (#const HB_OT_TAG_VAR_AXIS_WIDTH) :: Tag
 pattern OT_TAG_VAR_AXIS_WEIGHT = (#const HB_OT_TAG_VAR_AXIS_WEIGHT) :: Tag
-
-
 
 pattern DIRECTION_INVALID = (#const HB_DIRECTION_INVALID) :: Direction
 pattern DIRECTION_LTR = (#const HB_DIRECTION_LTR) :: Direction
