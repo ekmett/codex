@@ -35,7 +35,7 @@ module Graphics.Harfbuzz.OpenType.Layout
 , layout_language_find_feature
 , layout_language_get_feature_indexes
 , layout_language_get_feature_tags
--- layout_language_get_required_feature
+, layout_language_get_required_feature
 -- layout_lookup_collect_glyphs
 -- layout_lookup_substitute_closure
 -- layout_lookups_substitute_closure
@@ -234,3 +234,13 @@ layout_language_get_feature_tags face table_tag (fromIntegral -> script_index) (
       actual_count <- peek pcount
       cs <- peekArray (fromIntegral actual_count) parray
       pure (n, actual_count, cs)
+
+layout_language_get_required_feature :: MonadIO m => Face -> Tag -> Int -> Int -> m (Maybe (Int, Tag))
+layout_language_get_required_feature face table_tag (fromIntegral -> script_index) (fromIntegral -> language_index) = liftIO $
+  alloca $ \pfeature_index -> alloca $ \pfeature_tag -> do
+    b <- [C.exp|hb_bool_t { hb_ot_layout_language_get_required_feature($face:face,$(hb_tag_t table_tag),$(unsigned int script_index),$(unsigned int language_index),$(unsigned int * pfeature_index),$(hb_tag_t * pfeature_tag))}|]
+    if cbool b
+    then Just <$> do (,) . fromIntegral <$> peek pfeature_index <*> peek pfeature_tag
+    else pure Nothing
+
+
