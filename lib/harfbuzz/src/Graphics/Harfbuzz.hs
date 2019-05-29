@@ -166,7 +166,10 @@ module Graphics.Harfbuzz
 , object_set_user_data
 , object_get_user_data
 
+, ot_layout_collect_features
 , ot_layout_collect_lookups
+, ot_layout_feature_get_characters
+, ot_layout_feature_get_lookups
 , ot_tag_to_language
 , ot_tag_to_script
 , ot_tags_from_script_and_language
@@ -955,6 +958,9 @@ script_from_string = script_from_iso15924_tag . tag_from_string
 script_to_string :: Script -> String
 script_to_string = tag_to_string . script_to_iso15924_tag
 
+-- | Fetches a list of all feature-lookup indexes in the specified face's GSUB table or GPOS table, underneath the specified scripts,
+-- languages, and features. If no list of scripts is provided, all scripts will be queried. If no list of languages is provided, all
+-- languages will be queried. If no list of features is provided, all features will be queried.
 ot_layout_collect_lookups :: MonadIO m => Face -> Tag -> Maybe [Tag] -> Maybe [Tag] -> Maybe [Tag] -> Set -> m ()
 ot_layout_collect_lookups face table_tag scripts languages features lookup_indices = liftIO $
   [C.block|void {
@@ -968,6 +974,65 @@ ot_layout_collect_lookups face table_tag scripts languages features lookup_indic
     );
   }|]
 
+-- | Fetches a list of all feature indexes in the specified face's GSUB table or GPOS table, underneath the specified scripts,
+-- languages, and features. If no list of scripts is provided, all scripts will be queried. If no list of languages is provided,
+-- all languages will be queried. If no list of features is provided, all features will be queried.
+ot_layout_collect_features :: MonadIO m => Face -> Tag -> Maybe [Tag] -> Maybe [Tag] -> Maybe [Tag] -> Set -> m ()
+ot_layout_collect_features face table_tag scripts languages features feature_indices = liftIO $
+  [C.block|void {
+    hb_ot_layout_collect_features(
+      $face:face,
+      $(hb_tag_t table_tag),
+      $maybe-tags:scripts,
+      $maybe-tags:languages,
+      $maybe-tags:features,
+      $set:feature_indices
+    );
+  }|]
+
+-- | Fetches a list of the characters defined as having a variant under the specified "Character Variant" ("cvXX") feature tag.
+--
+-- Note: If the length of the list of codepoints is equal to the supplied char_count then there is a chance that there where
+-- more characters defined under the feature tag than were returned. This function can be called with incrementally larger
+-- start_offset until the char_count output value is lower than its input value, or the size of the characters array can be increased.
+ot_layout_feature_get_characters :: MonadIO m => Face -> Tag -> Int -> Int -> Int -> m (Int, [Codepoint])
+ot_layout_feature_get_characters face table_tag (fromIntegral -> feature_index) (fromIntegral -> start_offset) char_count = liftIO $
+  allocaArray char_count $ \ pcharacters ->
+    with (fromIntegral char_count) $ \pchar_count -> do
+      n <- [C.exp|unsigned int {
+        hb_ot_layout_feature_get_charactesrs(
+          $face:face,
+          $(hb_tag_t table_tag),
+          $(unsigned int feature_index),
+          $(unsigned int start_offset),
+          $(unsigned int * pchar_count),
+          $(hb_codepoint_t * pcharacters)
+        )
+      }|]
+      actual_char_count <- peek pchar_count
+      cs <- peekArray (fromIntegral actual_char_count) pcharacters
+      pure (fromIntegral n, cs)
+
+
+-- | Fetches a list of all lookups enumerated for the specified feature, in the specified face's GSUB table or GPOS table.
+-- The list returned will begin at the offset provided.
+ot_layout_feature_get_lookups :: MonadIO m => Face -> Tag -> Int -> Int -> Int -> m (Int, [Int])
+ot_layout_feature_get_lookups face table_tag (fromIntegral -> feature_index) (fromIntegral -> start_offset) lookup_count = liftIO $
+  allocaArray lookup_count $ \plookup_indices ->
+    with (fromIntegral lookup_count) $ \plookup_count -> do
+      n <- [C.exp|unsigned int {
+        hb_ot_layout_feature_get_charactesrs(
+          $face:face,
+          $(hb_tag_t table_tag),
+          $(unsigned int feature_index),
+          $(unsigned int start_offset),
+          $(unsigned int * plookup_count),
+          $(unsigned int * plookup_indices)
+        )
+      }|]
+      actual_lookup_count <- peek plookup_count
+      is <- peekArray (fromIntegral actual_lookup_count) plookup_indices
+      pure (fromIntegral n, fromIntegral <$> is)
 
 ot_tag_to_script :: Tag -> Script
 ot_tag_to_script tag =[C.pure|hb_script_t { hb_ot_tag_to_script($(hb_tag_t tag)) }|]

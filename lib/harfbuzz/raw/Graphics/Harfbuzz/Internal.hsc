@@ -105,6 +105,7 @@ module Graphics.Harfbuzz.Internal
   , MEMORY_MODE_DUPLICATE, MEMORY_MODE_READONLY
   , MEMORY_MODE_WRITABLE, MEMORY_MODE_READONLY_MAY_MAKE_WRITABLE
   )
+, Name
 , Position
 , ReferenceTableFunc
 , Script
@@ -484,6 +485,11 @@ newtype Language = Language (Ptr Language) deriving (Eq,Ord,Data,Storable) -- we
 newtype Map = Map (ForeignPtr Map) deriving (Eq,Ord,Show,Data)
 
 newtype MemoryMode = MemoryMode CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+
+-- | An OpenType 'name' table identifier. There are predefined names, as well as name IDs returned
+-- from other APIs. These can be used to fetch name strings from a font face. Only used for OpenType
+-- integration, and not a core part of this API, therefore it is left more or less unwrapped.
+type Name = Word32
 
 type Position = Word32
 
@@ -1426,7 +1432,7 @@ harfbuzzCtx = mempty
     , ("glyph-extents", anti (ptr $ C.TypeName "hb_glyph_extents_t") [t|Ptr GlyphExtents|] [|with|])
     , ("glyph-info", anti (ptr $ C.TypeName "hb_glyph_info_t") [t|Ptr GlyphInfo|] [|withPtr|])
     , ("key", anti (ptr $ C.TypeName "hb_user_data_key_t") [t|Ptr OpaqueKey|] [|withKey|])
-    , ("language", anti (C.TypeSpecifier mempty $ C.TypeName "hb_language_t") [t|Ptr Language|] [|withPtr|])
+    , ("language", anti (C.TypeSpecifier mempty $ C.TypeName "hb_language_t") [t|Language|] [|withPtr|])
     , ("map", anti (ptr $ C.TypeName "hb_map_t") [t|Ptr Map|] [|withSelf|])
     , ("segment-properties", anti (ptr $ C.TypeName "hb_segment_properties_t") [t|Ptr SegmentProperties|] [|with|])
     , ("set", anti (ptr $ C.TypeName "hb_set_t") [t|Ptr Set|] [|withSelf|])
