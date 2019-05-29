@@ -6,11 +6,16 @@
 -- |
 module Graphics.Harfbuzz.OpenType
 (
--- * @hb-ot-name.h@
-  OpenTypeName(..)
+-- * Languages and Scripts
+  ot_tag_to_language
+, ot_tag_to_script
+, ot_tags_from_script_and_language
+, ot_tags_to_script_and_language
+-- * Names
+, OpenTypeName(..)
 , ot_name_list_names
 , ot_name_get
--- * @hb-ot-layout.h@
+-- * Layout
 , OpenTypeLayoutGlyphClass(..)
 , pattern OT_TAG_BASE
 , pattern OT_TAG_GDEF
@@ -23,11 +28,7 @@ module Graphics.Harfbuzz.OpenType
 , ot_layout_collect_lookups
 , ot_layout_feature_get_characters
 , ot_layout_feature_get_lookups
-, ot_tag_to_language
-, ot_tag_to_script
-, ot_tags_from_script_and_language
-, ot_tags_to_script_and_language
--- * @hb-ot-math.h@
+-- * Math
 , OpenTypeMathConstant(..)
 , OpenTypeMathKern(..)
 , OpenTypeMathGlyphPart(..)
@@ -44,15 +45,21 @@ module Graphics.Harfbuzz.OpenType
 , ot_math_get_glyph_assembly
 , pattern OT_TAG_MATH
 , pattern OT_MATH_SCRIPT
--- * @hb-ot-shape.h@
+-- * Shaping
 , ot_shape_glyphs_closure
--- * @hb-ot-var.h@
+-- * Variation Axes
 , pattern OT_TAG_VAR_AXIS_ITALIC
 , pattern OT_TAG_VAR_AXIS_OPTICAL_SIZE
 , pattern OT_TAG_VAR_AXIS_SLANT
 , pattern OT_TAG_VAR_AXIS_WIDTH
 , pattern OT_TAG_VAR_AXIS_WEIGHT
 , ot_var_has_data
+, ot_var_get_axis_count
+, ot_var_get_axis_infos
+, ot_var_find_axis_info
+, ot_var_get_named_instance_count
+, ot_var_named_instance_get_subfamily_name_id
+, ot_var_named_instance_get_postscript_name_id
 ) where
 
 import Control.Monad.IO.Class
@@ -71,45 +78,7 @@ C.context $ C.baseCtx <> harfbuzzOpenTypeCtx
 C.include "<hb.h>"
 C.include "<hb-ot.h>"
 
--- | Fetches a list of all feature-lookup indexes in the specified face's GSUB table or GPOS table, underneath the specified scripts,
--- languages, and features. If no list of scripts is provided, all scripts will be queried. If no list of languages is provided, all
--- languages will be queried. If no list of features is provided, all features will be queried.
-ot_layout_collect_lookups :: MonadIO m => Face -> Tag -> Maybe [Tag] -> Maybe [Tag] -> Maybe [Tag] -> Set -> m ()
-ot_layout_collect_lookups face table_tag scripts languages features lookup_indices = liftIO $
-  [C.block|void { hb_ot_layout_collect_lookups( $face:face, $(hb_tag_t table_tag), $maybe-tags:scripts, $maybe-tags:languages, $maybe-tags:features, $set:lookup_indices); }|]
-
--- | Fetches a list of all feature indexes in the specified face's GSUB table or GPOS table, underneath the specified scripts,
--- languages, and features. If no list of scripts is provided, all scripts will be queried. If no list of languages is provided,
--- all languages will be queried. If no list of features is provided, all features will be queried.
-ot_layout_collect_features :: MonadIO m => Face -> Tag -> Maybe [Tag] -> Maybe [Tag] -> Maybe [Tag] -> Set -> m ()
-ot_layout_collect_features face table_tag scripts languages features feature_indices = liftIO $
-  [C.block|void { hb_ot_layout_collect_features( $face:face, $(hb_tag_t table_tag), $maybe-tags:scripts, $maybe-tags:languages, $maybe-tags:features, $set:feature_indices); }|]
-
--- | Fetches a list of the characters defined as having a variant under the specified "Character Variant" ("cvXX") feature tag.
---
--- Note: If the length of the list of codepoints is equal to the supplied char_count then there is a chance that there where
--- more characters defined under the feature tag than were returned. This function can be called with incrementally larger
--- start_offset until the char_count output value is lower than its input value, or the size of the characters array can be increased.
-ot_layout_feature_get_characters :: MonadIO m => Face -> Tag -> Int -> Int -> Int -> m (Int, [Codepoint])
-ot_layout_feature_get_characters face table_tag (fromIntegral -> feature_index) (fromIntegral -> start_offset) char_count = liftIO $
-  allocaArray char_count $ \ pcharacters ->
-    with (fromIntegral char_count) $ \pchar_count -> do
-      n <- [C.exp|unsigned int { hb_ot_layout_feature_get_characters( $face:face, $(hb_tag_t table_tag), $(unsigned int feature_index), $(unsigned int start_offset), $(unsigned int * pchar_count), $(hb_codepoint_t * pcharacters)) }|]
-      actual_char_count <- peek pchar_count
-      cs <- peekArray (fromIntegral actual_char_count) pcharacters
-      pure (fromIntegral n, cs)
-
-
--- | Fetches a list of all lookups enumerated for the specified feature, in the specified face's GSUB table or GPOS table.
--- The list returned will begin at the offset provided.
-ot_layout_feature_get_lookups :: MonadIO m => Face -> Tag -> Int -> Int -> Int -> m (Int, [Int])
-ot_layout_feature_get_lookups face table_tag (fromIntegral -> feature_index) (fromIntegral -> start_offset) lookup_count = liftIO $
-  allocaArray lookup_count $ \plookup_indices ->
-    with (fromIntegral lookup_count) $ \plookup_count -> do
-      n <- [C.exp|unsigned int { hb_ot_layout_feature_get_lookups( $face:face, $(hb_tag_t table_tag), $(unsigned int feature_index), $(unsigned int start_offset), $(unsigned int * plookup_count), $(unsigned int * plookup_indices)) }|]
-      actual_lookup_count <- peek plookup_count
-      is <- peekArray (fromIntegral actual_lookup_count) plookup_indices
-      pure (fromIntegral n, fromIntegral <$> is)
+-- * Languages and Scripts
 
 ot_tag_to_script :: Tag -> Script
 ot_tag_to_script tag =[C.pure|hb_script_t { hb_ot_tag_to_script($(hb_tag_t tag)) }|]
@@ -133,6 +102,8 @@ ot_tags_to_script_and_language script_tag language_tag = unsafeLocalState $
   alloca $ \pscript -> alloca $ \ planguage -> do
     [C.block|void { hb_ot_tags_to_script_and_language( $(hb_tag_t script_tag),$(hb_tag_t language_tag),$(hb_script_t * pscript),$(hb_language_t * planguage)); }|]
     (,) <$> peek pscript <*> (Language <$> peek planguage)
+
+-- * Math
 
 ot_math_has_data :: MonadIO m => Face -> m Bool
 ot_math_has_data face = liftIO $ [C.exp|hb_bool_t { hb_ot_math_has_data($face:face) }|] <&> cbool
@@ -210,7 +181,7 @@ ot_math_get_glyph_variants_ font glyph dir (fromIntegral -> start_offset) reques
         variants <- peekArray retrieved_variants_count pvariants
         pure (total_number_of_variants, retrieved_variants_count, variants)
 
--- | 
+-- |
 -- Fetches the MathGlyphConstruction for the specified font, glyph index, and
 -- direction. The corresponding list of size variants is returned as a list of
 -- @hb_ot_math_glyph_variant_t@ structs.
@@ -220,6 +191,8 @@ ot_math_get_glyph_variants font glyph dir = liftIO $ do
   if total == retrieved
   then return variants
   else ot_math_get_glyph_variants_ font glyph dir 8 (total - 8) <&> \(_,_,variants2) -> variants ++ variants2
+
+-- * Names
 
 ot_name_list_names :: MonadIO m => Face -> m [OpenTypeNameEntry]
 ot_name_list_names face = liftIO $
@@ -252,6 +225,82 @@ ot_shape_glyphs_closure font buffer features glyphs = liftIO $
   withArrayLen features $ \ (fromIntegral -> num_features) pfeatures ->
     [C.block|void { hb_ot_shape_glyphs_closure( $font:font, $buffer:buffer, $(const hb_feature_t * pfeatures), $(unsigned int num_features), $set:glyphs); }|]
 
+-- * Layout
+
+-- | Fetches a list of all feature-lookup indexes in the specified face's GSUB table or GPOS table, underneath the specified scripts,
+-- languages, and features. If no list of scripts is provided, all scripts will be queried. If no list of languages is provided, all
+-- languages will be queried. If no list of features is provided, all features will be queried.
+ot_layout_collect_lookups :: MonadIO m => Face -> Tag -> Maybe [Tag] -> Maybe [Tag] -> Maybe [Tag] -> Set -> m ()
+ot_layout_collect_lookups face table_tag scripts languages features lookup_indices = liftIO $
+  [C.block|void { hb_ot_layout_collect_lookups( $face:face, $(hb_tag_t table_tag), $maybe-tags:scripts, $maybe-tags:languages, $maybe-tags:features, $set:lookup_indices); }|]
+
+-- | Fetches a list of all feature indexes in the specified face's GSUB table or GPOS table, underneath the specified scripts,
+-- languages, and features. If no list of scripts is provided, all scripts will be queried. If no list of languages is provided,
+-- all languages will be queried. If no list of features is provided, all features will be queried.
+ot_layout_collect_features :: MonadIO m => Face -> Tag -> Maybe [Tag] -> Maybe [Tag] -> Maybe [Tag] -> Set -> m ()
+ot_layout_collect_features face table_tag scripts languages features feature_indices = liftIO $
+  [C.block|void { hb_ot_layout_collect_features( $face:face, $(hb_tag_t table_tag), $maybe-tags:scripts, $maybe-tags:languages, $maybe-tags:features, $set:feature_indices); }|]
+
+-- | Fetches a list of the characters defined as having a variant under the specified "Character Variant" ("cvXX") feature tag.
+--
+-- Note: If the length of the list of codepoints is equal to the supplied char_count then there is a chance that there where
+-- more characters defined under the feature tag than were returned. This function can be called with incrementally larger
+-- start_offset until the char_count output value is lower than its input value, or the size of the characters array can be increased.
+ot_layout_feature_get_characters :: MonadIO m => Face -> Tag -> Int -> Int -> Int -> m (Int, [Codepoint])
+ot_layout_feature_get_characters face table_tag (fromIntegral -> feature_index) (fromIntegral -> start_offset) char_count = liftIO $
+  allocaArray char_count $ \ pcharacters ->
+    with (fromIntegral char_count) $ \pchar_count -> do
+      n <- [C.exp|unsigned int { hb_ot_layout_feature_get_characters( $face:face, $(hb_tag_t table_tag), $(unsigned int feature_index), $(unsigned int start_offset), $(unsigned int * pchar_count), $(hb_codepoint_t * pcharacters)) }|]
+      actual_char_count <- peek pchar_count
+      cs <- peekArray (fromIntegral actual_char_count) pcharacters
+      pure (fromIntegral n, cs)
+
+-- | Fetches a list of all lookups enumerated for the specified feature, in the specified face's GSUB table or GPOS table.
+-- The list returned will begin at the offset provided.
+ot_layout_feature_get_lookups :: MonadIO m => Face -> Tag -> Int -> Int -> Int -> m (Int, [Int])
+ot_layout_feature_get_lookups face table_tag (fromIntegral -> feature_index) (fromIntegral -> start_offset) lookup_count = liftIO $
+  allocaArray lookup_count $ \plookup_indices ->
+    with (fromIntegral lookup_count) $ \plookup_count -> do
+      n <- [C.exp|unsigned int { hb_ot_layout_feature_get_lookups( $face:face, $(hb_tag_t table_tag), $(unsigned int feature_index), $(unsigned int start_offset), $(unsigned int * plookup_count), $(unsigned int * plookup_indices)) }|]
+      actual_lookup_count <- peek plookup_count
+      is <- peekArray (fromIntegral actual_lookup_count) plookup_indices
+      pure (fromIntegral n, fromIntegral <$> is)
+
+-- * Variation axes
+
 ot_var_has_data :: MonadIO m => Face -> m Bool
 ot_var_has_data face = liftIO $ [C.exp|hb_bool_t { hb_ot_var_has_data($face:face) }|] <&> cbool
 
+ot_var_get_axis_count :: MonadIO m => Face -> m Int
+ot_var_get_axis_count face = liftIO $ [C.exp|unsigned int { hb_ot_var_get_axis_count($face:face) }|] <&> fromIntegral
+
+ot_var_get_axis_infos_ :: Face -> Int -> Int -> IO (Int, Int, [OpenTypeVarAxisInfo])
+ot_var_get_axis_infos_ face (fromIntegral -> start_offset) requested_axes_count = do
+  with (fromIntegral requested_axes_count) $ \paxes_count ->
+    allocaArray requested_axes_count $ \paxes -> do
+      total_axes <- [C.exp|unsigned int { hb_ot_var_get_axis_infos($face:face,$(unsigned int start_offset),$(unsigned int * paxes_count),$(hb_ot_var_axis_info_t * paxes)) }|] <&> fromIntegral
+      retrieved_axes <- fromIntegral <$> peek paxes_count
+      axes <- peekArray retrieved_axes paxes
+      pure (total_axes, retrieved_axes, axes)
+
+ot_var_get_axis_infos :: MonadIO m => Face -> m [OpenTypeVarAxisInfo]
+ot_var_get_axis_infos face = liftIO $ do
+  (tot, ret, axes) <- ot_var_get_axis_infos_ face 0 8
+  if tot == ret
+  then pure axes
+  else ot_var_get_axis_infos_ face 8 (tot - 8) <&> \(_,_,axes2) -> axes ++ axes2
+
+ot_var_find_axis_info :: MonadIO m => Face -> Tag -> m (Maybe OpenTypeVarAxisInfo)
+ot_var_find_axis_info face axis_tag = liftIO $
+  alloca $ \paxis_info -> do
+    b <- [C.exp|hb_bool_t { hb_ot_var_find_axis_info($face:face,$(hb_tag_t axis_tag),$(hb_ot_var_axis_info_t * paxis_info)) }|]
+    if cbool b then Just <$> peek paxis_info else pure Nothing
+
+ot_var_get_named_instance_count :: MonadIO m => Face -> m Int
+ot_var_get_named_instance_count face = liftIO $ [C.exp|unsigned int { hb_ot_var_get_named_instance_count($face:face) }|] <&> fromIntegral
+
+ot_var_named_instance_get_subfamily_name_id :: MonadIO m => Face -> Int -> m OpenTypeName 
+ot_var_named_instance_get_subfamily_name_id face (fromIntegral -> instance_index) = liftIO [C.exp|hb_ot_name_id_t { hb_ot_var_named_instance_get_subfamily_name_id($face:face,$(unsigned int instance_index)) }|]
+
+ot_var_named_instance_get_postscript_name_id :: MonadIO m => Face -> Int -> m OpenTypeName 
+ot_var_named_instance_get_postscript_name_id face (fromIntegral -> instance_index) = liftIO [C.exp|hb_ot_name_id_t { hb_ot_var_named_instance_get_postscript_name_id($face:face,$(unsigned int instance_index)) }|]
