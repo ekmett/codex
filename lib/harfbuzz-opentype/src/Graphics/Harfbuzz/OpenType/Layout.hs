@@ -40,8 +40,8 @@ module Graphics.Harfbuzz.OpenType.Layout
 , layout_lookup_substitute_closure
 , layout_lookup_would_substitute
 , layout_lookups_substitute_closure
--- layout_script_get_language_tags
--- layout_script_select_language
+, layout_script_get_language_tags
+, layout_script_select_language
 , layout_table_find_feature_variations
 -- layout_language_get_required_feature_index
 -- layout_table_get_feature_tags
@@ -267,3 +267,21 @@ layout_lookup_substitute_closure face (fromIntegral -> lookup_index) glyphs = li
 
 layout_lookups_substitute_closure :: MonadIO m => Face -> Set -> Set -> m ()
 layout_lookups_substitute_closure face lookups glyphs = liftIO [C.block|void { hb_ot_layout_lookups_substitute_closure($face:face,$set:lookups,$set:glyphs);}|]
+
+layout_script_get_language_tags :: MonadIO m => Face -> Tag -> Int -> m [Tag]
+layout_script_get_language_tags face table_tag (fromIntegral -> script_index) = pump MAX_TAGS_PER_SCRIPT $ \start_offset count ->
+  allocaArray (fromIntegral count) $ \ parray ->
+    with count $ \pcount -> do
+      n <- [C.exp|unsigned int { hb_ot_layout_script_get_language_tags($face:face,$(hb_tag_t table_tag),$(unsigned int script_index),$(unsigned int start_offset),$(unsigned int * pcount),$(hb_tag_t * parray))}|]
+      actual_count <- peek pcount
+      cs <- peekArray (fromIntegral actual_count) parray
+      pure (n, actual_count, cs)
+
+layout_script_select_language :: MonadIO m => Face -> Tag -> Int -> [Tag] -> m (Maybe Int)
+layout_script_select_language face table_tag (fromIntegral -> script_index) language_tags = liftIO $
+  alloca $ \planguage_index ->
+    withArrayLen language_tags $ \(fromIntegral -> len) planguage_tags ->  do
+      b <- [C.exp|hb_bool_t { hb_ot_layout_script_select_language($face:face,$(hb_tag_t table_tag),$(unsigned int script_index),$(unsigned int len),$(const hb_tag_t * planguage_tags),$(unsigned int * planguage_index)) }|]
+      if cbool b then Just . fromIntegral <$> peek planguage_index
+      else pure Nothing
+
