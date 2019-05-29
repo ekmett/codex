@@ -40,7 +40,7 @@ module Graphics.Harfbuzz.OpenType
 , ot_math_get_glyph_top_accent_attachment
 , ot_math_get_min_connector_overlap
 , ot_math_is_glyph_extended_shape
--- ot_math_get_glyph_variants
+, ot_math_get_glyph_variants
 , ot_math_get_glyph_assembly
 , pattern OT_TAG_MATH
 , pattern OT_MATH_SCRIPT
@@ -180,10 +180,39 @@ ot_math_get_glyph_assembly_ font glyph dir (fromIntegral -> start_offset) reques
 -- (if one is defined in the font).
 ot_math_get_glyph_assembly :: MonadIO m => Font -> Codepoint -> Direction -> m ([OpenTypeMathGlyphPart],Position)
 ot_math_get_glyph_assembly font glyph dir = liftIO $ do
-  (total, retrieved, parts, italics_correction) <- ot_math_get_glyph_assembly_ font glyph dir 0 32
+  (total, retrieved, parts, italics_correction) <- ot_math_get_glyph_assembly_ font glyph dir 0 8
   if total == retrieved
   then return (parts, italics_correction)
-  else ot_math_get_glyph_assembly_ font glyph dir 32 (total - 32) <&> \(_,_,parts2,_) -> (parts ++ parts2, italics_correction)
+  else ot_math_get_glyph_assembly_ font glyph dir 8 (total - 8) <&> \(_,_,parts2,_) -> (parts ++ parts2, italics_correction)
+
+ot_math_get_glyph_variants_ :: Font -> Codepoint -> Direction -> Int -> Int -> IO (Int, Int, [OpenTypeMathGlyphVariant])
+ot_math_get_glyph_variants_ font glyph dir (fromIntegral -> start_offset) requested_variants_count = liftIO $
+    with (fromIntegral requested_variants_count) $ \pvariants_count ->
+      allocaArray requested_variants_count $ \pvariants -> do
+        total_number_of_variants <- [C.exp|unsigned int {
+          hb_ot_math_get_glyph_variants(
+            $font:font,
+            $(hb_codepoint_t glyph),
+            $(hb_direction_t dir),
+            $(unsigned int start_offset),
+            $(unsigned int * pvariants_count),
+            $(hb_ot_math_glyph_variant_t * pvariants)
+          )
+        }|] <&> fromIntegral
+        retrieved_variants_count <- fromIntegral <$> peek pvariants_count
+        variants <- peekArray retrieved_variants_count pvariants
+        pure (total_number_of_variants, retrieved_variants_count, variants)
+
+-- | 
+-- Fetches the MathGlyphConstruction for the specified font, glyph index, and
+-- direction. The corresponding list of size variants is returned as a list of
+-- @hb_ot_math_glyph_variant_t@ structs.
+ot_math_get_glyph_variants :: MonadIO m => Font -> Codepoint -> Direction -> m [OpenTypeMathGlyphVariant]
+ot_math_get_glyph_variants font glyph dir = liftIO $ do
+  (total, retrieved, variants) <- ot_math_get_glyph_variants_ font glyph dir 0 8
+  if total == retrieved
+  then return variants
+  else ot_math_get_glyph_variants_ font glyph dir 8 (total - 8) <&> \(_,_,variants2) -> variants ++ variants2
 
 ot_name_list_names :: MonadIO m => Face -> m [OpenTypeNameEntry]
 ot_name_list_names face = liftIO $
