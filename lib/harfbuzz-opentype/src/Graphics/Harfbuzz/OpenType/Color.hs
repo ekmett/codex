@@ -99,26 +99,19 @@ color_palette_get_colors face (fromIntegral -> palette_index) = liftIO $
 color_has_layers :: MonadIO m => Face -> m Bool
 color_has_layers face = liftIO $ [C.exp|hb_bool_t { hb_ot_color_has_layers($face:face) }|] <&> cbool
 
-color_glyph_get_layers_ :: Face -> Codepoint -> Int -> Int -> IO (Int,Int,[ColorLayer])
-color_glyph_get_layers_ face glyph (fromIntegral -> start_offset) requested_layers_count = liftIO $
-    with (fromIntegral requested_layers_count) $ \players_count ->
-      allocaArray requested_layers_count $ \players -> do
+color_glyph_get_layers :: MonadIO m => Face -> Codepoint -> m [ColorLayer]
+color_glyph_get_layers face glyph =
+  pump 8 $ \start_offset requested_layers_count -> 
+    with requested_layers_count $ \players_count ->
+      allocaArray (fromIntegral requested_layers_count) $ \players -> do
         total_number_of_layers <- [C.exp|unsigned int {
-          hb_ot_color_glyph_get_layers(
-            $face:face,
+          hb_ot_color_glyph_get_layers( $face:face,
             $(hb_codepoint_t glyph),
             $(unsigned int start_offset),
             $(unsigned int * players_count),
             $(hb_ot_color_layer_t * players)
           )
-        }|] <&> fromIntegral
-        retrieved_layers_count <- fromIntegral <$> peek players_count
-        layers <- peekArray retrieved_layers_count players
+        }|]
+        retrieved_layers_count <- peek players_count
+        layers <- peekArray (fromIntegral retrieved_layers_count) players
         pure (total_number_of_layers, retrieved_layers_count, layers)
-
-color_glyph_get_layers :: MonadIO m => Face -> Codepoint -> m [ColorLayer]
-color_glyph_get_layers face glyph = liftIO $ do
-  (total, retrieved, layers) <- color_glyph_get_layers_ face glyph 0 8
-  if total == retrieved
-  then return layers
-  else color_glyph_get_layers_ face glyph 8 (total - 8) <&> \(_,_,layers2) -> layers ++ layers2

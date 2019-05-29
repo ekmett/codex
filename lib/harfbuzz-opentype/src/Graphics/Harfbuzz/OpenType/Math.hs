@@ -65,64 +65,52 @@ math_get_glyph_kerning font glyph kern correction_height = liftIO
 math_get_min_connector_overlap :: MonadIO m => Font -> Direction -> m Position
 math_get_min_connector_overlap font dir = liftIO [C.exp|hb_position_t { hb_ot_math_get_min_connector_overlap($font:font,$(hb_direction_t dir)) }|]
 
-math_get_glyph_assembly_ :: Font -> Codepoint -> Direction -> Int -> Int -> IO (Int, Int, [MathGlyphPart], Position)
-math_get_glyph_assembly_ font glyph dir (fromIntegral -> start_offset) requested_parts_count = liftIO $
-  alloca $ \pitalics_correction ->
-    with (fromIntegral requested_parts_count) $ \pparts_count ->
-      allocaArray requested_parts_count $ \pparts -> do
-        total_number_of_parts <- [C.exp|unsigned int {
-          hb_ot_math_get_glyph_assembly(
-            $font:font,
-            $(hb_codepoint_t glyph),
-            $(hb_direction_t dir),
-            $(unsigned int start_offset),
-            $(unsigned int * pparts_count),
-            $(hb_ot_math_glyph_part_t * pparts),
-            $(hb_position_t * pitalics_correction)
-          )
-        }|] <&> fromIntegral
-        retrieved_parts_count <- fromIntegral <$> peek pparts_count
-        parts <- peekArray retrieved_parts_count pparts
-        italics_correction <- peek pitalics_correction
-        pure (total_number_of_parts, retrieved_parts_count, parts, italics_correction)
-
 -- | Fetches the glyph assembly for the specified font, glyph index, and direction.
 --
 -- Returned are a list of glyph parts that can be used to draw the glyph and an italics-correction value
 -- (if one is defined in the font).
 math_get_glyph_assembly :: MonadIO m => Font -> Codepoint -> Direction -> m ([MathGlyphPart],Position)
 math_get_glyph_assembly font glyph dir = liftIO $ do
-  (total, retrieved, parts, italics_correction) <- math_get_glyph_assembly_ font glyph dir 0 8
-  if total == retrieved
-  then return (parts, italics_correction)
-  else math_get_glyph_assembly_ font glyph dir 8 (total - 8) <&> \(_,_,parts2,_) -> (parts ++ parts2, italics_correction)
-
-math_get_glyph_variants_ :: Font -> Codepoint -> Direction -> Int -> Int -> IO (Int, Int, [MathGlyphVariant])
-math_get_glyph_variants_ font glyph dir (fromIntegral -> start_offset) requested_variants_count = liftIO $
-    with (fromIntegral requested_variants_count) $ \pvariants_count ->
-      allocaArray requested_variants_count $ \pvariants -> do
-        total_number_of_variants <- [C.exp|unsigned int {
-          hb_ot_math_get_glyph_variants(
-            $font:font,
-            $(hb_codepoint_t glyph),
-            $(hb_direction_t dir),
-            $(unsigned int start_offset),
-            $(unsigned int * pvariants_count),
-            $(hb_ot_math_glyph_variant_t * pvariants)
-          )
-        }|] <&> fromIntegral
-        retrieved_variants_count <- fromIntegral <$> peek pvariants_count
-        variants <- peekArray retrieved_variants_count pvariants
-        pure (total_number_of_variants, retrieved_variants_count, variants)
+    (total, retrieved, parts, italics_correction) <- go 0 8
+    if total == retrieved then return (parts, italics_correction) else go 8 (total - 8) <&> \(_,_,parts2,_) -> (parts ++ parts2, italics_correction)
+  where
+    go start_offset requested_parts_count = alloca $ \pitalics_correction ->
+      with requested_parts_count $ \pparts_count ->
+        allocaArray (fromIntegral requested_parts_count) $ \pparts -> do
+          total_number_of_parts <- [C.exp|unsigned int {
+            hb_ot_math_get_glyph_assembly(
+              $font:font,
+              $(hb_codepoint_t glyph),
+              $(hb_direction_t dir),
+              $(unsigned int start_offset),
+              $(unsigned int * pparts_count),
+              $(hb_ot_math_glyph_part_t * pparts),
+              $(hb_position_t * pitalics_correction)
+            )
+          }|]
+          retrieved_parts_count <- peek pparts_count
+          parts <- peekArray (fromIntegral retrieved_parts_count) pparts
+          italics_correction <- peek pitalics_correction
+          pure (total_number_of_parts, retrieved_parts_count, parts, italics_correction)
 
 -- |
 -- Fetches the MathGlyphConstruction for the specified font, glyph index, and
 -- direction. The corresponding list of size variants is returned as a list of
 -- @hb_ot_math_glyph_variant_t@ structs.
 math_get_glyph_variants :: MonadIO m => Font -> Codepoint -> Direction -> m [MathGlyphVariant]
-math_get_glyph_variants font glyph dir = liftIO $ do
-  (total, retrieved, variants) <- math_get_glyph_variants_ font glyph dir 0 8
-  if total == retrieved
-  then return variants
-  else math_get_glyph_variants_ font glyph dir 8 (total - 8) <&> \(_,_,variants2) -> variants ++ variants2
-
+math_get_glyph_variants font glyph dir = pump 8 $ \start_offset requested_variants_count -> 
+  with requested_variants_count $ \pvariants_count ->
+    allocaArray (fromIntegral requested_variants_count) $ \pvariants -> do
+      total_number_of_variants <- [C.exp|unsigned int {
+        hb_ot_math_get_glyph_variants(
+          $font:font,
+          $(hb_codepoint_t glyph),
+          $(hb_direction_t dir),
+          $(unsigned int start_offset),
+          $(unsigned int * pvariants_count),
+          $(hb_ot_math_glyph_variant_t * pvariants)
+        )
+      }|]
+      retrieved_variants_count <- peek pvariants_count
+      variants <- peekArray (fromIntegral retrieved_variants_count) pvariants
+      pure (total_number_of_variants, retrieved_variants_count, variants)
