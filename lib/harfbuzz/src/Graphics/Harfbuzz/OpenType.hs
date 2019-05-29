@@ -6,8 +6,11 @@
 -- |
 module Graphics.Harfbuzz.OpenType
 (
--- * @hb-ot.h@
+-- * @hb-ot-name.h@
   OpenTypeName(..)
+, ot_name_list_names
+, ot_name_get
+-- * @hb-ot-layout.h@
 , OpenTypeLayoutGlyphClass(..)
 , pattern OT_TAG_BASE
 , pattern OT_TAG_GDEF
@@ -24,14 +27,29 @@ module Graphics.Harfbuzz.OpenType
 , ot_tag_to_script
 , ot_tags_from_script_and_language
 , ot_tags_to_script_and_language
--- * @hb-ot-name.h@
-, ot_name_list_names
-, ot_name_get
+-- * @hb-ot-math.h@
+, OpenTypeMathConstant(..)
+, OpenTypeMathKern(..)
+, OpenTypeMathGlyphPart(..)
+, OpenTypeMathGlyphPartFlags(..)
+, OpenTypeMathGlyphVariant(..)
+, ot_math_has_data
+, ot_math_get_constant
+, ot_math_get_glyph_italics_correction
+, ot_math_get_glyph_kerning
+, ot_math_get_glyph_top_accent_attachment
+, ot_math_get_min_connector_overlap
+, ot_math_is_glyph_extended_shape
+-- ot_math_get_glyph_variants
+, ot_math_get_glyph_assembly
+, pattern OT_TAG_MATH
+, pattern OT_MATH_SCRIPT
 -- * @hb-ot-shape.h@
 , ot_shape_glyphs_closure
 ) where
 
 import Control.Monad.IO.Class
+import Data.Functor ((<&>))
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
 import Foreign.Marshal.Unsafe
@@ -108,6 +126,64 @@ ot_tags_to_script_and_language script_tag language_tag = unsafeLocalState $
   alloca $ \pscript -> alloca $ \ planguage -> do
     [C.block|void { hb_ot_tags_to_script_and_language( $(hb_tag_t script_tag),$(hb_tag_t language_tag),$(hb_script_t * pscript),$(hb_language_t * planguage)); }|]
     (,) <$> peek pscript <*> (Language <$> peek planguage)
+
+ot_math_has_data :: MonadIO m => Face -> m Bool
+ot_math_has_data face = liftIO $ [C.exp|hb_bool_t { hb_ot_math_has_data($face:face) }|] <&> cbool
+
+ot_math_get_constant :: MonadIO m => Font -> OpenTypeMathConstant -> m Position
+ot_math_get_constant font k = liftIO
+  [C.exp|hb_position_t { hb_ot_math_get_constant($font:font,$(hb_ot_math_constant_t k)) }|]
+
+ot_math_get_glyph_italics_correction :: MonadIO m => Font -> Codepoint -> m Position
+ot_math_get_glyph_italics_correction font glyph = liftIO
+  [C.exp|hb_position_t { hb_ot_math_get_glyph_italics_correction($font:font,$(hb_codepoint_t glyph)) }|]
+
+ot_math_get_glyph_top_accent_attachment :: MonadIO m => Font -> Codepoint -> m Position
+ot_math_get_glyph_top_accent_attachment font glyph = liftIO
+  [C.exp|hb_position_t { hb_ot_math_get_glyph_top_accent_attachment($font:font,$(hb_codepoint_t glyph)) }|]
+
+ot_math_is_glyph_extended_shape :: MonadIO m => Face -> Codepoint -> m Bool
+ot_math_is_glyph_extended_shape face glyph = liftIO $
+  [C.exp|hb_bool_t { hb_ot_math_is_glyph_extended_shape($face:face,$(hb_codepoint_t glyph)) }|] <&> cbool
+
+ot_math_get_glyph_kerning :: MonadIO m => Font -> Codepoint -> OpenTypeMathKern -> Position -> m Position
+ot_math_get_glyph_kerning font glyph kern correction_height = liftIO
+  [C.exp|hb_position_t { hb_ot_math_get_glyph_kerning($font:font,$(hb_codepoint_t glyph),$(hb_ot_math_kern_t kern),$(hb_position_t correction_height)) }|]
+
+ot_math_get_min_connector_overlap :: MonadIO m => Font -> Direction -> m Position
+ot_math_get_min_connector_overlap font dir = liftIO [C.exp|hb_position_t { hb_ot_math_get_min_connector_overlap($font:font,$(hb_direction_t dir)) }|]
+
+ot_math_get_glyph_assembly_ :: Font -> Codepoint -> Direction -> Int -> Int -> IO (Int, Int, [OpenTypeMathGlyphPart], Position)
+ot_math_get_glyph_assembly_ font glyph dir (fromIntegral -> start_offset) requested_parts_count = liftIO $
+  alloca $ \pitalics_correction ->
+    with (fromIntegral requested_parts_count) $ \pparts_count ->
+      allocaArray requested_parts_count $ \pparts -> do
+        total_number_of_parts <- [C.exp|unsigned int {
+          hb_ot_math_get_glyph_assembly(
+            $font:font,
+            $(hb_codepoint_t glyph),
+            $(hb_direction_t dir),
+            $(unsigned int start_offset),
+            $(unsigned int * pparts_count),
+            $(hb_ot_math_glyph_part_t * pparts),
+            $(hb_position_t * pitalics_correction)
+          )
+        }|] <&> fromIntegral
+        retrieved_parts_count <- fromIntegral <$> peek pparts_count
+        parts <- peekArray retrieved_parts_count pparts
+        italics_correction <- peek pitalics_correction
+        pure (total_number_of_parts, retrieved_parts_count, parts, italics_correction)
+
+-- | Fetches the glyph assembly for the specified font, glyph index, and direction.
+--
+-- Returned are a list of glyph parts that can be used to draw the glyph and an italics-correction value
+-- (if one is defined in the font).
+ot_math_get_glyph_assembly :: MonadIO m => Font -> Codepoint -> Direction -> m ([OpenTypeMathGlyphPart],Position)
+ot_math_get_glyph_assembly font glyph dir = liftIO $ do
+  (total, retrieved, parts, italics_correction) <- ot_math_get_glyph_assembly_ font glyph dir 0 32
+  if total == retrieved
+  then return (parts, italics_correction)
+  else ot_math_get_glyph_assembly_ font glyph dir 32 (total - 32) <&> \(_,_,parts2,_) -> (parts ++ parts2, italics_correction)
 
 ot_name_list_names :: MonadIO m => Face -> m [OpenTypeNameEntry]
 ot_name_list_names face = liftIO $
