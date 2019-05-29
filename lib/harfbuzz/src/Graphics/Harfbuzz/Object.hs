@@ -4,7 +4,7 @@ module Graphics.Harfbuzz.Object
 ( IsObject(..)
 , Key
 , key_create
-, key_create_n
+, key_create_many
 , object_reference
 , object_destroy
 , object_set_user_data
@@ -12,7 +12,9 @@ module Graphics.Harfbuzz.Object
 ) where
 
 import Control.Monad.IO.Class
+import Control.Monad.Trans.State.Strict
 import Data.Coerce
+import Data.HKD
 import Foreign.C.Types
 import Foreign.ForeignPtr
 import Foreign.StablePtr
@@ -28,13 +30,11 @@ C.include "<hb.h>"
 key_create :: MonadIO m => m (Key a)
 key_create = liftIO $ Key <$> mallocForeignPtrBytes 1
 
-key_create_n :: MonadIO m => Int -> m (Int -> Key a)
-key_create_n n = liftIO $ do
-  fp <- mallocForeignPtrBytes n
-  return $ \i ->
-    if 0 < i && i < n
-    then Key (plusForeignPtr fp i)
-    else error "key_create_n: accessing an out of bound key"
+key_create_many :: (MonadIO m, FTraversable t) => t proxy -> m (t Key)
+key_create_many types = liftIO $
+  evalState (ftraverse step types) <$> mallocForeignPtrBytes (flength types) where
+    step :: proxy a -> State (ForeignPtr OpaqueKey) (Key a)
+    step _ = state $ \s -> (Key s, plusForeignPtr s 1)
 
 class IsObject t where
   _reference :: t -> IO (Ptr t)
