@@ -11,6 +11,8 @@ import Test.Hspec as Hspec
 import Test.Tasty
 import Test.Tasty.Hspec
 
+import Graphics.Harfbuzz.Unicode
+
 gc :: UnicodeGeneralCategory -> GeneralCategory
 gc (UNICODE_GENERAL_CATEGORY x) = x
 
