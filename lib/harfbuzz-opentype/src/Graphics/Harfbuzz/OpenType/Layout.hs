@@ -47,7 +47,7 @@ module Graphics.Harfbuzz.OpenType.Layout
 , layout_table_get_feature_tags
 , layout_table_get_lookup_count
 , layout_table_get_script_tags
--- layout_table_select_script
+, layout_table_select_script
 , pattern LAYOUT_DEFAULT_LANGUAGE_INDEX
 , pattern LAYOUT_NO_FEATURE_INDEX
 , pattern LAYOUT_NO_SCRIPT_INDEX
@@ -234,6 +234,15 @@ layout_language_get_feature_tags face table_tag (fromIntegral -> script_index) (
       cs <- peekArray (fromIntegral actual_count) parray
       pure (n, actual_count, cs)
 
+layout_table_select_script :: MonadIO m => Face -> Tag -> [Tag] -> m (Maybe (Int, Tag))
+layout_table_select_script face table_tag scripts = liftIO $
+  withArrayLen scripts $ \(fromIntegral -> script_count) pscripts ->
+    alloca $ \pscript_index -> alloca $ \pchosen_script -> do
+      b <- [C.exp|hb_bool_t { hb_ot_layout_table_select_script($face:face,$(hb_tag_t table_tag),$(unsigned int script_count),$(const hb_tag_t * pscripts),$(unsigned int * pscript_index),$(hb_tag_t * pchosen_script))}|]
+      if cbool b
+      then Just <$> do (,) . fromIntegral <$> peek pscript_index <*> peek pchosen_script
+      else pure Nothing
+
 layout_language_get_required_feature :: MonadIO m => Face -> Tag -> Int -> Int -> m (Maybe (Int, Tag))
 layout_language_get_required_feature face table_tag (fromIntegral -> script_index) (fromIntegral -> language_index) = liftIO $
   alloca $ \pfeature_index -> alloca $ \pfeature_tag -> do
@@ -313,3 +322,4 @@ layout_table_get_feature_tags face table_tag = pump 8 $ \start_offset count ->
       actual_count <- peek pcount
       cs <- peekArray (fromIntegral actual_count) parray
       pure (n, actual_count, cs)
+
