@@ -26,6 +26,7 @@ module Graphics.Harfbuzz.OpenType.Layout
 ) where
 
 import Control.Monad.IO.Class
+import Data.Functor ((<&>))
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
 import Foreign.Marshal.Unsafe
@@ -82,26 +83,33 @@ layout_collect_features face table_tag scripts languages features feature_indice
   [C.block|void { hb_ot_layout_collect_features( $face:face, $(hb_tag_t table_tag), $maybe-tags:scripts, $maybe-tags:languages, $maybe-tags:features, $set:feature_indices); }|]
 
 -- | Fetches a list of the characters defined as having a variant under the specified "Character Variant" ("cvXX") feature tag.
---
--- Note: If the length of the list of codepoints is equal to the supplied char_count then there is a chance that there where
--- more characters defined under the feature tag than were returned. This function can be called with incrementally larger
--- start_offset until the char_count output value is lower than its input value, or the size of the characters array can be increased.
-layout_feature_get_characters :: MonadIO m => Face -> Tag -> Int -> Int -> Int -> m (Int, [Codepoint])
-layout_feature_get_characters face table_tag (fromIntegral -> feature_index) (fromIntegral -> start_offset) char_count = liftIO $
+layout_feature_get_characters_ :: Face -> Tag -> Int -> Int -> Int -> IO (Int, Int, [Codepoint])
+layout_feature_get_characters_ face table_tag (fromIntegral -> feature_index) (fromIntegral -> start_offset) char_count = liftIO $
   allocaArray char_count $ \ pcharacters ->
     with (fromIntegral char_count) $ \pchar_count -> do
       n <- [C.exp|unsigned int { hb_ot_layout_feature_get_characters( $face:face, $(hb_tag_t table_tag), $(unsigned int feature_index), $(unsigned int start_offset), $(unsigned int * pchar_count), $(hb_codepoint_t * pcharacters)) }|]
-      actual_char_count <- peek pchar_count
-      cs <- peekArray (fromIntegral actual_char_count) pcharacters
-      pure (fromIntegral n, cs)
+      actual_char_count <- fromIntegral <$> peek pchar_count
+      cs <- peekArray actual_char_count pcharacters
+      pure (fromIntegral n, actual_char_count, cs)
 
--- | Fetches a list of all lookups enumerated for the specified feature, in the specified face's GSUB table or GPOS table.
--- The list returned will begin at the offset provided.
-layout_feature_get_lookups :: MonadIO m => Face -> Tag -> Int -> Int -> Int -> m (Int, [Int])
-layout_feature_get_lookups face table_tag (fromIntegral -> feature_index) (fromIntegral -> start_offset) lookup_count = liftIO $
+layout_feature_get_characters :: MonadIO m => Face -> Tag -> Int -> m [Codepoint]
+layout_feature_get_characters face table_tag feature_index = liftIO $ do
+  (tot,ret,cs) <- layout_feature_get_characters_ face table_tag feature_index 0 1024
+  if tot == ret then pure cs
+  else layout_feature_get_characters_ face table_tag feature_index 1024 (tot - 1024) <&> \(_,_,ds) -> cs ++ ds
+
+layout_feature_get_lookups_ :: Face -> Tag -> Int -> Int -> Int -> IO (Int, Int, [Int])
+layout_feature_get_lookups_ face table_tag (fromIntegral -> feature_index) (fromIntegral -> start_offset) lookup_count = liftIO $
   allocaArray lookup_count $ \plookup_indices ->
     with (fromIntegral lookup_count) $ \plookup_count -> do
       n <- [C.exp|unsigned int { hb_ot_layout_feature_get_lookups( $face:face, $(hb_tag_t table_tag), $(unsigned int feature_index), $(unsigned int start_offset), $(unsigned int * plookup_count), $(unsigned int * plookup_indices)) }|]
-      actual_lookup_count <- peek plookup_count
-      is <- peekArray (fromIntegral actual_lookup_count) plookup_indices
-      pure (fromIntegral n, fromIntegral <$> is)
+      actual_lookup_count <- fromIntegral <$> peek plookup_count
+      is <- peekArray actual_lookup_count plookup_indices
+      pure (fromIntegral n, actual_lookup_count, fromIntegral <$> is)
+
+-- | Fetches a list of all lookups enumerated for the specified feature, in the specified face's GSUB table or GPOS table.
+layout_feature_get_lookups :: MonadIO m => Face -> Tag -> Int -> m [Int]
+layout_feature_get_lookups face table_tag feature_index = liftIO $ do
+  (tot,ret,cs) <- layout_feature_get_lookups_ face table_tag feature_index 0 256
+  if tot == ret then pure cs
+  else layout_feature_get_lookups_ face table_tag feature_index 256 (tot - 256) <&> \(_,_,ds) -> cs ++ ds
