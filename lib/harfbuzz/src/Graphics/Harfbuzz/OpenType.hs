@@ -6,9 +6,9 @@
 {-# options_ghc -Wno-incomplete-uni-patterns #-}
 -- |
 module Graphics.Harfbuzz.OpenType
-(
+( ot_font_set_funcs
 -- * Languages and Scripts
-  ot_tag_to_language
+, ot_tag_to_language
 , ot_tag_to_script
 , ot_tags_from_script_and_language
 , ot_tags_to_script_and_language
@@ -29,6 +29,7 @@ module Graphics.Harfbuzz.OpenType
 , ot_layout_collect_lookups
 , ot_layout_feature_get_characters
 , ot_layout_feature_get_lookups
+-- ...
 -- * Math
 , OpenTypeMathConstant(..)
 , OpenTypeMathKern(..)
@@ -61,7 +62,7 @@ module Graphics.Harfbuzz.OpenType
 , ot_var_get_named_instance_count
 , ot_var_named_instance_get_subfamily_name_id
 , ot_var_named_instance_get_postscript_name_id
--- , ot_var_normalize_variations
+, ot_var_normalize_variations
 , ot_var_normalize_coords
 ) where
 
@@ -83,6 +84,13 @@ import Graphics.Harfbuzz.Internal
 C.context $ C.baseCtx <> harfbuzzOpenTypeCtx
 C.include "<hb.h>"
 C.include "<hb-ot.h>"
+
+-- | Use openType fonts with 'Graphics.Harfbuzz.Shape.shape'.
+--
+-- Note that fonts returned by 'Graphics.Harfbuzz.Font.font_create' default to using these functions, so most clients would never need to call this function directly.
+
+ot_font_set_funcs :: MonadIO m => Font -> m ()
+ot_font_set_funcs font = liftIO [C.block|void { hb_ot_font_set_funcs($font:font); }|]
 
 -- * Languages and Scripts
 
@@ -310,6 +318,16 @@ ot_var_named_instance_get_subfamily_name_id face (fromIntegral -> instance_index
 
 ot_var_named_instance_get_postscript_name_id :: MonadIO m => Face -> Int -> m OpenTypeName
 ot_var_named_instance_get_postscript_name_id face (fromIntegral -> instance_index) = liftIO [C.exp|hb_ot_name_id_t { hb_ot_var_named_instance_get_postscript_name_id($face:face,$(unsigned int instance_index)) }|]
+
+ot_var_normalize_variations :: MonadIO m => Face -> [Variation] -> m [Int]
+ot_var_normalize_variations face variations = liftIO $ do
+  n@(fromIntegral -> num_coords) <- ot_var_get_axis_count face
+  withArrayLen variations $ \ (fromIntegral -> variations_length) pvariations -> 
+    allocaArray n $ \ pcoords -> do
+      [C.block|void {
+        hb_ot_var_normalize_variations($face:face,$(hb_variation_t * pvariations),$(unsigned int variations_length),$(int * pcoords),$(unsigned int num_coords));
+      }|] 
+      fmap fromIntegral <$> peekArray n pcoords
 
 ot_var_normalize_coords :: (MonadIO m, Traversable f) => Face -> f Float -> m (f Int)
 ot_var_normalize_coords face design = liftIO $
