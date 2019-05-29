@@ -40,6 +40,10 @@ module Graphics.Harfbuzz.OpenType.Internal
   , LAYOUT_GLYPH_CLASS_MARK
   , LAYOUT_GLYPH_CLASS_COMPONENT
   )
+, pattern LAYOUT_DEFAULT_LANGUAGE_INDEX
+, pattern LAYOUT_NO_FEATURE_INDEX
+, pattern LAYOUT_NO_SCRIPT_INDEX
+, pattern LAYOUT_NO_VARIATIONS_INDEX
 , MathConstant
   ( MathConstant
   , MATH_CONSTANT_SCRIPT_PERCENT_SCALE_DOWN
@@ -228,6 +232,11 @@ instance Storable ColorLayer where
    (#poke hb_ot_color_layer_t, color_index) p color_layer_color_index
 
 newtype ColorPaletteFlags = ColorPaletteFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Prim,Bits)
+
+pattern LAYOUT_DEFAULT_LANGUAGE_INDEX = #const HB_OT_LAYOUT_DEFAULT_LANGUAGE_INDEX
+pattern LAYOUT_NO_FEATURE_INDEX = #const HB_OT_LAYOUT_NO_FEATURE_INDEX
+pattern LAYOUT_NO_SCRIPT_INDEX = #const HB_OT_LAYOUT_NO_SCRIPT_INDEX
+pattern LAYOUT_NO_VARIATIONS_INDEX = #const HB_OT_LAYOUT_NO_VARIATIONS_INDEX
 
 newtype LayoutGlyphClass = LayoutGlyphClass CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Prim)
 
@@ -463,7 +472,7 @@ pattern VAR_AXIS_FLAG_HIDDEN = (#const HB_OT_VAR_AXIS_FLAG_HIDDEN) :: VarAxisFla
 pattern VAR_AXIS_FLAG__MAX_VALUE = (#const _HB_OT_VAR_AXIS_FLAG_MAX_VALUE) :: VarAxisFlags
 #endif
 
-pump :: MonadIO m => Int -> (Int -> Int -> IO (Int,Int,[a])) -> m [a]
+pump :: MonadIO m => CUInt -> (CUInt -> CUInt -> IO (CUInt,CUInt,[a])) -> m [a]
 pump n f = liftIO $ do
   (tot,ret,cs) <- f 0 n
   if tot == ret then pure cs else f n (tot - n) <&> \(_,_,ds) -> cs ++ ds

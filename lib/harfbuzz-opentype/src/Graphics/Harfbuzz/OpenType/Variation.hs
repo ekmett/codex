@@ -45,21 +45,14 @@ var_has_data face = liftIO $ [C.exp|hb_bool_t { hb_ot_var_has_data($face:face) }
 var_get_axis_count :: MonadIO m => Face -> m Int
 var_get_axis_count face = liftIO $ [C.exp|unsigned int { hb_ot_var_get_axis_count($face:face) }|] <&> fromIntegral
 
-var_get_axis_infos_ :: Face -> Int -> Int -> IO (Int, Int, [VarAxisInfo])
-var_get_axis_infos_ face (fromIntegral -> start_offset) requested_axes_count =
-  with (fromIntegral requested_axes_count) $ \paxes_count ->
-    allocaArray requested_axes_count $ \paxes -> do
-      total_axes <- [C.exp|unsigned int { hb_ot_var_get_axis_infos($face:face,$(unsigned int start_offset),$(unsigned int * paxes_count),$(hb_ot_var_axis_info_t * paxes)) }|] <&> fromIntegral
-      retrieved_axes <- fromIntegral <$> peek paxes_count
-      axes <- peekArray retrieved_axes paxes
-      pure (total_axes, retrieved_axes, axes)
-
 var_get_axis_infos :: MonadIO m => Face -> m [VarAxisInfo]
-var_get_axis_infos face = liftIO $ do
-  (tot, ret, axes) <- var_get_axis_infos_ face 0 8
-  if tot == ret
-  then pure axes
-  else var_get_axis_infos_ face 8 (tot - 8) <&> \(_,_,axes2) -> axes ++ axes2
+var_get_axis_infos face = pump 8 $ \start_offset requested_axes_count -> 
+  with requested_axes_count $ \paxes_count ->
+    allocaArray (fromIntegral requested_axes_count) $ \paxes -> do
+      total_axes <- [C.exp|unsigned int { hb_ot_var_get_axis_infos($face:face,$(unsigned int start_offset),$(unsigned int * paxes_count),$(hb_ot_var_axis_info_t * paxes)) }|]
+      retrieved_axes <- peek paxes_count
+      axes <- peekArray (fromIntegral retrieved_axes) paxes
+      pure (total_axes, retrieved_axes, axes)
 
 var_find_axis_info :: MonadIO m => Face -> Tag -> m (Maybe VarAxisInfo)
 var_find_axis_info face axis_tag = liftIO $
