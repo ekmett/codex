@@ -11,6 +11,9 @@
 {-# language ViewPatterns #-}
 {-# language QuasiQuotes #-}
 {-# language LambdaCase #-}
+{-# language PolyKinds #-}
+{-# language DataKinds #-}
+{-# language UnboxedTuples #-}
 {-# options_ghc -Wno-missing-pattern-synonym-signatures #-} -- cuts half the length of this file
 
 -- | ffi to the harfbuzz library
@@ -74,6 +77,11 @@ module Graphics.Harfbuzz.Internal
 , buffer_serialize_format_to_string, buffer_serialize_format_from_string
 , buffer_serialize_list_formats
 , Codepoint
+, Color
+  ( Color
+  , COLOR_BGRA
+  , COLOR_RGBA
+  )
 , Direction
   ( Direction
   , DIRECTION_INVALID, DIRECTION_LTR, DIRECTION_RTL, DIRECTION_BTT, DIRECTION_TTB
@@ -104,6 +112,13 @@ module Graphics.Harfbuzz.Internal
   ( MemoryMode
   , MEMORY_MODE_DUPLICATE, MEMORY_MODE_READONLY
   , MEMORY_MODE_WRITABLE, MEMORY_MODE_READONLY_MAY_MAKE_WRITABLE
+  )
+, OpenTypeColorLayer(..)
+, OpenTypeColorPaletteFlags
+  ( OpenTypeColorPaletteFlags
+  , OT_COLOR_PALETTE_FLAG_DEFAULT
+  , OT_COLOR_PALETTE_FLAG_USABLE_WITH_LIGHT_BACKGROUND
+  , OT_COLOR_PALETTE_FLAG_USABLE_WITH_DARK_BACKGROUND
   )
 , OpenTypeLayoutGlyphClass
   ( OpenTypeLayoutGlyphClass
@@ -452,6 +467,7 @@ import Data.Default (Default(..))
 import Data.Functor ((<&>))
 import Data.Function ((&))
 import Data.Hashable
+import Data.Primitive.Types
 import qualified Data.Map as Map
 import Data.Maybe
 import Data.String
@@ -476,27 +492,48 @@ import Text.Read
 -- Blobs are primarily used to create font faces, but also to access font face tables, as well as pass around other binary data.
 newtype Blob = Blob (ForeignPtr Blob) deriving (Eq,Ord,Show,Data)
 
-
 -- | Buffers serve dual role in HarfBuzz; they hold the input characters that are passed to hb_shape(), and after shaping they
 --
 --hold the output glyphs.
 newtype Buffer = Buffer (ForeignPtr Buffer) deriving (Eq,Ord,Show,Data)
 
-newtype BufferClusterLevel = BufferClusterLevel CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+newtype BufferClusterLevel = BufferClusterLevel CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Prim)
 
-newtype BufferContentType = BufferContentType CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+newtype BufferContentType = BufferContentType CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Prim)
 
-newtype BufferDiffFlags = BufferDiffFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
+newtype BufferDiffFlags = BufferDiffFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Prim,Bits)
 
-newtype BufferFlags = BufferFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
+newtype BufferFlags = BufferFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Prim,Bits)
 
-newtype BufferSerializeFlags = BufferSerializeFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
+newtype BufferSerializeFlags = BufferSerializeFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Prim,Bits)
 
-newtype BufferSerializeFormat = BufferSerializeFormat CInt deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
+newtype BufferSerializeFormat = BufferSerializeFormat CInt deriving (Eq,Ord,Num,Enum,Real,Integral,Storable,Prim)
 
 type Codepoint = Word32
 
-newtype Direction = Direction Word32  deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
+-- | Internally stored in BGRA order
+newtype Color = Color Word32 deriving (Eq,Ord,Enum,Storable,Prim)
+
+unbgra:: Color -> (Word8, Word8, Word8, Word8)
+unbgra (Color w) =
+  ( fromIntegral (unsafeShiftR w 24 .&. 0xff)
+  , fromIntegral (unsafeShiftR w 16 .&. 0xff)
+  , fromIntegral (unsafeShiftR w 8 .&. 0xff)
+  , fromIntegral (w .&. 0xff)
+  )
+
+pattern COLOR_BGRA :: Word8 -> Word8 -> Word8 -> Word8 -> Color
+pattern COLOR_BGRA b g r a <- (unbgra -> (b,g,r,a)) where
+  COLOR_BGRA b g r a = Color $ 
+    unsafeShiftL (fromIntegral b .&. 0xff) 24 .|.
+    unsafeShiftL (fromIntegral g .&. 0xff) 16 .|.
+    unsafeShiftL (fromIntegral r .&. 0xff) 8  .|.
+    (fromIntegral a .&. 0xff)
+
+pattern COLOR_RGBA :: Word8 -> Word8 -> Word8 -> Word8 -> Color
+pattern COLOR_RGBA r g b a = COLOR_BGRA b g r a
+
+newtype Direction = Direction Word32  deriving (Eq,Ord,Num,Enum,Real,Integral,Storable,Prim)
 
 -- | A font 'Face' represents a single face in a font family. More exactly a font 'Face' is a single
 -- face in a binary font file. Faces are typically built from a binary blob and a face index. Faces
@@ -593,7 +630,7 @@ instance Storable GlyphExtents where
     (#poke hb_glyph_extents_t, width) p glyph_extents_width
     (#poke hb_glyph_extents_t, height) p glyph_extents_height
 
-newtype GlyphFlags = GlyphFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
+newtype GlyphFlags = GlyphFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Prim,Bits)
 
 newtype GlyphInfo = GlyphInfo (Ptr GlyphInfo) deriving (Eq,Ord,Data,Storable) -- we never manage
 
@@ -621,15 +658,32 @@ instance Storable GlyphPosition where
 data OpaqueKey deriving Data
 newtype Key a = Key (ForeignPtr OpaqueKey) deriving (Eq,Ord,Show,Data)
 
-newtype Language = Language (Ptr Language) deriving (Eq,Ord,Data,Storable) -- we never manage
+newtype Language = Language (Ptr Language) deriving (Eq,Ord,Data,Storable,Prim) -- we never manage
 
 newtype Map = Map (ForeignPtr Map) deriving (Eq,Ord,Show,Data)
 
-newtype MemoryMode = MemoryMode CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+newtype MemoryMode = MemoryMode CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Prim)
 
-newtype OpenTypeLayoutGlyphClass = OpenTypeLayoutGlyphClass CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+data OpenTypeColorLayer = OpenTypeColorLayer
+  { ot_color_layer_glyph :: {-# unpack #-} !Codepoint
+  , ot_color_layer_color_index :: {-# unpack #-} !Int -- color index
+  } deriving (Eq,Ord,Show)
 
-newtype OpenTypeMathConstant = OpenTypeMathConstant CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+instance Storable OpenTypeColorLayer where
+  sizeOf _ = #size hb_ot_color_layer_t
+  alignment _ = #alignment hb_ot_color_layer_t
+  peek p = OpenTypeColorLayer
+   <$> (#peek hb_ot_color_layer_t, glyph) p
+   <*> (#peek hb_ot_color_layer_t, color_index) p
+  poke p OpenTypeColorLayer{..} = do
+   (#poke hb_ot_color_layer_t, glyph) p ot_color_layer_glyph
+   (#poke hb_ot_color_layer_t, color_index) p ot_color_layer_color_index
+
+newtype OpenTypeColorPaletteFlags = OpenTypeColorPaletteFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Prim,Bits)
+
+newtype OpenTypeLayoutGlyphClass = OpenTypeLayoutGlyphClass CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Prim)
+
+newtype OpenTypeMathConstant = OpenTypeMathConstant CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Prim)
 
 data OpenTypeMathGlyphPart = OpenTypeMathGlyphPart
   { ot_math_glyph_part_glyph :: {-# unpack #-} !Codepoint
@@ -655,7 +709,7 @@ instance Storable OpenTypeMathGlyphPart where
    (#poke hb_ot_math_glyph_part_t, full_advance) p ot_math_glyph_part_full_advance
    (#poke hb_ot_math_glyph_part_t, flags) p ot_math_glyph_part_flags
 
-newtype OpenTypeMathGlyphPartFlags = OpenTypeMathGlyphPartFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
+newtype OpenTypeMathGlyphPartFlags = OpenTypeMathGlyphPartFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Prim,Bits)
 
 data OpenTypeMathGlyphVariant = OpenTypeMathGlyphVariant
   { ot_math_glyph_variant_glyph :: {-# unpack #-} !Codepoint
@@ -672,11 +726,11 @@ instance Storable OpenTypeMathGlyphVariant where
    (#poke hb_ot_math_glyph_variant_t, glyph) p ot_math_glyph_variant_glyph
    (#poke hb_ot_math_glyph_variant_t, advance) p ot_math_glyph_variant_advance
 
-newtype OpenTypeMathKern = OpenTypeMathKern CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+newtype OpenTypeMathKern = OpenTypeMathKern CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Prim)
 
 -- | An OpenType 'name' table identifier. There are predefined names, as well as name IDs returned
 -- from other APIs. These can be used to fetch name strings from a font face.
-newtype OpenTypeName = OpenTypeName Word32 deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+newtype OpenTypeName = OpenTypeName Word32 deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Prim)
 
 data OpenTypeNameEntry = OpenTypeNameEntry
   { ot_name_entry_name_id  :: {-# unpack #-} !OpenTypeName
@@ -696,7 +750,7 @@ instance Storable OpenTypeNameEntry where
    (#poke hb_ot_name_entry_t, var ) p ot_name_entry_var
    (#poke hb_ot_name_entry_t, language) p ot_name_entry_language
 
-newtype OpenTypeVarAxisFlags = OpenTypeVarAxisFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
+newtype OpenTypeVarAxisFlags = OpenTypeVarAxisFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Prim,Bits)
 
 data OpenTypeVarAxisInfo = OpenTypeVarAxisInfo
   { ot_var_axis_info_axis_index    :: {-# unpack #-} !Word32
@@ -737,7 +791,7 @@ type BufferMessageFunc a = Ptr Buffer -> Ptr Font -> CString -> Ptr a -> IO ()
 
 type ReferenceTableFunc a = Ptr Face -> Tag -> Ptr a -> IO (Ptr Blob)
 
-newtype Script = Script Word32 deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
+newtype Script = Script Word32 deriving (Eq,Ord,Num,Enum,Real,Integral,Storable,Prim)
 instance Show Script where showsPrec e (Script w) = showsPrec e (Tag w)
 instance Read Script where readPrec = fromString <$> step readPrec
 
@@ -769,11 +823,11 @@ newtype Set = Set (ForeignPtr Set) deriving (Eq,Ord,Show,Data)
 
 newtype ShapePlan = ShapePlan (ForeignPtr ShapePlan) deriving (Eq,Ord,Show,Data)
 
-newtype Shaper = Shaper CString deriving (Eq,Ord,Storable) -- we never manage
+newtype Shaper = Shaper CString deriving (Eq,Ord,Storable,Prim) -- we never manage
 
 instance Default Shaper where def = Shaper nullPtr
 
-newtype Tag = Tag Word32 deriving (Eq,Ord,Num,Enum,Real,Integral,Storable)
+newtype Tag = Tag Word32 deriving (Eq,Ord,Num,Enum,Real,Integral,Storable,Prim)
 {-# complete Tag #-}
 {-# complete TAG #-}
 
@@ -809,7 +863,7 @@ instance IsString Tag where
   fromString [a,b,c] = TAG a b c ' '
   fromString (a:b:c:d:_) = TAG a b c d
 
-newtype UnicodeCombiningClass = UnicodeCombiningClass CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+newtype UnicodeCombiningClass = UnicodeCombiningClass CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Prim)
 
 type UnicodeCombiningClassFunc a = Ptr UnicodeFuncs -> Char -> Ptr a -> IO UnicodeCombiningClass
 
@@ -819,7 +873,7 @@ type UnicodeDecomposeFunc a = Ptr UnicodeFuncs -> Char -> Ptr Char -> Ptr Char -
 
 newtype UnicodeFuncs = UnicodeFuncs (ForeignPtr UnicodeFuncs) deriving (Eq,Ord,Show,Data)
 
-newtype UnicodeGeneralCategory = UnicodeGeneralCategory CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable)
+newtype UnicodeGeneralCategory = UnicodeGeneralCategory CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Prim)
 
 type UnicodeGeneralCategoryFunc a = Ptr UnicodeFuncs -> Char -> Ptr a -> IO UnicodeGeneralCategory
 
@@ -1565,6 +1619,10 @@ pattern BUFFER_DIFF_FLAG_POSITION_MISMATCH = (#const HB_BUFFER_DIFF_FLAG_POSITIO
 
 pattern SHAPER_INVALID = Shaper NULL :: Shaper
 
+pattern OT_COLOR_PALETTE_FLAG_DEFAULT = (#const HB_OT_COLOR_PALETTE_FLAG_DEFAULT) :: OpenTypeColorPaletteFlags
+pattern OT_COLOR_PALETTE_FLAG_USABLE_WITH_LIGHT_BACKGROUND = (#const HB_OT_COLOR_PALETTE_FLAG_USABLE_WITH_LIGHT_BACKGROUND) :: OpenTypeColorPaletteFlags
+pattern OT_COLOR_PALETTE_FLAG_USABLE_WITH_DARK_BACKGROUND = (#const HB_OT_COLOR_PALETTE_FLAG_USABLE_WITH_DARK_BACKGROUND) :: OpenTypeColorPaletteFlags
+
 pattern OT_LAYOUT_GLYPH_CLASS_UNCLASSIFIED = (#const HB_OT_LAYOUT_GLYPH_CLASS_UNCLASSIFIED) :: OpenTypeLayoutGlyphClass
 pattern OT_LAYOUT_GLYPH_CLASS_BASE_GLYPH = (#const HB_OT_LAYOUT_GLYPH_CLASS_BASE_GLYPH) :: OpenTypeLayoutGlyphClass
 pattern OT_LAYOUT_GLYPH_CLASS_LIGATURE = (#const HB_OT_LAYOUT_GLYPH_CLASS_LIGATURE) :: OpenTypeLayoutGlyphClass
@@ -1663,6 +1721,7 @@ pattern OT_NAME_ID_INVALID = (#const HB_OT_NAME_ID_INVALID) :: OpenTypeName
 
 pattern OT_VAR_AXIS_FLAG_HIDDEN = (#const HB_OT_VAR_AXIS_FLAG_HIDDEN) :: OpenTypeVarAxisFlags
 pattern OT_VAR_AXIS_FLAG__MAX_VALUE = (#const _HB_OT_VAR_AXIS_FLAG_MAX_VALUE) :: OpenTypeVarAxisFlags
+
 
 #endif
 
@@ -1820,6 +1879,9 @@ harfbuzzOpenTypeCtx :: C.Context
 harfbuzzOpenTypeCtx = harfbuzzCtx <> mempty
   { C.ctxTypesTable = Map.fromList
     [ (C.TypeName "hb_ot_layout_glyph_class_t", [t|OpenTypeLayoutGlyphClass|])
+    , (C.TypeName "hb_color_t", [t|Color|])
+    , (C.TypeName "hb_ot_color_layer_t", [t|OpenTypeColorLayer|])
+    , (C.TypeName "hb_ot_color_palette_flags_t", [t|OpenTypeColorPaletteFlags|])
     , (C.TypeName "hb_ot_math_kern_t", [t|OpenTypeMathKern|])
     , (C.TypeName "hb_ot_math_constant_t", [t|OpenTypeMathConstant|])
     , (C.TypeName "hb_ot_math_glyph_variant_t", [t|OpenTypeMathGlyphVariant|])
@@ -1834,6 +1896,7 @@ harfbuzzOpenTypeCtx = harfbuzzCtx <> mempty
     [ ("ot-name-entry", anti (ptr $ C.TypeName "hb_ot_name_entry_t") [t|Ptr OpenTypeNameEntry|] [|with|])
     , ("ot-math-glyph-part", anti (ptr $ C.TypeName "hb_ot_math_glyph_part_t") [t|Ptr OpenTypeMathGlyphPart|] [|with|])
     , ("ot-math-glyph-variant", anti (ptr $ C.TypeName "hb_ot_math_glyph_variant_t") [t|Ptr OpenTypeMathGlyphVariant|] [|with|])
+    , ("ot-color-layer", anti (ptr $ C.TypeName "hb_ot_color_layer_t") [t|Ptr OpenTypeColorLayer|] [|with|])
     , ("ot-var-axis-info", anti (ptr $ C.TypeName "hb_ot_var_axis_info_t") [t|Ptr OpenTypeVarAxisInfo|] [|with|])
     ]
   }
