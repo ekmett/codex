@@ -30,14 +30,13 @@ module Graphics.Harfbuzz.OpenType
 , ot_color_glyph_reference_png
 -- ** layered glyphs
 , ot_color_has_palettes
-, ot_color_has_layers
 , ot_color_palette_get_count
 , ot_color_palette_get_name_id
 , ot_color_palette_get_flags
 , ot_color_palette_get_colors
 , ot_color_palette_color_get_name_id
+, ot_color_has_layers
 , ot_color_glyph_get_layers
-
 -- * Layout
 , OpenTypeLayoutGlyphClass(..)
 , pattern OT_TAG_BASE
