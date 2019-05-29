@@ -1453,10 +1453,11 @@ harfbuzzCtx = mempty
     , ("key", anti (ptr $ C.TypeName "hb_user_data_key_t") [t|Ptr OpaqueKey|] [|withKey|])
     , ("language", anti (C.TypeSpecifier mempty $ C.TypeName "hb_language_t") [t|Ptr Language|] [|withPtr|])
     , ("map", anti (ptr $ C.TypeName "hb_map_t") [t|Ptr Map|] [|withSelf|])
+    , ("maybe-set", anti (ptr $ C.TypeName "hb_set_t") [t|Ptr Set|] [|maybeWith withSelf|])
+    , ("maybe-tags", anti (ptr $ C.TypeName "hb_tag_t") [t|Ptr Tag|] [|maybeWith (withArray0 TAG_NONE) |])
     , ("segment-properties", anti (ptr $ C.TypeName "hb_segment_properties_t") [t|Ptr SegmentProperties|] [|with|])
     , ("set", anti (ptr $ C.TypeName "hb_set_t") [t|Ptr Set|] [|withSelf|])
     , ("shape-plan", anti (ptr $ C.TypeName "hb_shape_plan_t") [t|Ptr ShapePlan|] [|withSelf|])
-    , ("maybe-tags", anti (ptr $ C.TypeName "hb_tag_t") [t|Ptr Tag|] [|maybeWith (withArray0 TAG_NONE) |])
     , ("unicode-funcs", anti (ptr $ C.TypeName "hb_unicode_funcs_t") [t|Ptr UnicodeFuncs|] [|withSelf|])
     ]
   }
