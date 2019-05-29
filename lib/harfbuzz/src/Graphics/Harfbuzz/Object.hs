@@ -1,4 +1,3 @@
-{-# language PatternSynonyms #-}
 {-# language TemplateHaskell #-}
 {-# language QuasiQuotes #-}
 module Graphics.Harfbuzz.Object
@@ -100,3 +99,4 @@ instance IsObject UnicodeFuncs where
   _destroy uf = [C.block|void { hb_unicode_funcs_destroy($unicode-funcs:uf); }|]
   _get_user_data b k = [C.exp|void * { hb_unicode_funcs_get_user_data($unicode-funcs:b,$key:k) }|]
   _set_user_data b k v d replace = [C.exp|hb_bool_t { hb_unicode_funcs_set_user_data($unicode-funcs:b,$key:k,$(void*v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|]
+
