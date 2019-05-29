@@ -59,6 +59,7 @@ library
     Graphics.Harfbuzz
     Graphics.Harfbuzz.Object
     Graphics.Harfbuzz.OpenType
+    Graphics.Harfbuzz.Unicode
     Graphics.Harfbuzz.Version
 
 test-suite spec
