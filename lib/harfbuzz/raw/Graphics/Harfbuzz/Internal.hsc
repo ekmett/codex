@@ -308,6 +308,14 @@ module Graphics.Harfbuzz.Internal
 , _hb_set_destroy
 , _hb_shape_plan_destroy
 , _hb_unicode_funcs_destroy
+, mkReferenceTableFunc
+, mkBufferMessageFunc
+, mkUnicodeCombiningClassFunc
+, mkUnicodeComposeFunc
+, mkUnicodeDecomposeFunc
+, mkUnicodeGeneralCategoryFunc
+, mkUnicodeMirroringFunc
+, mkUnicodeScriptFunc
 -- * internals
 , withSelf, withPtr
 , cbool, boolc, w2c,c2w
@@ -869,6 +877,7 @@ pattern OT_TAG_JSTF = (#const HB_OT_TAG_JSTF) :: Tag -- "JSTF"
 pattern OT_TAG_DEFAULT_LANGUAGE = (#const HB_OT_TAG_DEFAULT_LANGUAGE) :: Tag -- "dflt"
 pattern OT_TAG_DEFAULT_SCRIPT = (#const HB_OT_TAG_DEFAULT_SCRIPT) :: Tag -- "DFLT"
 
+
 pattern DIRECTION_INVALID = (#const HB_DIRECTION_INVALID) :: Direction
 pattern DIRECTION_LTR = (#const HB_DIRECTION_LTR) :: Direction
 pattern DIRECTION_RTL = (#const HB_DIRECTION_RTL) :: Direction
@@ -1375,7 +1384,17 @@ foreign import ccall "hb.h &hb_map_destroy"           _hb_map_destroy           
 foreign import ccall "hb.h &hb_set_destroy"           _hb_set_destroy           :: FinalizerPtr Set
 foreign import ccall "hb.h &hb_shape_plan_destroy"    _hb_shape_plan_destroy    :: FinalizerPtr ShapePlan
 foreign import ccall "hb.h &hb_unicode_funcs_destroy" _hb_unicode_funcs_destroy :: FinalizerPtr UnicodeFuncs
+
 foreign import ccall "&"                               hs_free_stable_ptr       :: FinalizerPtr ()
+
+foreign import ccall "wrapper" mkReferenceTableFunc :: ReferenceTableFunc a -> IO (FunPtr (ReferenceTableFunc a))
+foreign import ccall "wrapper" mkBufferMessageFunc :: BufferMessageFunc a -> IO (FunPtr (BufferMessageFunc a))
+foreign import ccall "wrapper" mkUnicodeCombiningClassFunc :: UnicodeCombiningClassFunc a -> IO (FunPtr (UnicodeCombiningClassFunc a))
+foreign import ccall "wrapper" mkUnicodeComposeFunc :: UnicodeComposeFunc a -> IO (FunPtr (UnicodeComposeFunc a))
+foreign import ccall "wrapper" mkUnicodeDecomposeFunc :: UnicodeDecomposeFunc a -> IO (FunPtr (UnicodeDecomposeFunc a))
+foreign import ccall "wrapper" mkUnicodeGeneralCategoryFunc :: UnicodeGeneralCategoryFunc a -> IO (FunPtr (UnicodeGeneralCategoryFunc a))
+foreign import ccall "wrapper" mkUnicodeMirroringFunc :: UnicodeMirroringFunc a -> IO (FunPtr (UnicodeMirroringFunc a))
+foreign import ccall "wrapper" mkUnicodeScriptFunc :: UnicodeScriptFunc a -> IO (FunPtr (UnicodeScriptFunc a))
 
 -- * Inline C context
 
@@ -1481,3 +1500,4 @@ harfbuzzOpenTypeCtx = harfbuzzCtx <> mempty
     , (C.TypeName "hb_ot_layout_glyph_class_t", [t|OpenTypeLayoutGlyphClass|])
     ]
   }
+

@@ -70,23 +70,6 @@ module Graphics.Harfbuzz
 , direction_is_backward, direction_is_forward
 , direction_is_vertical, direction_is_horizontal
 
-, Face
-, face_collect_unicodes
-, face_collect_variation_selectors
-, face_collect_variation_unicodes
-, face_count
-, face_create
-, face_create_for_tables
-, face_glyph_count -- statevar
-, face_index -- statevar
-, face_is_immutable
-, face_make_immutable
-, face_builder_create
-, face_builder_add_table
-, face_reference_blob
-, face_reference_table
-, face_upem -- statevar
-
 , Feature(..)
 , feature_to_string, feature_from_string
 
@@ -145,25 +128,7 @@ module Graphics.Harfbuzz
 , language_from_string, language_to_string
 , language_get_default
 
-, Map
-, map_allocation_successful
-, map_create
-, map_clear
-, map_del
-, map_get
-, map_get_population
-, map_has
-, map_is_empty
-, map_set
-, pattern MAP_VALUE_INVALID
-
 , MemoryMode(..)
-
-, IsObject(..)
-, object_reference
-, object_destroy
-, object_set_user_data
-, object_get_user_data
 
 , Position
 
@@ -176,31 +141,6 @@ module Graphics.Harfbuzz
 -- , (==) provides hb_segment_properties_equal
 -- , hash provides hb_segment_properties_hash
 
-, Set
-, set_add
-, set_add_range
-, set_allocation_successful
-, set_clear
-, set_create
-, set_del
-, set_del_range
-, set_get_max
-, set_get_min
-, set_get_population
-, set_has
-, set_intersect
-, set_is_empty
-, set_is_equal
-, set_is_subset
-, set_next
-, set_next_range
-, set_previous
-, set_previous_range
-, set_set
-, set_subtract
-, set_symmetric_difference
-, set_union
-, pattern SET_VALUE_INVALID
 
 , shape -- the point of all of this
 , shape_full
@@ -219,28 +159,6 @@ module Graphics.Harfbuzz
 
 , Tag(Tag,TAG,TAG_NONE,TAG_MAX,TAG_MAX_SIGNED)
 , tag_from_string, tag_to_string
-
-, UnicodeCombiningClass(..)
-, UnicodeFuncs
-, UnicodeGeneralCategory(..)
-, unicode_funcs_create
-, unicode_funcs_get_default
-, unicode_funcs_get_parent
-, unicode_funcs_is_immutable
-, unicode_funcs_make_immutable
-, unicode_funcs_set_combining_class_func
-, unicode_funcs_set_compose_func
-, unicode_funcs_set_decompose_func
-, unicode_funcs_set_general_category_func
-, unicode_funcs_set_mirroring_func
-, unicode_funcs_set_script_func
-
-, unicode_combining_class
-, unicode_compose
-, unicode_decompose
-, unicode_general_category
-, unicode_mirroring
-, unicode_script
 
 , Variation(..)
 , variation_from_string, variation_to_string
@@ -266,7 +184,6 @@ import Foreign.Marshal.Array
 import Foreign.Marshal.Unsafe
 import Foreign.Marshal.Utils
 import Foreign.Ptr
-import Foreign.StablePtr
 import Foreign.Storable
 import qualified Language.C.Inline as C
 
@@ -287,36 +204,6 @@ key_create_n n = liftIO $ do
     if 0 < i && i < n
     then Key (plusForeignPtr fp i)
     else error "key_create_n: accessing an out of bound key"
-
-class IsObject t where
-  _reference :: t -> IO (Ptr t)
-  _destroy :: t -> IO ()
-  _set_user_data :: t -> Key () -> Ptr () -> FinalizerPtr () -> CInt -> IO CInt
-  _get_user_data :: t -> Key () -> IO (Ptr ())
-
-object_reference :: (MonadIO m, IsObject t) => t -> m (Ptr t)
-object_reference = liftIO . _reference
-{-# inline object_reference #-}
-
-object_destroy :: (MonadIO m, IsObject t) => t -> m ()
-object_destroy = liftIO . _destroy
-{-# inline object_destroy #-}
-
-object_set_user_data :: (MonadIO m, IsObject t) => t -> Key a -> a -> Bool -> m Bool
-object_set_user_data t k v replace = liftIO $ do
-  v' <- newStablePtr v
-  cbool <$> _set_user_data t (coerce k) (castStablePtrToPtr v') hs_free_stable_ptr (boolc replace)
-{-# inline object_set_user_data #-}
-
-object_get_user_data :: (MonadIO m, IsObject t) => t -> Key a -> m (Maybe a)
-object_get_user_data t k = liftIO $ _get_user_data t (coerce k) >>= maybePeek (deRefStablePtr . castPtrToStablePtr)
-{-# inline object_get_user_data #-}
-
-instance IsObject Blob where
-  _reference b = [C.exp|hb_blob_t * { hb_blob_reference($blob:b) }|]
-  _destroy b = [C.block|void { hb_blob_destroy($blob:b); }|]
-  _get_user_data b k = [C.exp|void * { hb_blob_get_user_data($blob:b,$key:k) }|]
-  _set_user_data b k v d replace = [C.exp|hb_bool_t { hb_blob_set_user_data($blob:b,$key:k,$(void*v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|]
 
 blob_create :: MonadIO m => ByteString -> MemoryMode -> m Blob
 blob_create bs mode = liftIO $ do
@@ -361,12 +248,6 @@ withBlobDataWritable bfp k = withSelf bfp $ \bp -> alloca $ \ip -> do
   k (s, fromIntegral i)
 
 -- * buffers
-
-instance IsObject Buffer where
-  _reference b = [C.exp|hb_buffer_t * { hb_buffer_reference($buffer:b) }|]
-  _destroy b = [C.block|void { hb_buffer_destroy($buffer:b); }|]
-  _get_user_data b k = [C.exp|void * { hb_buffer_get_user_data($buffer:b,$key:k) }|]
-  _set_user_data b k v d replace = [C.exp|hb_bool_t { hb_buffer_set_user_data($buffer:b,$key:k,$(void*v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|]
 
 buffer_create :: MonadIO m => m Buffer
 buffer_create = liftIO $ [C.exp|hb_buffer_t * { hb_buffer_create() }|] >>= foreignBuffer
@@ -601,75 +482,6 @@ direction_is_valid d = cbool [C.pure|int { HB_DIRECTION_IS_VALID($(hb_direction_
 
 -- * font faces
 
-instance IsObject Face where
-  _reference b = liftIO [C.exp|hb_face_t * { hb_face_reference($face:b) }|]
-  _destroy b = liftIO [C.block|void { hb_face_destroy($face:b); }|]
-  _get_user_data b k = [C.exp|void * { hb_face_get_user_data($face:b,$key:k) }|]
-  _set_user_data b k v d replace = [C.exp|hb_bool_t { hb_face_set_user_data($face:b,$key:k,$(void*v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|]
-
-face_builder_create :: MonadIO m => m Face
-face_builder_create = liftIO $ [C.exp|hb_face_t * { hb_face_builder_create() }|] >>= foreignFace
-
-face_builder_add_table :: MonadIO m => Face -> Tag -> Blob -> m Bool
-face_builder_add_table f t b = liftIO $ [C.exp|hb_bool_t { hb_face_builder_add_table($face:f,$(hb_tag_t t),$blob:b) }|] <&> cbool
-
-face_reference_blob :: MonadIO m => Face -> m Blob
-face_reference_blob f = liftIO $ [C.exp|hb_blob_t * { hb_face_reference_blob($face:f) }|] >>= foreignBlob
-
-face_reference_table :: MonadIO m => Face -> Tag -> m Blob
-face_reference_table f t = liftIO $ [C.exp|hb_blob_t * { hb_face_reference_table($face:f,$(hb_tag_t t)) }|] >>= foreignBlob
-
--- add the unicode codepoints present in the face to the given set
-face_collect_unicodes :: MonadIO m => Face -> Set -> m ()
-face_collect_unicodes f s = liftIO [C.block|void { hb_face_collect_unicodes($face:f,$set:s); }|]
-
-face_collect_variation_selectors :: MonadIO m => Face -> Set -> m ()
-face_collect_variation_selectors f s = liftIO [C.block|void { hb_face_collect_variation_selectors($face:f,$set:s); }|]
-
-face_collect_variation_unicodes :: MonadIO m => Face -> Codepoint -> Set -> m ()
-face_collect_variation_unicodes f variation s = liftIO [C.block|void { hb_face_collect_variation_unicodes($face:f,$(hb_codepoint_t variation),$set:s); }|]
-
-face_count :: MonadIO m => Blob -> m Int
-face_count b = liftIO $ [C.exp|int { hb_face_count($blob:b) }|] <&> fromIntegral
-
-face_create :: MonadIO m => Blob -> Int -> m Face
-face_create b (fromIntegral -> i) = liftIO $
-  [C.exp|hb_face_t * { hb_face_create($blob:b,$(int i)) }|] >>= foreignFace
-
-face_create_for_tables :: MonadIO m => (Face -> Tag -> IO Blob) -> m Face
-face_create_for_tables fun = liftIO $ do
-  (castFunPtr -> f) <- mkReferenceTableFunc $ \ pface tag _ -> do
-    face <- [C.exp|hb_face_t * { hb_face_reference($(hb_face_t * pface)) }|] >>= foreignFace
-    b <- fun face tag
-    object_reference b
-  [C.block|hb_face_t * {
-    hb_reference_table_func_t f = $(hb_reference_table_func_t f);
-    return hb_face_create_for_tables(f,f,(hb_destroy_func_t)hs_free_fun_ptr);
-  }|] >>= foreignFace
-
--- | Subsumes @hb_face_get_glyph_count@ and @hb_face_set_glyph_count@
-face_glyph_count :: Face -> StateVar Int
-face_glyph_count f = StateVar g s where
-  g = [C.exp|int { hb_face_get_glyph_count($face:f) }|] <&> fromIntegral
-  s (fromIntegral -> v) = [C.block|void { hb_face_set_glyph_count($face:f,$(unsigned int v)); }|]
-
--- | Subsumes @hb_face_get_index@ ancd @hb_face_set_index@
-face_index :: Face -> StateVar Int
-face_index f = StateVar g s where
-  g = [C.exp|int { hb_face_get_index($face:f) }|] <&> fromIntegral
-  s (fromIntegral -> v) = [C.block|void { hb_face_set_index($face:f,$(unsigned int v)); }|]
-
-face_upem :: Face -> StateVar Int
-face_upem f = StateVar g s where
-  g = [C.exp|int { hb_face_get_upem($face:f) }|] <&> fromIntegral
-  s (fromIntegral -> v) = [C.block|void { hb_face_set_upem($face:f,$(unsigned int v)); }|]
-
-face_is_immutable :: MonadIO m => Face -> m Bool
-face_is_immutable b = liftIO $ [C.exp|hb_bool_t { hb_face_is_immutable($face:b) }|] <&> cbool
-
-face_make_immutable :: MonadIO m => Face -> m ()
-face_make_immutable b = liftIO [C.block|void { hb_face_make_immutable($face:b); }|]
-
 font_create :: MonadIO m => Face -> m Font
 font_create face = liftIO $ [C.exp|hb_font_t * { hb_font_create($face:face) }|] >>= foreignFont
 
@@ -857,18 +669,6 @@ font_set_funcs font funcs font_data destroy = liftIO [C.block|void {
   hb_font_set_funcs($font:font,hb_font_funcs_reference($font-funcs:funcs),$(void * font_data),$(hb_destroy_func_t destroy));
 }|]
 
-instance IsObject Font where
-  _reference b = [C.exp|hb_font_t * { hb_font_reference($font:b) }|]
-  _destroy b = [C.block|void { hb_font_destroy($font:b); }|]
-  _get_user_data b k = [C.exp|void * { hb_font_get_user_data($font:b,$key:k) }|]
-  _set_user_data b k v d replace = [C.exp|hb_bool_t { hb_font_set_user_data($font:b,$key:k,$(void*v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|]
-
-instance IsObject FontFuncs where
-  _reference b = [C.exp|hb_font_funcs_t * { hb_font_funcs_reference($font-funcs:b) }|]
-  _destroy b = [C.block|void { hb_font_funcs_destroy($font-funcs:b); }|]
-  _get_user_data b k = [C.exp|void * { hb_font_funcs_get_user_data($font-funcs:b,$key:k) }|]
-  _set_user_data b k v d replace = [C.exp|hb_bool_t { hb_font_funcs_set_user_data($font-funcs:b,$key:k,$(void*v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|]
-
 font_funcs_create :: MonadIO m => m FontFuncs
 font_funcs_create = liftIO $ [C.exp|hb_font_funcs_t * { hb_font_funcs_create() }|] >>= foreignFontFuncs
 
@@ -887,41 +687,6 @@ language_get_default :: MonadIO m => m Language
 language_get_default = liftIO $
   Language <$> [C.exp|hb_language_t { hb_language_get_default() }|]
 
--- * maps
-
-instance IsObject Map where
-  _reference b = [C.exp|hb_map_t * { hb_map_reference($map:b) }|]
-  _destroy b = [C.block|void { hb_map_destroy($map:b); }|]
-  _get_user_data b k = [C.exp|void * { hb_map_get_user_data($map:b,$key:k) }|]
-  _set_user_data b k v d replace = [C.exp|hb_bool_t { hb_map_set_user_data($map:b,$key:k,$(void*v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|]
-
-map_allocation_successful :: MonadIO m => Map -> m Bool
-map_allocation_successful s = liftIO $ [C.exp|hb_bool_t { hb_map_allocation_successful($map:s) }|] <&> cbool
-
-map_clear :: MonadIO m => Map -> m ()
-map_clear s = liftIO [C.block|void { hb_map_clear($map:s); }|]
-
-map_create :: MonadIO m => m Map
-map_create = liftIO $ [C.exp|hb_map_t * { hb_map_create() }|] >>= foreignMap
-
-map_del :: MonadIO m => Map -> Codepoint -> m ()
-map_del s c = liftIO [C.block|void { hb_map_del($map:s,$(hb_codepoint_t c)); }|]
-
-map_get :: MonadIO m => Map -> Codepoint -> m Codepoint
-map_get s c = liftIO [C.exp|hb_codepoint_t { hb_map_get($map:s,$(hb_codepoint_t c)) }|]
-
-map_get_population :: MonadIO m => Map -> m Int
-map_get_population s = liftIO $ [C.exp|unsigned int { hb_map_get_population($map:s) }|] <&> fromIntegral
-
-map_has :: MonadIO m => Map -> Codepoint -> m Bool
-map_has s c = liftIO $ [C.exp|hb_bool_t { hb_map_has($map:s,$(hb_codepoint_t c)) }|] <&> cbool
-
-map_is_empty :: MonadIO m => Map -> m Bool
-map_is_empty s = liftIO $ [C.exp|hb_bool_t { hb_map_is_empty($map:s) }|] <&> cbool
-
-map_set :: MonadIO m => Map -> Codepoint -> Codepoint -> m ()
-map_set s k v = liftIO [C.block|void { hb_map_set($map:s,$(hb_codepoint_t k),$(hb_codepoint_t v)); }|]
-
 -- * scripts
 
 script_from_iso15924_tag :: Tag -> Script
@@ -939,108 +704,6 @@ script_from_string = script_from_iso15924_tag . tag_from_string
 script_to_string :: Script -> String
 script_to_string = tag_to_string . script_to_iso15924_tag
 
--- * sets
-
-instance IsObject Set where
-  _reference b = [C.exp|hb_set_t * { hb_set_reference($set:b) }|]
-  _destroy b = [C.block|void { hb_set_destroy($set:b); }|]
-  _get_user_data b k = [C.exp|void * { hb_set_get_user_data($set:b,$key:k) }|]
-  _set_user_data b k v d replace = [C.exp|hb_bool_t { hb_set_set_user_data($set:b,$key:k,$(void*v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|]
-
-set_add :: MonadIO m => Set -> Codepoint -> m ()
-set_add s c = liftIO [C.block|void { hb_set_add($set:s,$(hb_codepoint_t c)); }|]
-
-set_add_range :: MonadIO m => Set -> Codepoint -> Codepoint -> m ()
-set_add_range s lo hi = liftIO [C.block|void { hb_set_add_range($set:s,$(hb_codepoint_t lo),$(hb_codepoint_t hi)); }|]
-
-set_allocation_successful :: MonadIO m => Set -> m Bool
-set_allocation_successful s = liftIO $ [C.exp|hb_bool_t { hb_set_allocation_successful($set:s) }|] <&> cbool
-
-set_clear :: MonadIO m => Set -> m ()
-set_clear s = liftIO [C.block|void { hb_set_clear($set:s); }|]
-
-set_create :: MonadIO m => m Set
-set_create = liftIO $ [C.exp|hb_set_t * { hb_set_create() }|] >>= foreignSet
-
-set_del :: MonadIO m => Set -> Codepoint -> m ()
-set_del s c = liftIO [C.block|void { hb_set_del($set:s,$(hb_codepoint_t c)); }|]
-
-set_del_range :: MonadIO m => Set -> Codepoint -> Codepoint -> m ()
-set_del_range s lo hi = liftIO [C.block|void { hb_set_del_range($set:s,$(hb_codepoint_t lo),$(hb_codepoint_t hi)); }|]
-
-set_get_max :: MonadIO m => Set -> m Codepoint
-set_get_max s = liftIO [C.exp|hb_codepoint_t { hb_set_get_max($set:s) }|]
-
-set_get_min :: MonadIO m => Set -> m Codepoint
-set_get_min s = liftIO [C.exp|hb_codepoint_t { hb_set_get_min($set:s) }|]
-
-set_get_population :: MonadIO m => Set -> m Int
-set_get_population s = liftIO $ [C.exp|unsigned int { hb_set_get_population($set:s) }|] <&> fromIntegral
-
-set_has :: MonadIO m => Set -> Codepoint -> m Bool
-set_has s c = liftIO $ [C.exp|hb_bool_t { hb_set_has($set:s,$(hb_codepoint_t c)) }|] <&> cbool
-
-set_intersect :: MonadIO m => Set -> Set -> m ()
-set_intersect s other = liftIO [C.block|void { hb_set_intersect($set:s,$set:other); }|]
-
-set_is_empty :: MonadIO m => Set -> m Bool
-set_is_empty s = liftIO $ [C.exp|hb_bool_t { hb_set_is_empty($set:s) }|] <&> cbool
-
-set_is_equal :: MonadIO m => Set -> Set -> m Bool
-set_is_equal s t = liftIO $ [C.exp|hb_bool_t { hb_set_is_equal($set:s,$set:t) }|] <&> cbool
-
-set_is_subset :: MonadIO m => Set -> Set -> m Bool
-set_is_subset s t = liftIO $ [C.exp|hb_bool_t { hb_set_is_subset($set:s,$set:t) }|] <&> cbool
-
--- | Start with SET_VALUE_INVALID
-set_next :: MonadIO m => Set -> Codepoint -> m (Maybe Codepoint)
-set_next s c = liftIO $ with c $ \p -> do
-  b <- [C.exp|hb_bool_t { hb_set_next($set:s,$(hb_codepoint_t * p)) }|]
-  if cbool b then Just <$> peek p else pure Nothing
-
--- | Start with SET_VALUE_INVALID
-set_next_range :: MonadIO m => Set -> Codepoint -> m (Maybe (Codepoint, Codepoint))
-set_next_range s c = liftIO $ allocaArray 2 $ \p -> do
-  let q = advancePtr p 1
-  poke q c
-  b <- [C.exp|hb_bool_t { hb_set_next_range($set:s,$(hb_codepoint_t * p),$(hb_codepoint_t * q)) }|]
-  if cbool b
-  then do
-    lo <- peek p
-    hi <- peek q
-    pure $ Just (lo,hi)
-  else pure Nothing
-
--- | Start with SET_VALUE_INVALID
-set_previous :: MonadIO m => Set -> Codepoint -> m (Maybe Codepoint)
-set_previous s c = liftIO $ with c $ \p -> do
-  b <- [C.exp|hb_bool_t { hb_set_previous($set:s,$(hb_codepoint_t * p)) }|]
-  if cbool b then Just <$> peek p else pure Nothing
-
--- | Start with SET_VALUE_INVALID
-set_previous_range :: MonadIO m => Set -> Codepoint -> m (Maybe (Codepoint, Codepoint))
-set_previous_range s c = liftIO $ allocaArray 2 $ \p -> do
-  let q = advancePtr p 1
-  poke p c
-  b <- [C.exp|hb_bool_t { hb_set_previous_range($set:s,$(hb_codepoint_t * p),$(hb_codepoint_t * q)) }|]
-  if cbool b
-  then do
-    lo <- peek p
-    hi <- peek q
-    pure $ Just (lo,hi)
-  else pure Nothing
-
-set_set :: MonadIO m => Set -> Set -> m ()
-set_set s t = liftIO [C.block|void { hb_set_set($set:s,$set:t); }|]
-
-set_subtract :: MonadIO m => Set -> Set -> m ()
-set_subtract s other = liftIO [C.block|void { hb_set_subtract($set:s,$set:other); }|]
-
-set_symmetric_difference :: MonadIO m => Set -> Set -> m ()
-set_symmetric_difference s other = liftIO [C.block|void { hb_set_symmetric_difference($set:s,$set:other); }|]
-
-set_union :: MonadIO m => Set -> Set -> m ()
-set_union s other = liftIO [C.block|void { hb_set_union($set:s,$set:other); }|]
 
 shape :: MonadIO m => Font -> Buffer -> [Feature] -> m ()
 shape font buffer features = liftIO $
@@ -1056,12 +719,6 @@ shape_full font buffer features shapers = liftIO $
       [C.block|void{
          hb_shape_full($font:font,$buffer:buffer,$(const hb_feature_t * pfeatures),$(unsigned int len),$(const char * const * pshapers));
       }|]
-
-instance IsObject ShapePlan where
-  _reference uf = [C.exp|hb_shape_plan_t * { hb_shape_plan_reference($shape-plan:uf) }|]
-  _destroy uf = [C.block|void { hb_shape_plan_destroy($shape-plan:uf); }|]
-  _get_user_data b k = [C.exp|void * { hb_shape_plan_get_user_data($shape-plan:b,$key:k) }|]
-  _set_user_data b k v d replace = [C.exp|hb_bool_t { hb_shape_plan_set_user_data($shape-plan:b,$key:k,$(void*v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|]
 
 shape_plan_create :: MonadIO m => Face -> SegmentProperties -> [Feature] -> [Shaper] -> m ShapePlan
 shape_plan_create face props features shapers = liftIO $
@@ -1126,125 +783,4 @@ tag_to_string :: Tag -> String
 tag_to_string t = unsafeLocalState $ allocaBytes 4 $ \buf -> do
   [C.exp|void { hb_tag_to_string($(hb_tag_t t),$(char * buf)) }|]
   peekCStringLen (buf,4)
-
--- * unicode functions
-
-unicode_funcs_create :: MonadIO m => UnicodeFuncs -> m UnicodeFuncs
-unicode_funcs_create parent = liftIO $
-  [C.exp|hb_unicode_funcs_t * {
-    hb_unicode_funcs_create(hb_unicode_funcs_reference($unicode-funcs:parent))
-  }|] >>= foreignUnicodeFuncs
-
-unicode_funcs_get_default :: MonadIO m => m UnicodeFuncs
-unicode_funcs_get_default = liftIO $
-  [C.exp|hb_unicode_funcs_t * { hb_unicode_funcs_reference(hb_unicode_funcs_get_default()) }|] >>= foreignUnicodeFuncs
-
-unicode_funcs_get_parent :: MonadIO m => UnicodeFuncs -> m UnicodeFuncs
-unicode_funcs_get_parent u = liftIO $
-  [C.block|hb_unicode_funcs_t * {
-    hb_unicode_funcs_t * p = hb_unicode_funcs_get_parent($unicode-funcs:u);
-    return hb_unicode_funcs_reference(p);
-  }|] >>= foreignUnicodeFuncs
-
-unicode_funcs_is_immutable :: MonadIO m => UnicodeFuncs -> m Bool
-unicode_funcs_is_immutable b = liftIO $ [C.exp|hb_bool_t { hb_unicode_funcs_is_immutable($unicode-funcs:b) }|] <&> cbool
-
-unicode_funcs_make_immutable :: MonadIO m => UnicodeFuncs -> m ()
-unicode_funcs_make_immutable b = liftIO [C.block|void { hb_unicode_funcs_make_immutable($unicode-funcs:b); }|]
-
-foreign import ccall "wrapper" mkUnicodeCombiningClassFunc :: UnicodeCombiningClassFunc a -> IO (FunPtr (UnicodeCombiningClassFunc a))
-foreign import ccall "wrapper" mkUnicodeComposeFunc :: UnicodeComposeFunc a -> IO (FunPtr (UnicodeComposeFunc a))
-foreign import ccall "wrapper" mkUnicodeDecomposeFunc :: UnicodeDecomposeFunc a -> IO (FunPtr (UnicodeDecomposeFunc a))
-foreign import ccall "wrapper" mkUnicodeGeneralCategoryFunc :: UnicodeGeneralCategoryFunc a -> IO (FunPtr (UnicodeGeneralCategoryFunc a))
-foreign import ccall "wrapper" mkUnicodeMirroringFunc :: UnicodeMirroringFunc a -> IO (FunPtr (UnicodeMirroringFunc a))
-foreign import ccall "wrapper" mkUnicodeScriptFunc :: UnicodeScriptFunc a -> IO (FunPtr (UnicodeScriptFunc a))
-foreign import ccall "wrapper" mkReferenceTableFunc :: ReferenceTableFunc a -> IO (FunPtr (ReferenceTableFunc a))
-foreign import ccall "wrapper" mkBufferMessageFunc :: BufferMessageFunc a -> IO (FunPtr (BufferMessageFunc a))
-
-unicode_funcs_set_combining_class_func :: MonadIO m => UnicodeFuncs -> (Char -> IO UnicodeCombiningClass) -> m ()
-unicode_funcs_set_combining_class_func uf fun = liftIO $ do
-  (castFunPtr -> f) <- mkUnicodeCombiningClassFunc $ \ _ c _ -> fun c
-  [C.block|void {
-    hb_unicode_combining_class_func_t f = $(hb_unicode_combining_class_func_t f);
-    hb_unicode_funcs_set_combining_class_func($unicode-funcs:uf,f,f,(hb_destroy_func_t)hs_free_fun_ptr);
-  }|]
-
-unicode_funcs_set_compose_func :: MonadIO m => UnicodeFuncs -> (Char -> Char -> IO (Maybe Char)) -> m ()
-unicode_funcs_set_compose_func uf fun = liftIO $ do
-  (castFunPtr -> f) <- mkUnicodeComposeFunc $ \ _ a b c _ -> fun a b >>= \case
-     Nothing -> pure $ boolc False
-     Just ab -> boolc True <$ poke c ab
-  [C.block|void {
-    hb_unicode_compose_func_t f = $(hb_unicode_compose_func_t f);
-    hb_unicode_funcs_set_compose_func($unicode-funcs:uf,f,f,(hb_destroy_func_t)hs_free_fun_ptr);
-  }|]
-
-unicode_funcs_set_decompose_func :: MonadIO m => UnicodeFuncs -> (Char -> IO (Maybe (Char,Char))) -> m ()
-unicode_funcs_set_decompose_func uf fun = liftIO $ do
-  (castFunPtr -> f) <- mkUnicodeDecomposeFunc $ \ _ a pb pc _ -> fun a >>= \case
-     Nothing -> pure $ boolc False
-     Just (b,c) -> boolc True <$ (poke pb b *> poke pc c)
-  [C.block|void {
-    hb_unicode_decompose_func_t f = $(hb_unicode_decompose_func_t f);
-    hb_unicode_funcs_set_decompose_func($unicode-funcs:uf,f,f,(hb_destroy_func_t)hs_free_fun_ptr);
-  }|]
-
-unicode_funcs_set_general_category_func :: MonadIO m => UnicodeFuncs -> (Char -> IO UnicodeGeneralCategory) -> m ()
-unicode_funcs_set_general_category_func uf fun = liftIO $ do
-  (castFunPtr -> f) <- mkUnicodeGeneralCategoryFunc $ \ _ c _ -> fun c
-  [C.block|void {
-    hb_unicode_general_category_func_t f = $(hb_unicode_general_category_func_t f);
-    hb_unicode_funcs_set_general_category_func($unicode-funcs:uf,f,f,(hb_destroy_func_t)hs_free_fun_ptr);
-  }|]
-
-unicode_funcs_set_mirroring_func :: MonadIO m => UnicodeFuncs -> (Char -> IO Char) -> m ()
-unicode_funcs_set_mirroring_func uf fun = liftIO $ do
-  (castFunPtr -> f) <- mkUnicodeMirroringFunc $ \ _ a _ -> fun a
-  [C.block|void {
-    hb_unicode_mirroring_func_t f = $(hb_unicode_mirroring_func_t f);
-    hb_unicode_funcs_set_mirroring_func($unicode-funcs:uf,f,f,(hb_destroy_func_t)hs_free_fun_ptr);
-  }|]
-
-unicode_funcs_set_script_func :: MonadIO m => UnicodeFuncs -> (Char -> IO Script) -> m ()
-unicode_funcs_set_script_func uf fun = liftIO $ do
-  (castFunPtr -> f) <- mkUnicodeScriptFunc $ \ _ a _ -> fun a
-  [C.block|void {
-    hb_unicode_script_func_t f = $(hb_unicode_script_func_t f);
-    hb_unicode_funcs_set_script_func($unicode-funcs:uf,f,f,(hb_destroy_func_t)hs_free_fun_ptr);
-  }|]
-
-unicode_combining_class :: MonadIO m => UnicodeFuncs -> Char -> m UnicodeCombiningClass
-unicode_combining_class uf (c2w -> codepoint) = liftIO [C.exp|hb_unicode_combining_class_t { hb_unicode_combining_class($unicode-funcs:uf,$(hb_codepoint_t codepoint)) }|]
-
-unicode_compose :: MonadIO m => UnicodeFuncs -> Char -> Char -> m (Maybe Char)
-unicode_compose uf (c2w -> a) (c2w -> b) = liftIO $ alloca $ \c -> do
-  ok <- [C.exp|hb_bool_t { hb_unicode_compose($unicode-funcs:uf,$(hb_codepoint_t a),$(hb_codepoint_t b),$(hb_codepoint_t * c)) }|]
-  if cbool ok then Just . w2c <$> peek c else pure Nothing
-
-unicode_decompose :: MonadIO m => UnicodeFuncs -> Char -> m (Maybe (Char, Char))
-unicode_decompose uf (c2w -> a) = liftIO $ allocaArray 2 $ \ pbc -> do
-  ok <- [C.block|hb_bool_t {
-    hb_codepoint_t * pbc = $(hb_codepoint_t * pbc);
-    return hb_unicode_decompose($unicode-funcs:uf,$(hb_codepoint_t a),pbc,pbc+1);
-  }|]
-  if cbool ok then do
-    b <- peek pbc
-    c <- peek (advancePtr pbc 1)
-    pure $ Just (w2c b, w2c c)
-  else pure Nothing
-
-unicode_general_category :: MonadIO m => UnicodeFuncs -> Char -> m UnicodeGeneralCategory
-unicode_general_category uf (c2w -> codepoint) = liftIO [C.exp|hb_unicode_general_category_t { hb_unicode_general_category($unicode-funcs:uf,$(hb_codepoint_t codepoint)) }|]
-
-unicode_mirroring :: MonadIO m => UnicodeFuncs -> Char -> m Char
-unicode_mirroring uf (c2w -> a) = liftIO $ [C.exp|hb_codepoint_t { hb_unicode_mirroring($unicode-funcs:uf,$(hb_codepoint_t a)) }|] <&> w2c
-
-unicode_script :: MonadIO m => UnicodeFuncs -> Char -> m Script
-unicode_script uf (c2w -> a) = liftIO [C.exp|hb_script_t { hb_unicode_script($unicode-funcs:uf,$(hb_codepoint_t a)) }|]
-
-instance IsObject UnicodeFuncs where
-  _reference uf = [C.exp|hb_unicode_funcs_t * { hb_unicode_funcs_reference($unicode-funcs:uf) }|]
-  _destroy uf = [C.block|void { hb_unicode_funcs_destroy($unicode-funcs:uf); }|]
-  _get_user_data b k = [C.exp|void * { hb_unicode_funcs_get_user_data($unicode-funcs:b,$key:k) }|]
-  _set_user_data b k v d replace = [C.exp|hb_bool_t { hb_unicode_funcs_set_user_data($unicode-funcs:b,$key:k,$(void*v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|]
 

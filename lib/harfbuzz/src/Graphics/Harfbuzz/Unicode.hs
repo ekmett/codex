@@ -1,4 +1,3 @@
-{-# language ForeignFunctionInterface #-}
 {-# language TemplateHaskell #-}
 {-# language ViewPatterns #-}
 {-# language QuasiQuotes #-}
@@ -41,13 +40,6 @@ import Graphics.Harfbuzz.Internal
 C.context $ C.baseCtx <> harfbuzzCtx
 C.include "<hb.h>"
 C.include "HsFFI.h"
-
-foreign import ccall "wrapper" mkUnicodeCombiningClassFunc :: UnicodeCombiningClassFunc a -> IO (FunPtr (UnicodeCombiningClassFunc a))
-foreign import ccall "wrapper" mkUnicodeComposeFunc :: UnicodeComposeFunc a -> IO (FunPtr (UnicodeComposeFunc a))
-foreign import ccall "wrapper" mkUnicodeDecomposeFunc :: UnicodeDecomposeFunc a -> IO (FunPtr (UnicodeDecomposeFunc a))
-foreign import ccall "wrapper" mkUnicodeGeneralCategoryFunc :: UnicodeGeneralCategoryFunc a -> IO (FunPtr (UnicodeGeneralCategoryFunc a))
-foreign import ccall "wrapper" mkUnicodeMirroringFunc :: UnicodeMirroringFunc a -> IO (FunPtr (UnicodeMirroringFunc a))
-foreign import ccall "wrapper" mkUnicodeScriptFunc :: UnicodeScriptFunc a -> IO (FunPtr (UnicodeScriptFunc a))
 
 unicode_funcs_create :: MonadIO m => UnicodeFuncs -> m UnicodeFuncs
 unicode_funcs_create parent = liftIO $
