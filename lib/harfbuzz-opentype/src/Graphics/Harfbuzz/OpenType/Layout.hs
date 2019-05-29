@@ -38,17 +38,17 @@ module Graphics.Harfbuzz.OpenType.Layout
 , layout_language_get_required_feature
 , layout_lookup_collect_glyphs
 -- layout_lookup_substitute_closure
+, layout_lookup_would_substitute
 -- layout_lookups_substitute_closure
--- layout_lookup_would_substitute ()
 -- layout_script_get_language_tags
 -- layout_script_select_language
 , layout_table_find_feature_variations
+-- layout_language_get_required_feature_index
 -- layout_table_get_feature_tags
--- layout_table_get_script_tags
 -- layout_table_get_lookup_count
+-- layout_table_get_script_tags
 -- layout_table_select_script
 -- shape_plan_collect_lookups
--- layout_language_get_required_feature_index
 , pattern LAYOUT_DEFAULT_LANGUAGE_INDEX
 , pattern LAYOUT_NO_FEATURE_INDEX
 , pattern LAYOUT_NO_SCRIPT_INDEX
@@ -255,3 +255,9 @@ layout_table_find_feature_variations face table_tag coords = liftIO $
       if cbool b
       then Just . fromIntegral <$> peek pvariations_index
       else pure Nothing
+
+layout_lookup_would_substitute :: MonadIO m => Face -> Int -> [Codepoint] -> Bool -> m Bool
+layout_lookup_would_substitute face (fromIntegral -> lookup_index) glyphs (boolc -> zero_context) = liftIO $
+  withArrayLen glyphs $ \(fromIntegral -> len) pglyphs ->
+    [C.exp|hb_bool_t { hb_ot_layout_lookup_would_substitute($face:face,$(unsigned int lookup_index),$(const hb_codepoint_t * pglyphs),$(unsigned int len),$(hb_bool_t zero_context))}|] <&> cbool
+
