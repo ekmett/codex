@@ -3,6 +3,7 @@
 {-# language TemplateHaskell #-}
 {-# language PatternSynonyms #-}
 {-# language LambdaCase #-}
+{-# options_ghc -Wno-incomplete-uni-patterns #-}
 -- |
 module Graphics.Harfbuzz.OpenType
 (
@@ -60,9 +61,14 @@ module Graphics.Harfbuzz.OpenType
 , ot_var_get_named_instance_count
 , ot_var_named_instance_get_subfamily_name_id
 , ot_var_named_instance_get_postscript_name_id
+-- , ot_var_normalize_variations
+, ot_var_normalize_coords
 ) where
 
 import Control.Monad.IO.Class
+import Control.Monad.Trans.State.Strict
+import Data.Coerce
+import Data.Foldable (toList)
 import Data.Functor ((<&>))
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
@@ -304,3 +310,11 @@ ot_var_named_instance_get_subfamily_name_id face (fromIntegral -> instance_index
 
 ot_var_named_instance_get_postscript_name_id :: MonadIO m => Face -> Int -> m OpenTypeName
 ot_var_named_instance_get_postscript_name_id face (fromIntegral -> instance_index) = liftIO [C.exp|hb_ot_name_id_t { hb_ot_var_named_instance_get_postscript_name_id($face:face,$(unsigned int instance_index)) }|]
+
+ot_var_normalize_coords :: (MonadIO m, Traversable f) => Face -> f Float -> m (f Int)
+ot_var_normalize_coords face design = liftIO $
+  withArrayLen (coerce $ toList design) $ \len@(fromIntegral -> n) pdesign_coords ->
+    allocaArray len $ \pnormalized_coords -> do
+      [C.block|void { hb_ot_var_normalize_coords($face:face,$(unsigned int n),$(const float * pdesign_coords),$(int * pnormalized_coords)); }|]
+      let step _ = state $ \ (x:xs) -> (fromIntegral x,xs)
+      peekArray len pnormalized_coords <&> evalState (traverse step design)
