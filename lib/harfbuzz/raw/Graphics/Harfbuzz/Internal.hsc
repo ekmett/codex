@@ -214,6 +214,12 @@ module Graphics.Harfbuzz.Internal
   , OT_NAME_ID_INVALID
   )
 , OpenTypeNameEntry
+, OpenTypeVarAxisFlags
+  ( OpenTypeVarAxisFlags
+  , OT_VAR_AXIS_FLAG_HIDDEN
+  , OT_VAR_AXIS_FLAG__MAX_VALUE
+  )
+, OpenTypeVarAxisInfo(..)
 , Position
 , ReferenceTableFunc
 , Script
@@ -274,6 +280,7 @@ module Graphics.Harfbuzz.Internal
 , Tag
   ( Tag, TAG
   , TAG_NONE, TAG_MAX, TAG_MAX_SIGNED
+  -- open type tags
   , OT_TAG_BASE
   , OT_TAG_GDEF
   , OT_TAG_GPOS
@@ -281,8 +288,15 @@ module Graphics.Harfbuzz.Internal
   , OT_TAG_JSTF
   , OT_TAG_DEFAULT_LANGUAGE
   , OT_TAG_DEFAULT_SCRIPT
+  -- open type math tags
   , OT_TAG_MATH
   , OT_MATH_SCRIPT
+  -- open type variable axis tags
+  , OT_TAG_VAR_AXIS_ITALIC
+  , OT_TAG_VAR_AXIS_OPTICAL_SIZE
+  , OT_TAG_VAR_AXIS_SLANT
+  , OT_TAG_VAR_AXIS_WIDTH
+  , OT_TAG_VAR_AXIS_WEIGHT
   )
 , UnicodeCombiningClass
   ( UnicodeCombiningClass
@@ -682,6 +696,41 @@ instance Storable OpenTypeNameEntry where
    (#poke hb_ot_name_entry_t, var ) p ot_name_entry_var
    (#poke hb_ot_name_entry_t, language) p ot_name_entry_language
 
+newtype OpenTypeVarAxisFlags = OpenTypeVarAxisFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Bits)
+
+data OpenTypeVarAxisInfo = OpenTypeVarAxisInfo
+  { ot_var_axis_info_axis_index    :: {-# unpack #-} !Word32
+  , ot_var_axis_info_tag           :: {-# unpack #-} !Tag
+  , ot_var_axis_info_name_id       :: {-# unpack #-} !OpenTypeName
+  , ot_var_axis_info_flags         :: {-# unpack #-} !OpenTypeVarAxisFlags
+  , ot_var_axis_info_min_value     :: {-# unpack #-} !Float
+  , ot_var_axis_info_default_value :: {-# unpack #-} !Float
+  , ot_var_axis_info_max_value     :: {-# unpack #-} !Float
+  , ot_var_axis_info_reserved      :: {-# unpack #-} !Word32
+  } deriving (Eq,Ord,Show,Read)
+
+instance Storable OpenTypeVarAxisInfo where
+  sizeOf _ = #size hb_ot_var_axis_info_t
+  alignment _ = #alignment hb_ot_var_axis_info_t
+  peek p = OpenTypeVarAxisInfo
+   <$> (#peek hb_ot_var_axis_info_t, axis_index) p
+   <*> (#peek hb_ot_var_axis_info_t, tag) p
+   <*> (#peek hb_ot_var_axis_info_t, name_id) p
+   <*> (#peek hb_ot_var_axis_info_t, flags) p
+   <*> (#peek hb_ot_var_axis_info_t, min_value) p
+   <*> (#peek hb_ot_var_axis_info_t, default_value) p
+   <*> (#peek hb_ot_var_axis_info_t, max_value) p
+   <*> (#peek hb_ot_var_axis_info_t, reserved) p
+  poke p OpenTypeVarAxisInfo{..} = do
+   (#poke hb_ot_var_axis_info_t, axis_index) p ot_var_axis_info_axis_index
+   (#poke hb_ot_var_axis_info_t, tag) p ot_var_axis_info_tag
+   (#poke hb_ot_var_axis_info_t, name_id) p ot_var_axis_info_name_id
+   (#poke hb_ot_var_axis_info_t, flags) p ot_var_axis_info_flags
+   (#poke hb_ot_var_axis_info_t, min_value) p ot_var_axis_info_min_value
+   (#poke hb_ot_var_axis_info_t, default_value) p ot_var_axis_info_default_value
+   (#poke hb_ot_var_axis_info_t, max_value) p ot_var_axis_info_max_value
+   (#poke hb_ot_var_axis_info_t, reserved) p ot_var_axis_info_reserved
+
 type Position = Word32
 
 type BufferMessageFunc a = Ptr Buffer -> Ptr Font -> CString -> Ptr a -> IO ()
@@ -1046,6 +1095,15 @@ pattern OT_TAG_DEFAULT_SCRIPT = (#const HB_OT_TAG_DEFAULT_SCRIPT) :: Tag -- "DFL
 
 pattern OT_TAG_MATH = (#const HB_OT_TAG_MATH) :: Tag -- "MATH"
 pattern OT_MATH_SCRIPT = (#const HB_OT_MATH_SCRIPT) :: Tag -- "math"
+
+
+pattern OT_TAG_VAR_AXIS_ITALIC = (#const HB_OT_TAG_VAR_AXIS_ITALIC) :: Tag
+pattern OT_TAG_VAR_AXIS_OPTICAL_SIZE = (#const HB_OT_TAG_VAR_AXIS_OPTICAL_SIZE) :: Tag
+pattern OT_TAG_VAR_AXIS_SLANT = (#const HB_OT_TAG_VAR_AXIS_SLANT) :: Tag
+pattern OT_TAG_VAR_AXIS_WIDTH = (#const HB_OT_TAG_VAR_AXIS_WIDTH) :: Tag
+pattern OT_TAG_VAR_AXIS_WEIGHT = (#const HB_OT_TAG_VAR_AXIS_WEIGHT) :: Tag
+
+
 
 pattern DIRECTION_INVALID = (#const HB_DIRECTION_INVALID) :: Direction
 pattern DIRECTION_LTR = (#const HB_DIRECTION_LTR) :: Direction
@@ -1603,6 +1661,9 @@ pattern OT_NAME_ID_DARK_BACKGROUND = (#const HB_OT_NAME_ID_DARK_BACKGROUND) :: O
 pattern OT_NAME_ID_VARIATIONS_PS_PREFIX = (#const HB_OT_NAME_ID_VARIATIONS_PS_PREFIX) :: OpenTypeName
 pattern OT_NAME_ID_INVALID = (#const HB_OT_NAME_ID_INVALID) :: OpenTypeName
 
+pattern OT_VAR_AXIS_FLAG_HIDDEN = (#const HB_OT_VAR_AXIS_FLAG_HIDDEN) :: OpenTypeVarAxisFlags
+pattern OT_VAR_AXIS_FLAG__MAX_VALUE = (#const _HB_OT_VAR_AXIS_FLAG_MAX_VALUE) :: OpenTypeVarAxisFlags
+
 #endif
 
 -- * Finalization
@@ -1755,7 +1816,6 @@ harfbuzzCtx = mempty
     ]
   }
 
-
 harfbuzzOpenTypeCtx :: C.Context
 harfbuzzOpenTypeCtx = harfbuzzCtx <> mempty
   { C.ctxTypesTable = Map.fromList
@@ -1767,11 +1827,14 @@ harfbuzzOpenTypeCtx = harfbuzzCtx <> mempty
     , (C.TypeName "hb_ot_math_glyph_part_flags_t", [t|OpenTypeMathGlyphPartFlags|])
     , (C.TypeName "hb_ot_name_id_t", [t|OpenTypeName|])
     , (C.TypeName "hb_ot_name_entry_t", [t|OpenTypeNameEntry|])
+    , (C.TypeName "hb_ot_var_axis_flags_t", [t|OpenTypeVarAxisFlags|])
+    , (C.TypeName "hb_ot_var_axis_info_t", [t|OpenTypeVarAxisInfo|])
     ]
   , C.ctxAntiQuoters = Map.fromList
     [ ("ot-name-entry", anti (ptr $ C.TypeName "hb_ot_name_entry_t") [t|Ptr OpenTypeNameEntry|] [|with|])
     , ("ot-math-glyph-part", anti (ptr $ C.TypeName "hb_ot_math_glyph_part_t") [t|Ptr OpenTypeMathGlyphPart|] [|with|])
     , ("ot-math-glyph-variant", anti (ptr $ C.TypeName "hb_ot_math_glyph_variant_t") [t|Ptr OpenTypeMathGlyphVariant|] [|with|])
+    , ("ot-var-axis-info", anti (ptr $ C.TypeName "hb_ot_var_axis_info_t") [t|Ptr OpenTypeVarAxisInfo|] [|with|])
     ]
   }
 

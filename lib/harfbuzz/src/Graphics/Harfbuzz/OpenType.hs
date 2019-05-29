@@ -46,6 +46,13 @@ module Graphics.Harfbuzz.OpenType
 , pattern OT_MATH_SCRIPT
 -- * @hb-ot-shape.h@
 , ot_shape_glyphs_closure
+-- * @hb-ot-var.h@
+, pattern OT_TAG_VAR_AXIS_ITALIC
+, pattern OT_TAG_VAR_AXIS_OPTICAL_SIZE
+, pattern OT_TAG_VAR_AXIS_SLANT
+, pattern OT_TAG_VAR_AXIS_WIDTH
+, pattern OT_TAG_VAR_AXIS_WEIGHT
+, ot_var_has_data
 ) where
 
 import Control.Monad.IO.Class
@@ -244,3 +251,7 @@ ot_shape_glyphs_closure :: MonadIO m => Font -> Buffer -> [Feature] -> Set -> m 
 ot_shape_glyphs_closure font buffer features glyphs = liftIO $
   withArrayLen features $ \ (fromIntegral -> num_features) pfeatures ->
     [C.block|void { hb_ot_shape_glyphs_closure( $font:font, $buffer:buffer, $(const hb_feature_t * pfeatures), $(unsigned int num_features), $set:glyphs); }|]
+
+ot_var_has_data :: MonadIO m => Face -> m Bool
+ot_var_has_data face = liftIO $ [C.exp|hb_bool_t { hb_ot_var_has_data($face:face) }|] <&> cbool
+
