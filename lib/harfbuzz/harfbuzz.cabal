@@ -38,6 +38,7 @@ common lib
     bytestring,
     containers >= 0.6,
     hashable,
+    hkd,
     inline-c,
     StateVar,
     template-haskell,
