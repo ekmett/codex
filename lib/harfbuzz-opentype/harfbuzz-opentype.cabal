@@ -60,3 +60,10 @@ library
   reexported-modules: Graphics.Harfbuzz.Internal
   exposed-modules:
     Graphics.Harfbuzz.OpenType
+    Graphics.Harfbuzz.OpenType.Color
+    Graphics.Harfbuzz.OpenType.Font
+    Graphics.Harfbuzz.OpenType.Math
+    Graphics.Harfbuzz.OpenType.Layout
+    Graphics.Harfbuzz.OpenType.Name
+    Graphics.Harfbuzz.OpenType.Shape
+    Graphics.Harfbuzz.OpenType.Variation
