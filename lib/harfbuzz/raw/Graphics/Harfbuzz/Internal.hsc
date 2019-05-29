@@ -313,6 +313,7 @@ module Graphics.Harfbuzz.Internal
 , cbool, boolc, w2c,c2w
 , newByteStringCStringLen
 , harfbuzzCtx
+, harfbuzzOpenTypeCtx
 , hs_free_stable_ptr
 ) where
 
@@ -1431,8 +1432,6 @@ harfbuzzCtx = mempty
     , (C.TypeName "hb_language_impl_t", [t|Language|])
     , (C.TypeName "hb_map_t", [t|Map|])
     , (C.TypeName "hb_memory_mode_t", [t|MemoryMode|])
-    , (C.TypeName "hb_ot_name_id_t", [t|OpenTypeName|])
-    , (C.TypeName "hb_ot_layout_glyph_class_t", [t|OpenTypeLayoutGlyphClass|])
     , (C.TypeName "hb_position_t", [t|Position|])
     , (C.TypeName "hb_reference_table_func_t", [t|FunPtr (ReferenceTableFunc ())|])
     , (C.TypeName "hb_script_t", [t|Script|])
@@ -1474,3 +1473,11 @@ harfbuzzCtx = mempty
     , ("unicode-funcs", anti (ptr $ C.TypeName "hb_unicode_funcs_t") [t|Ptr UnicodeFuncs|] [|withSelf|])
     ]
   } where ptr = C.Ptr [] . C.TypeSpecifier mempty
+
+harfbuzzOpenTypeCtx :: C.Context
+harfbuzzOpenTypeCtx = harfbuzzCtx <> mempty
+  { C.ctxTypesTable = Map.fromList
+    [ (C.TypeName "hb_ot_name_id_t", [t|OpenTypeName|])
+    , (C.TypeName "hb_ot_layout_glyph_class_t", [t|OpenTypeLayoutGlyphClass|])
+    ]
+  }
