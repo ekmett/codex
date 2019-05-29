@@ -37,9 +37,9 @@ module Graphics.Harfbuzz.OpenType.Layout
 , layout_language_get_feature_tags
 , layout_language_get_required_feature
 , layout_lookup_collect_glyphs
--- layout_lookup_substitute_closure
+, layout_lookup_substitute_closure
 , layout_lookup_would_substitute
--- layout_lookups_substitute_closure
+, layout_lookups_substitute_closure
 -- layout_script_get_language_tags
 -- layout_script_select_language
 , layout_table_find_feature_variations
@@ -261,3 +261,9 @@ layout_lookup_would_substitute face (fromIntegral -> lookup_index) glyphs (boolc
   withArrayLen glyphs $ \(fromIntegral -> len) pglyphs ->
     [C.exp|hb_bool_t { hb_ot_layout_lookup_would_substitute($face:face,$(unsigned int lookup_index),$(const hb_codepoint_t * pglyphs),$(unsigned int len),$(hb_bool_t zero_context))}|] <&> cbool
 
+layout_lookup_substitute_closure :: MonadIO m => Face -> Int -> Set -> m ()
+layout_lookup_substitute_closure face (fromIntegral -> lookup_index) glyphs = liftIO [C.block|void { hb_ot_layout_lookup_substitute_closure($face:face,$(unsigned int lookup_index),$set:glyphs);}|]
+
+
+layout_lookups_substitute_closure :: MonadIO m => Face -> Set -> Set -> m ()
+layout_lookups_substitute_closure face lookups glyphs = liftIO [C.block|void { hb_ot_layout_lookups_substitute_closure($face:face,$set:lookups,$set:glyphs);}|]
