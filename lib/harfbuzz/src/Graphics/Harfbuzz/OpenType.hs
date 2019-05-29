@@ -3,6 +3,9 @@
 {-# language TemplateHaskell #-}
 {-# language PatternSynonyms #-}
 {-# language LambdaCase #-}
+{-# language MagicHash #-}
+{-# language TypeApplications #-}
+{-# language ScopedTypeVariables #-}
 {-# options_ghc -Wno-incomplete-uni-patterns #-}
 -- |
 module Graphics.Harfbuzz.OpenType
@@ -16,6 +19,25 @@ module Graphics.Harfbuzz.OpenType
 , OpenTypeName(..)
 , ot_name_list_names
 , ot_name_get
+-- * Color
+, Color(..)
+, OpenTypeColorLayer(..)
+-- ** svg
+, ot_color_has_svg
+, ot_color_glyph_reference_svg
+-- ** png
+, ot_color_has_png
+, ot_color_glyph_reference_png
+-- ** layered glyphs
+, ot_color_has_palettes
+, ot_color_has_layers
+, ot_color_palette_get_count
+, ot_color_palette_get_name_id
+, ot_color_palette_get_flags
+, ot_color_palette_get_colors
+, ot_color_palette_color_get_name_id
+, ot_color_glyph_get_layers
+
 -- * Layout
 , OpenTypeLayoutGlyphClass(..)
 , pattern OT_TAG_BASE
@@ -67,16 +89,22 @@ module Graphics.Harfbuzz.OpenType
 ) where
 
 import Control.Monad.IO.Class
+import Control.Monad.Primitive
 import Control.Monad.Trans.State.Strict
 import Data.Coerce
 import Data.Foldable (toList)
 import Data.Functor ((<&>))
+import Data.Primitive.PrimArray
+import Data.Primitive.Types
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
 import Foreign.Marshal.Unsafe
 import Foreign.Marshal.Utils
 import Foreign.Ptr
 import Foreign.Storable
+import GHC.Prim (copyAddrToByteArray#)
+import GHC.Ptr (Ptr(Ptr))
+import GHC.Types (Int(I#))
 import qualified Language.C.Inline as C
 
 import Graphics.Harfbuzz.Internal
@@ -116,6 +144,83 @@ ot_tags_to_script_and_language script_tag language_tag = unsafeLocalState $
   alloca $ \pscript -> alloca $ \ planguage -> do
     [C.block|void { hb_ot_tags_to_script_and_language( $(hb_tag_t script_tag),$(hb_tag_t language_tag),$(hb_script_t * pscript),$(hb_language_t * planguage)); }|]
     (,) <$> peek pscript <*> (Language <$> peek planguage)
+
+-- * Color
+
+ot_color_has_svg :: MonadIO m => Face -> m Bool
+ot_color_has_svg face = liftIO $ [C.exp|hb_bool_t { hb_ot_color_has_svg($face:face) }|] <&> cbool
+
+ot_color_glyph_reference_svg :: MonadIO m => Face -> Codepoint -> m Blob
+ot_color_glyph_reference_svg face glyph = liftIO $ [C.exp|hb_blob_t * { hb_ot_color_glyph_reference_svg($face:face,$(hb_codepoint_t glyph)) }|] >>= foreignBlob
+
+ot_color_has_png :: MonadIO m => Face -> m Bool
+ot_color_has_png face = liftIO $ [C.exp|hb_bool_t { hb_ot_color_has_png($face:face) }|] <&> cbool
+
+-- | Why does this take a font and the svg option take a face?! *sigh*
+ot_color_glyph_reference_png :: MonadIO m => Font -> Codepoint -> m Blob
+ot_color_glyph_reference_png font glyph = liftIO $ [C.exp|hb_blob_t * { hb_ot_color_glyph_reference_png($font:font,$(hb_codepoint_t glyph)) }|] >>= foreignBlob
+
+ot_color_has_palettes :: MonadIO m => Face -> m Bool
+ot_color_has_palettes face = liftIO $ [C.exp|hb_bool_t { hb_ot_color_has_palettes($face:face) }|] <&> cbool
+
+ot_color_palette_get_count :: MonadIO m => Face -> m Int
+ot_color_palette_get_count face = liftIO $ [C.exp|unsigned int { hb_ot_color_palette_get_count($face:face) }|] <&> fromIntegral
+
+ot_color_palette_get_name_id :: MonadIO m => Face -> Int -> m OpenTypeName
+ot_color_palette_get_name_id face (fromIntegral -> palette_index) = liftIO
+  [C.exp|hb_ot_name_id_t { hb_ot_color_palette_get_name_id($face:face,$(unsigned int palette_index)) }|]
+
+ot_color_palette_color_get_name_id :: MonadIO m => Face -> Int -> m OpenTypeName
+ot_color_palette_color_get_name_id face (fromIntegral -> color_index) = liftIO
+  [C.exp|hb_ot_name_id_t { hb_ot_color_palette_color_get_name_id($face:face,$(unsigned int color_index)) }|]
+
+ot_color_palette_get_flags :: MonadIO m => Face -> Int -> m OpenTypeColorPaletteFlags
+ot_color_palette_get_flags face (fromIntegral -> palette_index) = liftIO
+  [C.exp|hb_ot_color_palette_flags_t { hb_ot_color_palette_get_flags($face:face,$(unsigned int palette_index)) }|]
+
+-- still missing from Data.Primitive.PrimArray as of 0.7
+copyPtrToPrimArray :: forall m a. (PrimMonad m, Prim a) => MutablePrimArray (PrimState m) a -> Int -> Ptr a -> Int -> m ()
+copyPtrToPrimArray (MutablePrimArray mba) ((I# (sizeOf# @a undefined) *) -> I# offset) (Ptr addr) ((I# (sizeOf# @a undefined) *) -> I# len) =
+  primitive_ $ \s -> copyAddrToByteArray# addr mba offset len s
+
+ot_color_palette_get_colors :: MonadIO m => Face -> Int -> m (PrimArray Color)
+ot_color_palette_get_colors face (fromIntegral -> palette_index) = liftIO $
+  withSelf face $ \f -> do
+    n@(fromIntegral -> i) <- [C.exp|unsigned int { hb_ot_color_palette_get_colors($(hb_face_t * f),$(unsigned int palette_index),0,0,0) }|]
+    allocaArray i $ \pcolors ->
+      with n $ \pn -> do
+        _ <- [C.exp|unsigned int { hb_ot_color_palette_get_colors($(hb_face_t * f),$(unsigned int palette_index),0,$(unsigned int * pn),$(hb_color_t * pcolors)) }|]
+        mpa <- newPrimArray i
+        copyPtrToPrimArray mpa 0 pcolors i
+        unsafeFreezePrimArray mpa
+
+ot_color_has_layers :: MonadIO m => Face -> m Bool
+ot_color_has_layers face = liftIO $ [C.exp|hb_bool_t { hb_ot_color_has_layers($face:face) }|] <&> cbool
+
+ot_color_glyph_get_layers_ :: Face -> Codepoint -> Int -> Int -> IO (Int,Int,[OpenTypeColorLayer])
+ot_color_glyph_get_layers_ face glyph (fromIntegral -> start_offset) requested_layers_count = liftIO $
+    with (fromIntegral requested_layers_count) $ \players_count ->
+      allocaArray requested_layers_count $ \players -> do
+        total_number_of_layers <- [C.exp|unsigned int {
+          hb_ot_color_glyph_get_layers(
+            $face:face,
+            $(hb_codepoint_t glyph),
+            $(unsigned int start_offset),
+            $(unsigned int * players_count),
+            $(hb_ot_color_layer_t * players)
+          )
+        }|] <&> fromIntegral
+        retrieved_layers_count <- fromIntegral <$> peek players_count
+        layers <- peekArray retrieved_layers_count players
+        pure (total_number_of_layers, retrieved_layers_count, layers)
+
+
+ot_color_glyph_get_layers :: MonadIO m => Face -> Codepoint -> m [OpenTypeColorLayer]
+ot_color_glyph_get_layers face glyph = liftIO $ do
+  (total, retrieved, layers) <- ot_color_glyph_get_layers_ face glyph 0 8
+  if total == retrieved
+  then return layers
+  else ot_color_glyph_get_layers_ face glyph 8 (total - 8) <&> \(_,_,layers2) -> layers ++ layers2
 
 -- * Math
 
@@ -322,11 +427,11 @@ ot_var_named_instance_get_postscript_name_id face (fromIntegral -> instance_inde
 ot_var_normalize_variations :: MonadIO m => Face -> [Variation] -> m [Int]
 ot_var_normalize_variations face variations = liftIO $ do
   n@(fromIntegral -> num_coords) <- ot_var_get_axis_count face
-  withArrayLen variations $ \ (fromIntegral -> variations_length) pvariations -> 
+  withArrayLen variations $ \ (fromIntegral -> variations_length) pvariations ->
     allocaArray n $ \ pcoords -> do
       [C.block|void {
         hb_ot_var_normalize_variations($face:face,$(hb_variation_t * pvariations),$(unsigned int variations_length),$(int * pcoords),$(unsigned int num_coords));
-      }|] 
+      }|]
       fmap fromIntegral <$> peekArray n pcoords
 
 ot_var_normalize_coords :: (MonadIO m, Traversable f) => Face -> f Float -> m (f Int)

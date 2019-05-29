@@ -38,8 +38,8 @@ common lib
     bytestring,
     containers >= 0.6,
     hashable,
-    hkd,
     inline-c,
+    primitive,
     StateVar,
     template-haskell,
     text,
@@ -53,7 +53,7 @@ library raw
 
 library
   import: lib
-  build-depends: raw
+  build-depends: ghc-prim, hkd, raw
   hs-source-dirs: src
   reexported-modules: Graphics.Harfbuzz.Internal
   exposed-modules:
