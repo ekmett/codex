@@ -58,6 +58,7 @@ library
   exposed-modules:
     Graphics.Harfbuzz
     Graphics.Harfbuzz.OpenType
+    Graphics.Harfbuzz.Version
 
 test-suite spec
   import: base

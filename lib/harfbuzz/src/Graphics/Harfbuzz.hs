@@ -244,13 +244,6 @@ module Graphics.Harfbuzz
 
 , Variation(..)
 , variation_from_string, variation_to_string
-
-, version
-, version_string
-, pattern VERSION_MAJOR
-, pattern VERSION_MINOR
-, pattern VERSION_MICRO
-
 ) where
 
 import Control.Monad.IO.Class
@@ -264,7 +257,6 @@ import Data.String
 import Data.Text (Text)
 import qualified Data.Text.Foreign as Text
 import Data.Traversable (for)
-import Data.Version (Version, makeVersion)
 import Foreign.C.String
 import Foreign.C.Types
 import Foreign.Const.C.String
@@ -1255,18 +1247,4 @@ instance IsObject UnicodeFuncs where
   _destroy uf = [C.block|void { hb_unicode_funcs_destroy($unicode-funcs:uf); }|]
   _get_user_data b k = [C.exp|void * { hb_unicode_funcs_get_user_data($unicode-funcs:b,$key:k) }|]
   _set_user_data b k v d replace = [C.exp|hb_bool_t { hb_unicode_funcs_set_user_data($unicode-funcs:b,$key:k,$(void*v),$(hb_destroy_func_t d),$(hb_bool_t replace)) }|]
-
-version :: MonadIO m => m Version
-version = liftIO $ allocaArray 3 $ \abc -> do
-  [C.block|void {
-     unsigned int * abc = $(unsigned int * abc);
-     hb_version(abc,abc+1,abc+2);
-  }|]
-  a <- peek abc
-  b <- peek (advancePtr abc 1)
-  c <- peek (advancePtr abc 2)
-  pure $ makeVersion [fromIntegral a,fromIntegral b,fromIntegral c]
-
-version_string :: MonadIO m => m String
-version_string = liftIO $ [C.exp|const char * { hb_version_string() }|] >>= peekCString
 
