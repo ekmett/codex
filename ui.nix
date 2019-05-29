@@ -1,8 +1,8 @@
 { mkDerivation, adjunctions, atlas, base, bytestring, const
 , containers, data-default, distributive, file-embed, fontconfig
-, freetype, gl, glow, harfbuzz, hspec, JuicyPixels, lens, linear
-, mtl, primitive, sdl2, StateVar, stdenv, text, transformers
-, vector, weak
+, freetype, gl, glow, harfbuzz, harfbuzz-icu, hkd, hspec
+, JuicyPixels, lens, linear, mtl, primitive, sdl2, StateVar, stdenv
+, text, transformers, vector, weak
 }:
 mkDerivation {
   pname = "ui";
@@ -14,15 +14,15 @@ mkDerivation {
   libraryHaskellDepends = [
     adjunctions atlas base bytestring const containers data-default
     distributive file-embed fontconfig freetype gl glow harfbuzz
-    JuicyPixels lens linear mtl primitive sdl2 StateVar text
-    transformers vector weak
+    harfbuzz-icu hkd JuicyPixels lens linear mtl primitive sdl2
+    StateVar text transformers vector weak
   ];
   executableHaskellDepends = [ base ];
   testHaskellDepends = [
     adjunctions atlas base bytestring const containers data-default
-    distributive file-embed fontconfig freetype gl glow harfbuzz hspec
-    JuicyPixels lens linear mtl primitive sdl2 StateVar text
-    transformers vector weak
+    distributive file-embed fontconfig freetype gl glow harfbuzz
+    harfbuzz-icu hkd hspec JuicyPixels lens linear mtl primitive sdl2
+    StateVar text transformers vector weak
   ];
   homepage = "https://github.com/ekmett/ui#readme";
   description = "UI toolbox to complement Coda";

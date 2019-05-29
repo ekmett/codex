@@ -1,4 +1,3 @@
-
 { nixpkgs ? import ./nix/nixpkgs.nix
 , compiler ? "default"
 }:
@@ -20,7 +19,7 @@ let
     });
 
     # Upgrade the harf of buzz, we require the Unicode 12 updates.
-    harfbuzz = super.harfbuzz.overrideAttrs (_: rec {
+    harfbuzz = super.harfbuzz.overrideAttrs (oldAttrs: rec {
       version = "2.5.0";
       name = "harfbuzz-${version}";
       src = pkgs.fetchurl {
@@ -28,6 +27,8 @@ let
         sha256 = "1vqnqkzz7ws29g5djf31jj6a9dbid8a27a8y4balmy5lipwp774m";
       };
     });
+
+    harfbuzz-icu = self.harfbuzz.override { withIcu = true; };
   };
 
   pkgs = import nixpkgs { overlays = [overlay]; };
@@ -46,6 +47,7 @@ let
     harfbuzz-icu = ./lib/harfbuzz-icu;
     weak         = ./lib/weak;
     fontconfig   = ./lib/fontconfig;
+    hkd          = ./lib/hkd;
   };
 
   nihs = {
@@ -68,25 +70,27 @@ let
         '';
       });
 
+      hkd          = c2nix hsuper "hkd" {};
       const        = c2nix hsuper "const" {};
       weak         = c2nix hsuper "weak" {};
       # Provide the external lib dependency to match the cabal file
       freetype     = c2nix hself "freetype" { freetype2 = pkgs.freetype; };
-      harfbuzz-icu = c2nix hself "harfbuzz-icu" {};
     };
   };
 
-  # Adding any of these three into the modHaskPkgs overrides will result in an
+  # Adding any of these into the modHaskPkgs overrides will result in an
   # infinite recursion error. :)
   fontconfig = c2nix modHaskPkgs "fontconfig" {};
   harfbuzz   = c2nix modHaskPkgs "harfbuzz" {};
+  harfbuzz-icu = c2nix modHaskPkgs "harfbuzz-icu" { harfbuzz = harfbuzz; };
   glow       = c2nix modHaskPkgs "glow" {};
 
   # Build the UI derivation and include our specific dependencies.
   ui = modHaskPkgs.callPackage ./ui.nix { 
     fontconfig = fontconfig;
-    harfbuzz   = harfbuzz;
-    glow       = glow;
+    harfbuzz = harfbuzz;
+    harfbuzz-icu = harfbuzz-icu;
+    glow = glow;
   };
 
 in
