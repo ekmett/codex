@@ -118,8 +118,8 @@ layout_feature_get_lookups face table_tag feature_index = liftIO $ do
 
 -- | Tag = TAG_GSUB or TAG_POS
 layout_feature_get_name_ids :: MonadIO m => Face -> Tag -> Int -> m (Maybe (Name, Name, Name, Int, Name))
-layout_feature_get_name_ids face table_tag (fromIntegral -> feature_index) = liftIO $  
-  allocaArray 4 $ \ pids -> 
+layout_feature_get_name_ids face table_tag (fromIntegral -> feature_index) = liftIO $
+  allocaArray 4 $ \ pids ->
     alloca $ \pnum_named_parameters -> do
       b <- [C.block|hb_bool_t {
          hb_ot_name_id_t * ids = $(hb_ot_name_id_t * pids);
@@ -127,7 +127,7 @@ layout_feature_get_name_ids face table_tag (fromIntegral -> feature_index) = lif
       }|]
       if cbool b then fmap Just $ (,,,,) <$> peek pids <*> peek (advancePtr pids 1) <*> peek (advancePtr pids 2) <*> (fromIntegral <$> peek pnum_named_parameters) <*> peek (advancePtr pids 3)
       else pure Nothing
-      
+
 layout_feature_with_variations_get_lookups_ :: Face -> Tag -> Int -> Int -> Int -> Int -> IO (Int,Int,[Int])
 layout_feature_with_variations_get_lookups_ face table_tag (fromIntegral -> feature_index) (fromIntegral -> variations_index) (fromIntegral -> start_offset) lookup_count = do
   allocaArray lookup_count $ \ plookup_indices ->
