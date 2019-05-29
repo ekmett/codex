@@ -36,6 +36,7 @@ module Data.Atlas.Internal
 import Control.Lens
 import Data.Data (Data)
 import Data.Default
+import Data.HKD
 import Foreign.C.Types
 import Foreign.ForeignPtr
 import Foreign.Ptr
@@ -113,6 +114,16 @@ peekXY p = (\(w :: Coord) (h :: Coord) -> Pt (fromIntegral w) (fromIntegral h))
 -- hkd rectangles
 data Box f = Box { _boxPosition :: !(f Pt), _boxSize :: {-# unpack #-} !Pt }
 makeClassy ''Box
+
+instance FFunctor Box where
+  ffmap f (Box g h) = Box (f g) h
+
+instance FFoldable Box where
+  ffoldMap f (Box g _) = f g
+  flengthAcc acc _ = acc + 1
+
+instance FTraversable Box where
+  ftraverse f (Box g h) = (\g' -> Box g' h) <$> f g
 
 deriving instance Eq (f Pt) => Eq (Box f)
 deriving instance Ord (f Pt) => Ord (Box f)

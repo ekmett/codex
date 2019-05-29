@@ -35,7 +35,7 @@ library
   build-tool-depends: hsc2hs:hsc2hs
   cc-options: -g -Wall
   c-sources: cbits/stb_rect_pack.c
-  build-depends: data-default, lens
+  build-depends: data-default, hkd, lens
   exposed-modules:
     Data.Atlas
     Data.Atlas.Internal
