@@ -1356,7 +1356,7 @@ anti cTy hsTyQ w = C.SomeAntiQuoter C.AntiQuoter
     let cId = C.mangleHaskellIdentifier hId
     return (cId, cTy, hId)
   , C.aqMarshaller = \_purity _cTypes _cTy cId -> do
-    hsTy <- [t|Ptr $hsTyQ|]
+    hsTy <- hsTyQ
     hsExp <- getHsVariable "fontConfigCtx" cId
     hsExp' <- [|$w (coerce $(pure hsExp))|]
     return (hsTy, hsExp')
@@ -1414,23 +1414,24 @@ harfbuzzCtx = mempty
     , (C.TypeName "hb_variation_t", [t|Variation|])
     ]
   , C.ctxAntiQuoters = Map.fromList
-    [ ("ustr", anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char (Just C.Unsigned))) [t|CUChar|] [|withCUString|])
-    , ("str", anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char Nothing)) [t|CChar|] [|withCString|])
-    , ("blob", anti (ptr $ C.TypeName "hb_blob_t") [t|Blob|] [|withSelf|])
-    , ("buffer", anti (ptr $ C.TypeName "hb_buffer_t") [t|Buffer|] [|withSelf|])
-    , ("face", anti (ptr $ C.TypeName "hb_face_t") [t|Face|] [|withSelf|])
-    , ("feature", anti (ptr $ C.TypeName "hb_feature_t") [t|Feature|] [|with|])
-    , ("font", anti (ptr $ C.TypeName "hb_font_t") [t|Font|] [|withSelf|])
-    , ("font-extents", anti (ptr $ C.TypeName "hb_font_extents_t") [t|FontExtents|] [|with|])
-    , ("font-funcs", anti (ptr $ C.TypeName "hb_font_funcs_t") [t|FontFuncs|] [|withSelf|])
-    , ("glyph-extents", anti (ptr $ C.TypeName "hb_glyph_extents_t") [t|GlyphExtents|] [|with|])
-    , ("glyph-info", anti (ptr $ C.TypeName "hb_glyph_info_t") [t|GlyphInfo|] [|withPtr|])
-    , ("key", anti (ptr $ C.TypeName "hb_user_data_key_t") [t|OpaqueKey|] [|withKey|])
-    , ("language", anti (C.TypeSpecifier mempty $ C.TypeName "hb_language_t") [t|Language|] [|withPtr|])
-    , ("map", anti (ptr $ C.TypeName "hb_map_t") [t|Map|] [|withSelf|])
-    , ("segment-properties", anti (ptr $ C.TypeName "hb_segment_properties_t") [t|SegmentProperties|] [|with|])
-    , ("set", anti (ptr $ C.TypeName "hb_set_t") [t|Set|] [|withSelf|])
-    , ("shape-plan", anti (ptr $ C.TypeName "hb_shape_plan_t") [t|ShapePlan|] [|withSelf|])
-    , ("unicode-funcs", anti (ptr $ C.TypeName "hb_unicode_funcs_t") [t|UnicodeFuncs|] [|withSelf|])
+    [ ("ustr", anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char (Just C.Unsigned))) [t|Ptr CUChar|] [|withCUString|])
+    , ("str", anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char Nothing)) [t|Ptr CChar|] [|withCString|])
+    , ("blob", anti (ptr $ C.TypeName "hb_blob_t") [t|Ptr Blob|] [|withSelf|])
+    , ("buffer", anti (ptr $ C.TypeName "hb_buffer_t") [t|Ptr Buffer|] [|withSelf|])
+    , ("face", anti (ptr $ C.TypeName "hb_face_t") [t|Ptr Face|] [|withSelf|])
+    , ("feature", anti (ptr $ C.TypeName "hb_feature_t") [t|Ptr Feature|] [|with|])
+    , ("font", anti (ptr $ C.TypeName "hb_font_t") [t|Ptr Font|] [|withSelf|])
+    , ("font-extents", anti (ptr $ C.TypeName "hb_font_extents_t") [t|Ptr FontExtents|] [|with|])
+    , ("font-funcs", anti (ptr $ C.TypeName "hb_font_funcs_t") [t|Ptr FontFuncs|] [|withSelf|])
+    , ("glyph-extents", anti (ptr $ C.TypeName "hb_glyph_extents_t") [t|Ptr GlyphExtents|] [|with|])
+    , ("glyph-info", anti (ptr $ C.TypeName "hb_glyph_info_t") [t|Ptr GlyphInfo|] [|withPtr|])
+    , ("key", anti (ptr $ C.TypeName "hb_user_data_key_t") [t|Ptr OpaqueKey|] [|withKey|])
+    , ("language", anti (C.TypeSpecifier mempty $ C.TypeName "hb_language_t") [t|Ptr Language|] [|withPtr|])
+    , ("map", anti (ptr $ C.TypeName "hb_map_t") [t|Ptr Map|] [|withSelf|])
+    , ("segment-properties", anti (ptr $ C.TypeName "hb_segment_properties_t") [t|Ptr SegmentProperties|] [|with|])
+    , ("set", anti (ptr $ C.TypeName "hb_set_t") [t|Ptr Set|] [|withSelf|])
+    , ("shape-plan", anti (ptr $ C.TypeName "hb_shape_plan_t") [t|Ptr ShapePlan|] [|withSelf|])
+    , ("maybe-tags", anti (ptr $ C.TypeName "hb_tag_t") [t|Ptr Tag|] [|maybeWith (withArray0 TAG_NONE) |])
+    , ("unicode-funcs", anti (ptr $ C.TypeName "hb_unicode_funcs_t") [t|Ptr UnicodeFuncs|] [|withSelf|])
     ]
   } where ptr = C.Ptr [] . C.TypeSpecifier mempty

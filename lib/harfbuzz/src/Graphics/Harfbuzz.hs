@@ -166,6 +166,12 @@ module Graphics.Harfbuzz
 , object_set_user_data
 , object_get_user_data
 
+, ot_layout_collect_lookups
+, ot_tag_to_language
+, ot_tag_to_script
+, ot_tags_from_script_and_language
+, ot_tags_to_script_and_language
+
 , Position
 
 , Script(..)
@@ -284,6 +290,7 @@ import Graphics.Harfbuzz.Internal
 C.context $ C.baseCtx <> harfbuzzCtx
 C.include "<stdlib.h>"
 C.include "<hb.h>"
+C.include "<hb-ot.h>"
 C.include "HsFFI.h"
 
 key_create :: MonadIO m => m (Key a)
@@ -777,7 +784,7 @@ font_set_variations font vars = liftIO $ withArrayLen vars $ \ (fromIntegral -> 
 font_set_var_coords_design :: MonadIO m => Font -> [Float] -> m ()
 font_set_var_coords_design font v = liftIO $ withArrayLen (coerce <$> v) $ \ (fromIntegral -> len) pcoords ->
   [C.block|void{ hb_font_set_var_coords_design($font:font,$(const float * pcoords),$(unsigned int len)); }|]
-  
+
 font_var_coords_normalized :: Font -> StateVar [Int]
 font_var_coords_normalized font = StateVar g s where
   g :: IO [Int]
@@ -947,6 +954,55 @@ script_from_string = script_from_iso15924_tag . tag_from_string
 
 script_to_string :: Script -> String
 script_to_string = tag_to_string . script_to_iso15924_tag
+
+ot_layout_collect_lookups :: MonadIO m => Face -> Tag -> Maybe [Tag] -> Maybe [Tag] -> Maybe [Tag] -> Set -> m ()
+ot_layout_collect_lookups face table_tag scripts languages features lookup_indices = liftIO $
+  [C.block|void {
+    hb_ot_layout_collect_lookups(
+      $face:face,
+      $(hb_tag_t table_tag),
+      $maybe-tags:scripts,
+      $maybe-tags:languages,
+      $maybe-tags:features,
+      $set:lookup_indices
+    );
+  }|]
+
+
+ot_tag_to_script :: Tag -> Script
+ot_tag_to_script tag =[C.pure|hb_script_t { hb_ot_tag_to_script($(hb_tag_t tag)) }|]
+
+ot_tag_to_language :: Tag -> Language
+ot_tag_to_language tag = Language [C.pure|hb_language_t { hb_ot_tag_to_language($(hb_tag_t tag)) }|]
+
+ot_tags_from_script_and_language :: Script -> Language -> ([Tag],[Tag])
+ot_tags_from_script_and_language script language = unsafeLocalState $
+  allocaArray 256 $ \pscripts ->
+    withArray [128,128] $ \pscript_count -> do
+      let planguages = advancePtr pscripts 128
+          planguage_count = advancePtr pscript_count 1
+      [C.block|void {
+        hb_ot_tags_from_script_and_language(
+          $(hb_script_t script),
+          $language:language,
+          $(unsigned int * pscript_count),
+          $(hb_tag_t * pscripts),
+          $(unsigned int * planguage_count),
+          $(hb_tag_t * planguages)
+        );
+      }|]
+      nscripts <- fromIntegral <$> peek pscript_count
+      nlanguages <- fromIntegral <$> peek planguage_count
+      (,) <$> peekArray nscripts pscripts <*> peekArray nlanguages planguages
+
+ot_tags_to_script_and_language :: Tag -> Tag -> (Script,Language)
+ot_tags_to_script_and_language script_tag language_tag = unsafeLocalState $ alloca $ \pscript -> alloca $ \ planguage -> do
+  [C.block|void {
+    hb_ot_tags_to_script_and_language(
+      $(hb_tag_t script_tag),$(hb_tag_t language_tag),$(hb_script_t * pscript),$(hb_language_t * planguage)
+    );
+  }|]
+  (,) <$> peek pscript <*> (Language <$> peek planguage)
 
 -- * sets
 
