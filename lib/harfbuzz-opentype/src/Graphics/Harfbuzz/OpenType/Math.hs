@@ -98,7 +98,7 @@ math_get_glyph_assembly font glyph dir = liftIO $ do
 -- direction. The corresponding list of size variants is returned as a list of
 -- @hb_ot_math_glyph_variant_t@ structs.
 math_get_glyph_variants :: MonadIO m => Font -> Codepoint -> Direction -> m [MathGlyphVariant]
-math_get_glyph_variants font glyph dir = pump 8 $ \start_offset requested_variants_count -> 
+math_get_glyph_variants font glyph dir = pump 8 $ \start_offset requested_variants_count ->
   with requested_variants_count $ \pvariants_count ->
     allocaArray (fromIntegral requested_variants_count) $ \pvariants -> do
       total_number_of_variants <- [C.exp|unsigned int {
