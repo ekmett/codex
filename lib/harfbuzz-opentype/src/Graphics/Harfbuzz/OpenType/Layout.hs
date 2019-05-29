@@ -24,6 +24,10 @@ module Graphics.Harfbuzz.OpenType.Layout
 , layout_feature_get_lookups
 , layout_feature_get_name_ids
 , layout_feature_with_variations_get_lookups
+, layout_get_attach_points
+, layout_get_glyph_class
+, layout_get_glyphs_in_class
+, layout_get_ligature_carets
 -- ...
 ) where
 
@@ -97,8 +101,7 @@ layout_feature_get_characters_ face table_tag (fromIntegral -> feature_index) (f
 layout_feature_get_characters :: MonadIO m => Face -> Tag -> Int -> m [Codepoint]
 layout_feature_get_characters face table_tag feature_index = liftIO $ do
   (tot,ret,cs) <- layout_feature_get_characters_ face table_tag feature_index 0 1024
-  if tot == ret then pure cs
-  else layout_feature_get_characters_ face table_tag feature_index 1024 (tot - 1024) <&> \(_,_,ds) -> cs ++ ds
+  if tot == ret then pure cs else layout_feature_get_characters_ face table_tag feature_index 1024 (tot - 1024) <&> \(_,_,ds) -> cs ++ ds
 
 layout_feature_get_lookups_ :: Face -> Tag -> Int -> Int -> Int -> IO (Int, Int, [Int])
 layout_feature_get_lookups_ face table_tag (fromIntegral -> feature_index) (fromIntegral -> start_offset) lookup_count = liftIO $
@@ -111,10 +114,7 @@ layout_feature_get_lookups_ face table_tag (fromIntegral -> feature_index) (from
 
 -- | Fetches a list of all lookups enumerated for the specified feature, in the specified face's GSUB table or GPOS table.
 layout_feature_get_lookups :: MonadIO m => Face -> Tag -> Int -> m [Int]
-layout_feature_get_lookups face table_tag feature_index = liftIO $ do
-  (tot,ret,cs) <- layout_feature_get_lookups_ face table_tag feature_index 0 256
-  if tot == ret then pure cs
-  else layout_feature_get_lookups_ face table_tag feature_index 256 (tot - 256) <&> \(_,_,ds) -> cs ++ ds
+layout_feature_get_lookups face table_tag feature_index = pump 256 $ layout_feature_get_lookups_ face table_tag feature_index
 
 -- | Tag = TAG_GSUB or TAG_POS
 layout_feature_get_name_ids :: MonadIO m => Face -> Tag -> Int -> m (Maybe (Name, Name, Name, Int, Name))
@@ -129,16 +129,43 @@ layout_feature_get_name_ids face table_tag (fromIntegral -> feature_index) = lif
       else pure Nothing
 
 layout_feature_with_variations_get_lookups_ :: Face -> Tag -> Int -> Int -> Int -> Int -> IO (Int,Int,[Int])
-layout_feature_with_variations_get_lookups_ face table_tag (fromIntegral -> feature_index) (fromIntegral -> variations_index) (fromIntegral -> start_offset) lookup_count = do
+layout_feature_with_variations_get_lookups_ face table_tag (fromIntegral -> feature_index) (fromIntegral -> variations_index) (fromIntegral -> start_offset) lookup_count =
   allocaArray lookup_count $ \ plookup_indices ->
     with (fromIntegral lookup_count) $ \plookup_count -> do
       n <- [C.exp|unsigned int { hb_ot_layout_feature_with_variations_get_lookups($face:face,$(hb_tag_t table_tag),$(unsigned int feature_index),$(unsigned int variations_index),$(unsigned int start_offset),$(unsigned int * plookup_count), $(hb_codepoint_t * plookup_indices)) }|]
       actual_lookup_count <- fromIntegral <$> peek plookup_count
-      cs <- peekArray actual_lookup_count plookup_count
+      cs <- peekArray actual_lookup_count plookup_indices
       pure (fromIntegral n, actual_lookup_count, fromIntegral <$> cs)
 
 layout_feature_with_variations_get_lookups :: MonadIO m => Face -> Tag -> Int -> Int -> m [Int]
-layout_feature_with_variations_get_lookups face table_tag feature_index variations_index = liftIO $ do
-  (tot,ret,cs) <- layout_feature_with_variations_get_lookups_ face table_tag feature_index variations_index 0 256
-  if tot == ret then pure cs
-  else layout_feature_with_variations_get_lookups_ face table_tag feature_index variations_index 256 (tot - 256) <&> \(_,_,ds) -> cs ++ ds
+layout_feature_with_variations_get_lookups face table_tag feature_index variations_index = pump 256 $ layout_feature_with_variations_get_lookups_ face table_tag feature_index variations_index
+
+layout_get_attach_points_ :: Face -> Codepoint -> Int -> Int -> IO (Int,Int,[Int])
+layout_get_attach_points_ face glyph (fromIntegral -> start_offset) point_count = do
+  allocaArray point_count $ \ ppoint_array ->
+    with (fromIntegral point_count) $ \ppoint_count -> do
+      n <- [C.exp|unsigned int { hb_ot_layout_get_attach_points($face:face,$(hb_codepoint_t glyph),$(unsigned int start_offset),$(unsigned int * ppoint_count), $(hb_codepoint_t * ppoint_array)) }|]
+      actual_point_count <- fromIntegral <$> peek ppoint_count
+      cs <- peekArray actual_point_count ppoint_array
+      pure (fromIntegral n, actual_point_count, fromIntegral <$> cs)
+
+layout_get_attach_points :: MonadIO m => Face -> Codepoint -> m [Int]
+layout_get_attach_points face glyph = pump 8 $ layout_get_attach_points_ face glyph
+
+layout_get_glyph_class :: MonadIO m => Face -> Codepoint -> m LayoutGlyphClass
+layout_get_glyph_class face glyph = liftIO [C.exp|hb_ot_layout_glyph_class_t { hb_ot_layout_get_glyph_class($face:face,$(hb_codepoint_t glyph)) }|]
+
+layout_get_glyphs_in_class :: MonadIO m => Face -> LayoutGlyphClass -> Set -> m ()
+layout_get_glyphs_in_class face glyph_class set = liftIO [C.block|void { hb_ot_layout_get_glyphs_in_class($face:face,$(hb_ot_layout_glyph_class_t glyph_class),$set:set); }|]
+
+layout_get_ligature_carets_ :: Font -> Direction -> Codepoint -> Int -> Int -> IO (Int,Int,[Position])
+layout_get_ligature_carets_ font direction glyph (fromIntegral -> start_offset) count = do -- fairly generic
+  allocaArray count $ \ parray ->
+    with (fromIntegral count) $ \pcount -> do
+      n <- [C.exp|unsigned int { hb_ot_layout_get_ligature_carets($font:font,$(hb_direction_t direction),$(hb_codepoint_t glyph),$(unsigned int start_offset),$(unsigned int * pcount),$(hb_position_t * parray)) }|]
+      actual_count <- fromIntegral <$> peek pcount
+      cs <- peekArray actual_count parray
+      pure (fromIntegral n, actual_count, cs)
+
+layout_get_ligature_carets :: Font -> Direction -> Codepoint -> IO [Position]
+layout_get_ligature_carets font direction glyph = pump 4 $ layout_get_ligature_carets_ font direction glyph
