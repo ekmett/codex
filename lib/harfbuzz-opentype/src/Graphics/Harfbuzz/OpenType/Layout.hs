@@ -4,13 +4,12 @@
 {-# language PatternSynonyms #-}
 -- |
 module Graphics.Harfbuzz.OpenType.Layout
-(
--- * Languages and Scripts
-  tag_to_language
+( tag_to_language
 , tag_to_script
 , tags_from_script_and_language
 , tags_to_script_and_language
--- * Layout
+, pattern MAX_TAGS_PER_SCRIPT
+, pattern MAX_TAGS_PER_LANGUAGE
 , LayoutGlyphClass(..)
 , pattern TAG_BASE
 , pattern TAG_GDEF
@@ -51,9 +50,9 @@ tag_to_language tag = Language [C.pure|hb_language_t { hb_ot_tag_to_language($(h
 
 tags_from_script_and_language :: Script -> Language -> ([Tag],[Tag])
 tags_from_script_and_language script language = unsafeLocalState $
-  allocaArray 256 $ \pscripts ->
-    withArray [128,128] $ \pscript_count -> do
-      let planguages = advancePtr pscripts 128
+  allocaArray (MAX_TAGS_PER_SCRIPT + MAX_TAGS_PER_LANGUAGE) $ \pscripts ->
+    withArray [MAX_TAGS_PER_SCRIPT,MAX_TAGS_PER_LANGUAGE] $ \pscript_count -> do
+      let planguages = advancePtr pscripts MAX_TAGS_PER_SCRIPT
           planguage_count = advancePtr pscript_count 1
       [C.block|void { hb_ot_tags_from_script_and_language( $(hb_script_t script), $language:language, $(unsigned int * pscript_count), $(hb_tag_t * pscripts), $(unsigned int * planguage_count), $(hb_tag_t * planguages)); }|]
       nscripts <- fromIntegral <$> peek pscript_count
@@ -106,7 +105,3 @@ layout_feature_get_lookups face table_tag (fromIntegral -> feature_index) (fromI
       actual_lookup_count <- peek plookup_count
       is <- peekArray (fromIntegral actual_lookup_count) plookup_indices
       pure (fromIntegral n, fromIntegral <$> is)
-
-
-
-
