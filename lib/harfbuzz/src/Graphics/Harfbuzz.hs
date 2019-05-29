@@ -6,10 +6,9 @@ module Graphics.Harfbuzz
 , module Graphics.Harfbuzz.Font
 , module Graphics.Harfbuzz.Map
 , module Graphics.Harfbuzz.Object
-, module Graphics.Harfbuzz.OpenType
 , module Graphics.Harfbuzz.Set
 , module Graphics.Harfbuzz.Shape
--- , module Graphics.Harfbuzz.Unicode
+, module Graphics.Harfbuzz.Unicode
 , module Graphics.Harfbuzz.Version
 ) where
 
@@ -20,8 +19,7 @@ import Graphics.Harfbuzz.Face
 import Graphics.Harfbuzz.Font
 import Graphics.Harfbuzz.Map
 import Graphics.Harfbuzz.Object
-import Graphics.Harfbuzz.OpenType
 import Graphics.Harfbuzz.Set
 import Graphics.Harfbuzz.Shape
--- import Graphics.Harfbuzz.Unicode
+import Graphics.Harfbuzz.Unicode
 import Graphics.Harfbuzz.Version
