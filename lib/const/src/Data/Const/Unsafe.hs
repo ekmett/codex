@@ -66,6 +66,7 @@ import Data.Type.Coercion
 import Foreign.C.String
 import Foreign.C.Types
 import Foreign.Ptr
+import Foreign.Ptr.Diff
 import Foreign.ForeignPtr
 import Foreign.Storable
 import Control.Category
@@ -90,7 +91,7 @@ uncoerceWith = coerceWith . sym
 
 -- * pointers
 
-newtype ConstPtr a = ConstPtr { unsafeConstPtrPtr :: Ptr a } deriving (Eq,Ord,Show,Data,Storable)
+newtype ConstPtr a = ConstPtr { unsafeConstPtrPtr :: Ptr a } deriving (Eq,Ord,Show,Data,Storable,DiffTorsor)
 instance Constable ConstPtr Ptr
 instance Constable ConstPtr ConstPtr
 type APtr = Constable ConstPtr
@@ -106,7 +107,7 @@ unsafePtr = uncoerceWith (unsafePtrCoercion @p)
 
 -- * foreign pointers
 --
-newtype ConstForeignPtr a = ConstForeignPtr { unsafeConstForeignPtrForeignPtr :: ForeignPtr a } deriving (Eq,Ord,Show,Data)
+newtype ConstForeignPtr a = ConstForeignPtr { unsafeConstForeignPtrForeignPtr :: ForeignPtr a } deriving (Eq,Ord,Show,Data,DiffTorsor)
 instance Constable ConstForeignPtr ForeignPtr
 instance Constable ConstForeignPtr ConstForeignPtr
 type AForeignPtr = Constable ConstForeignPtr

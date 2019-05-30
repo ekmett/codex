@@ -31,7 +31,7 @@ library
   ghc-options:
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
     -Wredundant-constraints -Widentities -Wmissing-export-lists
-  build-depends: base >= 4.11 && < 5, bytestring, primitive
+  build-depends: base >= 4.11 && < 5, bytestring, primitive, ptrdiff
   exposed-modules:
     Data.Const
     Data.Const.ByteString
