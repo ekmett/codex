@@ -13,8 +13,8 @@ module Graphics.Harfbuzz.Blob
 
 , MemoryMode(..)
 
-, withBlobData
-, withBlobDataWritable
+, with_blob_data
+, with_blob_data_writable
 ) where
 
 import Control.Monad.IO.Class
@@ -24,6 +24,7 @@ import Data.Functor ((<&>))
 import Foreign.C.Types
 import Foreign.C.String
 import Foreign.Const.C.String
+import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Utils
 import Foreign.Storable
@@ -66,14 +67,14 @@ blob_make_immutable :: MonadIO m => Blob -> m ()
 blob_make_immutable b = liftIO [C.block|void { hb_blob_make_immutable($blob:b); }|]
 
 -- | hb_blob_get_data is unsafe under ForeignPtr management, this is safe
-withBlobData :: Blob -> (ConstCStringLen -> IO r) -> IO r
-withBlobData bfp k = withSelf bfp $ \bp -> alloca $ \ip -> do
+with_blob_data :: Blob -> (ConstCStringLen -> IO r) -> IO r
+with_blob_data (Blob bfp) k = withForeignPtr bfp $ \bp -> alloca $ \ip -> do
   s <- [C.exp|const char * { hb_blob_get_data($(hb_blob_t * bp),$(unsigned int * ip)) }|]
   i <- peek ip
   k (constant s, fromIntegral i)
 
-withBlobDataWritable :: Blob -> (CStringLen -> IO r) -> IO r
-withBlobDataWritable bfp k = withSelf bfp $ \bp -> alloca $ \ip -> do
+with_blob_data_writable :: Blob -> (CStringLen -> IO r) -> IO r
+with_blob_data_writable (Blob bfp) k = withForeignPtr bfp $ \bp -> alloca $ \ip -> do
   s <- [C.exp|char * { hb_blob_get_data_writable($(hb_blob_t * bp),$(unsigned int * ip)) }|]
   i <- peek ip
   k (s, fromIntegral i)
