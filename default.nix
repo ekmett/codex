@@ -2,7 +2,6 @@
 , compiler ? "default"
 }:
 let
-
   overlay = self: super: {
     # We require a minimum version of fontconfig lib for specific functionality.
     # This is a version that should be equialent for some macs, so pin it.
@@ -46,6 +45,7 @@ let
     glow         = ./lib/glow;
     hkd          = ./lib/hkd;
     harfbuzz     = ./lib/harfbuzz;
+    harfbuzz-opentype    = ./lib/harfbuzz-opentype;
     harfbuzz-icu = ./lib/harfbuzz-icu;
     ptrdiff      = ./lib/ptrdiff;
     weak         = ./lib/weak;
@@ -58,34 +58,53 @@ let
   # Basic overrides to include our packages
   modHaskPkgs = haskellPackages.override {
     overrides = hself: hsuper: {
-      atlas        = c2nix hsuper "atlas" {};
-      hkd          = c2nix hsuper "hkd" {};
+      ptrdiff      = c2nix hsuper "ptrdiff" {};
+
+      atlas        = (c2nix hsuper "atlas" {}).overrideAttrs (_: {
+        # nix builds don't like symlinks, move the real thing in.
+        postUnpack = ''
+          rm atlas/cbits/stb_rect_pack.h
+          cp ${nihs.stb}/stb_rect_pack.h atlas/cbits/
+        '';
+      });
+
+      hkd          = c2nix hself "hkd" {};
       const        = c2nix hsuper "const" {};
       weak         = c2nix hsuper "weak" {};
-      ptrdiff      = c2nix hsuper "ptrdiff" {};
+
       # Provide the external lib dependency to match the cabal file
       freetype     = c2nix hself "freetype" { freetype2 = pkgs.freetype; };
     };
   };
 
   # Adding any of these into the modHaskPkgs overrides will result in an
-  # infinite recursion error. :)
-  fontconfig = c2nix modHaskPkgs "fontconfig" {};
-  harfbuzz   = c2nix modHaskPkgs "harfbuzz" {};
-  harfbuzz-icu = c2nix modHaskPkgs "harfbuzz-icu" { harfbuzz = harfbuzz; };
-  glow       = c2nix modHaskPkgs "glow" {};
+  # infinite recursion error.
+  fontconfig        = c2nix modHaskPkgs "fontconfig" {};
+  harfbuzz          = c2nix modHaskPkgs "harfbuzz" {};
+  harfbuzz-icu      = c2nix modHaskPkgs "harfbuzz-icu" { harfbuzz = harfbuzz; };
+  glow              = c2nix modHaskPkgs "glow" {};
 
   # Build the UI derivation and include our specific dependencies.
   ui = modHaskPkgs.callPackage ./lib/ui/ui.nix { 
     fontconfig = fontconfig;
     harfbuzz = harfbuzz;
     harfbuzz-icu = harfbuzz-icu;
-    glow = glow;
+    glow         = glow;
   };
 
 in
-  # Working this way seems to clash with the cabal.project file? Need a better
-  # way to build an env from the combined buildInputs from ALL THE THINGS. Then
-  # I could work on all of it with impunity instead of having to 'mv
-  # cabal.project FOO' before doing anything ;<
-  pkgs.haskell.lib.shellAware ui
+modHaskPkgs.shellFor {
+  packages = p: [
+    p.hkd
+    p.const
+    p.weak
+    p.atlas
+    p.freetype
+
+    fontconfig
+    harfbuzz
+    harfbuzz-icu
+    glow
+    ui
+  ];
+}
