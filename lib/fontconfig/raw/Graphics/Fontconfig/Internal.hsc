@@ -78,7 +78,7 @@ module Graphics.Fontconfig.Internal
   -- * inline-c
   , fontconfigCtx
   -- * utilities
-  , withSelf, withMaybeSelf, withSelfMaybe
+  -- , withSelf, withMaybeSelf, withSelfMaybe
   , check, cbool, boolc, peekCUString
 
   , foreignCache
@@ -120,17 +120,18 @@ import Foreign.C
 import qualified Foreign.Concurrent as Concurrent
 import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
+import Foreign.Marshal.Utils
 import Foreign.Ptr
 import Foreign.Storable
 import GHC.Generics (Generic)
 import qualified Language.C.Inline as C
 import qualified Language.C.Inline.Context as C
-import qualified Language.C.Inline.HaskellIdentifier as C
 import qualified Language.C.Types as C
-import qualified Language.Haskell.TH as TH
 #if USE_FREETYPE
-import Graphics.FreeType.Types (Face(..))
+import Graphics.FreeType.Internal (Face(..),FaceRec)
 #endif
+
+import Graphics.Fontconfig.Private
 
 newtype Config = Config { getConfig :: Maybe (ForeignPtr Config) } deriving (Eq, Ord, Show, Data)
 newtype ObjectSet = ObjectSet { getObjectSet :: ForeignPtr ObjectSet } deriving (Eq, Ord, Show, Data)
@@ -144,7 +145,8 @@ newtype LangSet = LangSet { getLangSet :: ForeignPtr LangSet } deriving (Eq, Ord
 newtype StrSet = StrSet { getStrSet :: ForeignPtr StrSet } deriving (Eq, Ord, Show, Data)
 
 #if !USE_FREETYPE
-newtype Face = Face { getFace :: ForeignPtr Face } deriving (Eq,Ord,Show,Data)
+data FaceRec
+newtype Face = Face { getFace :: ForeignPtr FaceRec } deriving (Eq,Ord,Show)
 #endif
 
 newtype Matrix = Matrix { getMatrix:: ForeignPtr Matrix } deriving (Eq,Ord,Show,Data) -- TODO use a struct and store it
@@ -194,7 +196,7 @@ data Value
   | ValueBool    !FcBool
   | ValueMatrix  !(ConstPtr Matrix)
   | ValueCharSet !(ConstPtr CharSet)
-  | ValueFace    !(ConstPtr Face)
+  | ValueFace    !(ConstPtr FaceRec)
   | ValueLangSet !(ConstPtr LangSet)
   | ValueRange   !(ConstPtr Range)
 
@@ -204,7 +206,8 @@ C.context $ C.baseCtx <> mempty
     [ (C.TypeName "FcValue", [t| Value |])
     , (C.TypeName "FcMatrix", [t| Matrix |])
     , (C.TypeName "FcCharSet", [t| CharSet |])
-    , (C.Struct "FT_FaceRec_", [t| Face |])
+    , (C.Struct   "FT_FaceRec_", [t| FaceRec |])
+    , (C.TypeName "FT_Face", [t| Ptr FaceRec |])
     , (C.TypeName "FcLangSet", [t| LangSet |])
     , (C.TypeName "FcRange", [t| Range |])
     , (C.TypeName "FcChar8", [t| CUChar |])
@@ -236,7 +239,7 @@ instance Storable Value where
     ValueBool (marshal -> b) -> [C.block|void { FcValue*v = $(FcValue*v); v->type = FcTypeBool;    v->u.b = $(int b); }|]
     ValueMatrix (unsafePtr -> m) -> [C.block|void { FcValue*v = $(FcValue*v); v->type = FcTypeMatrix; v->u.m = $(const FcMatrix * m); }|]
     ValueCharSet (unsafePtr -> c) -> [C.block|void { FcValue*v = $(FcValue*v); v->type = FcTypeCharSet; v->u.c = $(const FcCharSet * c); }|]
-    ValueFace (unsafePtr -> f) -> [C.block|void { FcValue*v = $(FcValue*v); v->type = FcTypeVoid; v->u.f = (void*)($(const struct FT_FaceRec_ *f));}|]
+    ValueFace (unsafePtr -> f) -> [C.block|void { FcValue*v = $(FcValue*v); v->type = FcTypeVoid; v->u.f = (void*)($(const FT_Face f));}|]
     ValueLangSet (unsafePtr -> l) -> [C.block|void { FcValue*v = $(FcValue*v); v->type = FcTypeLangSet; v->u.l = $(const FcLangSet * l); }|]
     ValueRange (unsafePtr -> r) -> [C.block|void { FcValue*v = $(FcValue*v); v->type = FcTypeRange; v->u.r = $(const FcRange * r); }|]
   peek v = [C.exp|int { $(FcValue*v)->type } |] >>= \case
@@ -253,14 +256,11 @@ instance Storable Value where
     _ -> pure ValueUnknown
 #endif
 
-withSelf :: Coercible a (ForeignPtr a) => a -> (Ptr a -> IO r) -> IO r
-withSelf = withForeignPtr . coerce
+--withSelf :: Coercible a (ForeignPtr a) => a -> (Ptr a -> IO r) -> IO r
+--withSelf = withForeignPtr . coerce
 
-withSelfMaybe :: Coercible a (Maybe (ForeignPtr a)) => a -> (Ptr a -> IO r) -> IO r
-withSelfMaybe a f = maybe (f nullPtr) (`withForeignPtr` f) (coerce a)
-
-withMaybeSelf :: Coercible a (ForeignPtr a) => Maybe a -> (Ptr a -> IO r) -> IO r
-withMaybeSelf a f = maybe (f nullPtr) (`withSelf` f) a
+-- withMaybeSelf :: Coercible a (ForeignPtr a) => Maybe a -> (Ptr a -> IO r) -> IO r
+-- withMaybeSelf a f = maybe (f nullPtr) (`withSelf` f) a
 
 instance Default Config where def = Config Nothing
 
@@ -373,32 +373,11 @@ foreignMatrix :: Ptr Matrix -> IO Matrix
 foreignMatrix = fmap Matrix . newForeignPtr finalizerFree
 
 #if USE_FREETYPE
-foreignFace :: Ptr Face -> IO Face
-foreignFace p = Face <$> Concurrent.newForeignPtr p [C.block|void { FT_Done_Face($(struct FT_FaceRec_ * p)); }|]
+foreignFace :: Ptr FaceRec -> IO Face
+foreignFace p = Face <$> Concurrent.newForeignPtr p [C.block|void { FT_Done_Face($(FT_Face p)); }|]
 #endif
 
 -- * Inline C context
-
-getHsVariable :: String -> C.HaskellIdentifier -> TH.ExpQ
-getHsVariable err s = do
-  mbHsName <- TH.lookupValueName $ C.unHaskellIdentifier s
-  case mbHsName of
-    Nothing -> fail $ "Cannot capture Haskell variable " ++ C.unHaskellIdentifier s ++
-                      ", because it's not in scope. (" ++ err ++ ")"
-    Just hsName -> TH.varE hsName
-
-anti :: C.Type C.CIdentifier -> TH.TypeQ -> TH.ExpQ -> C.SomeAntiQuoter
-anti cTy hsTyQ with = C.SomeAntiQuoter C.AntiQuoter
-  { C.aqParser = do
-    hId <- C.parseIdentifier
-    let cId = C.mangleHaskellIdentifier hId
-    return (cId, cTy, hId)
-  , C.aqMarshaller = \_purity _cTypes _cTy cId -> do
-    hsTy <- [t| Ptr $hsTyQ |]
-    hsExp <- getHsVariable "fontconfigCtx" cId
-    hsExp' <- [| $with (coerce $(pure hsExp)) |]
-    return (hsTy, hsExp')
-  }
 
 fontconfigCtx :: C.Context
 fontconfigCtx = mempty
@@ -415,28 +394,29 @@ fontconfigCtx = mempty
     , (C.TypeName "FcChar32", [t| CUInt |])
     , (C.TypeName "FcCharSet", [t| CharSet |])
     , (C.TypeName "FcLangSet", [t| LangSet |])
-    , (C.Struct "FT_FaceRec_", [t| Face |])
     , (C.TypeName "FcStrSet", [t| StrSet |])
     , (C.TypeName "FcValue", [t| Value |])
     , (C.TypeName "FcStrList", [t| StrList |])
+    , (C.Struct   "FT_FaceRec_", [t| FaceRec |])
+    , (C.TypeName "FT_Face", [t| Ptr FaceRec |])
     , (C.Struct "stat", [t| Stat |])
     ]
   , C.ctxAntiQuoters = Map.fromList
-    [ ("ustr",        anti (C.Ptr [C.CONST] (C.TypeSpecifier mempty (C.Char (Just C.Unsigned)))) [t| CUChar |] [| withCUString |])
-    , ("str",         anti (C.Ptr [C.CONST] (C.TypeSpecifier mempty (C.Char Nothing))) [t| CChar |] [| withCString |])
-    , ("cache",       anti (ptr (C.TypeName "FcCache")) [t| Cache|] [| withSelf |])
-    , ("config",      anti (ptr (C.TypeName "FcConfig")) [t| Config |] [| withSelfMaybe |])
-    , ("fontset",     anti (ptr (C.TypeName "FcFontSet")) [t| FontSet |] [| withSelf |])
-    , ("objectset",   anti (ptr (C.TypeName "FcObjectSet")) [t| ObjectSet |] [| withSelf |])
-    , ("charset",     anti (ptr (C.TypeName "FcCharSet")) [t| CharSet |] [| withSelf |])
-    , ("langset",     anti (ptr (C.TypeName "FcLangSet")) [t| LangSet |] [| withSelf |])
-    , ("strset",      anti (ptr (C.TypeName "FcStrSet")) [t| StrSet |] [| withSelf |])
-    , ("pattern",     anti (ptr (C.TypeName "FcPattern")) [t| Pattern |] [| withSelf |])
-    , ("matrix",      anti (ptr (C.TypeName "FcMatrix")) [t| Matrix |] [| withSelf |])
-    , ("face",        anti (ptr (C.Struct "FT_FaceRec_")) [t| Face |] [| withSelf |])
-    , ("range",       anti (ptr (C.TypeName "FcRange")) [t| Range |] [| withSelf |])
-    , ("value",       anti (ptr (C.TypeName "FcValue")) [t| Value |] [| with |])
-    , ("stat",        anti (ptr (C.Struct "stat")) [t| Stat |] [| withSelf |])
-    , ("maybe-stat",  anti (ptr (C.Struct "stat")) [t| Stat |] [| withMaybeSelf |])
+    [ ("ustr",        anti (C.Ptr [C.CONST] (C.TypeSpecifier mempty (C.Char (Just C.Unsigned)))) [t| Ptr CUChar |] [| withCUString |])
+    , ("str",         anti (C.Ptr [C.CONST] (C.TypeSpecifier mempty (C.Char Nothing))) [t| Ptr CChar |] [| withCString |])
+    , ("cache",       anti (ptr (C.TypeName "FcCache")) [t| Ptr Cache|] [| withForeignPtr |])
+    , ("config",      anti (ptr (C.TypeName "FcConfig")) [t| Ptr Config |] [| withSelfMaybe |])
+    , ("fontset",     anti (ptr (C.TypeName "FcFontSet")) [t| Ptr FontSet |] [| withForeignPtr |])
+    , ("objectset",   anti (ptr (C.TypeName "FcObjectSet")) [t| Ptr ObjectSet |] [| withForeignPtr |])
+    , ("charset",     anti (ptr (C.TypeName "FcCharSet")) [t| Ptr CharSet |] [| withForeignPtr |])
+    , ("langset",     anti (ptr (C.TypeName "FcLangSet")) [t| Ptr LangSet |] [| withForeignPtr |])
+    , ("strset",      anti (ptr (C.TypeName "FcStrSet")) [t| Ptr StrSet |] [| withForeignPtr |])
+    , ("pattern",     anti (ptr (C.TypeName "FcPattern")) [t| Ptr Pattern |] [| withForeignPtr |])
+    , ("matrix",      anti (ptr (C.TypeName "FcMatrix")) [t| Ptr Matrix |] [| withForeignPtr |])
+    , ("face",        anti (ptr (C.Struct "FT_FaceRec_")) [t| Ptr FaceRec |] [| withForeignPtr |])
+    , ("range",       anti (ptr (C.TypeName "FcRange")) [t| Ptr Range |] [| withForeignPtr |])
+    , ("value",       anti (ptr (C.TypeName "FcValue")) [t| Ptr Value |] [| with |])
+    , ("stat",        anti (ptr (C.Struct "stat")) [t| Ptr Stat |] [| withForeignPtr |])
+    , ("maybe-stat",  anti (ptr (C.Struct "stat")) [t| Ptr Stat |] [| maybeWith withForeignPtr |])
     ]
   } where ptr = C.Ptr [] . C.TypeSpecifier mempty

@@ -51,11 +51,15 @@ common lib
 library raw
   import: lib
   hs-source-dirs: raw
-  exposed-modules: Graphics.Fontconfig.Internal
+  exposed-modules:
+    Graphics.Fontconfig.Internal
+    Graphics.Fontconfig.Private
 
 library
   import: lib
   hs-source-dirs: src
   build-depends: raw
-  exposed-modules: Graphics.Fontconfig
-  reexported-modules: Graphics.Fontconfig.Internal
+  reexported-modules:
+    Graphics.Fontconfig.Internal
+  exposed-modules:
+    Graphics.Fontconfig
