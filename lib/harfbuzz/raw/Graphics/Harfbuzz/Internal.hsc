@@ -296,7 +296,6 @@ module Graphics.Harfbuzz.Internal
 , _hb_set_destroy
 , _hb_shape_plan_destroy
 , _hb_unicode_funcs_destroy
-, hs_free_stable_ptr
 , mkReferenceTableFunc
 , mkBufferMessageFunc
 , mkUnicodeCombiningClassFunc
@@ -306,23 +305,16 @@ module Graphics.Harfbuzz.Internal
 , mkUnicodeMirroringFunc
 , mkUnicodeScriptFunc
 -- * internals
-, withSelf, withPtr
-, cbool, boolc, w2c,c2w
-, newByteStringCStringLen
-, getHsVariable
 , harfbuzzCtx
 ) where
 
 import Control.Applicative
 import Data.Bits
-import qualified Data.ByteString as Strict
-import qualified Data.ByteString.Internal as Strict
 import Data.Char as Char
 import Data.Coerce
 import Data.Data (Data)
 import Data.Default (Default(..))
 import Data.Functor ((<&>))
-import Data.Function ((&))
 import Data.Hashable
 import Data.Primitive.Types
 import qualified Data.Map as Map
@@ -337,8 +329,9 @@ import qualified Language.C.Inline as C
 import qualified Language.C.Inline.Context as C
 import qualified Language.C.Inline.HaskellIdentifier as C
 import qualified Language.C.Types as C
-import qualified Language.Haskell.TH as TH
 import Text.Read
+
+import Graphics.Harfbuzz.Private
 
 #ifndef HLINT
 #include <hb.h>
@@ -570,12 +563,6 @@ instance Default Shaper where def = Shaper nullPtr
 newtype Tag = Tag Word32 deriving (Eq,Ord,Num,Enum,Real,Integral,Storable,Prim)
 {-# complete Tag #-}
 {-# complete TAG #-}
-
-w2c :: Word32 -> Char
-w2c = toEnum . fromIntegral
-
-c2w :: Char -> Word32
-c2w = fromIntegral . fromEnum
 
 untag :: Tag -> (Char, Char, Char, Char)
 untag (Tag w) =
@@ -845,30 +832,6 @@ variation_to_string variation = unsafeLocalState $
 instance IsString Variation where fromString s = fromMaybe (error $ "invalid variation: " ++ s) $ variation_from_string s
 instance Show Variation where showsPrec d = showsPrec d . variation_to_string
 instance Read Variation where readPrec = step readPrec >>= maybe empty pure . variation_from_string
-
--- * helpers
-
-withPtr :: forall a r. Coercible a (Ptr a) => a -> (Ptr a -> IO r) -> IO r
-withPtr = (&) . coerce
-
-withSelf :: forall a r. Coercible a (ForeignPtr a) => a -> (Ptr a -> IO r) -> IO r
-withSelf = withForeignPtr . coerce
-
-cbool :: CInt -> Bool
-cbool = toEnum . fromIntegral
-
-boolc :: Bool -> CInt
-boolc = fromIntegral . fromEnum
-
--- | Copies 'ByteString' to newly allocated 'CString'. The result must be
--- | explicitly freed using 'free' or 'finalizerFree'.
-newByteStringCStringLen :: Strict.ByteString -> IO CStringLen
-newByteStringCStringLen (Strict.PS fp o l) = do
-  buf <- mallocBytes (l + 1)
-  withForeignPtr fp $ \p -> do
-    Strict.memcpy buf (p `plusPtr` o) l
-    pokeByteOff buf l (0::Word8)
-    return (castPtr buf, l)
 
 -- * constants
 
@@ -1378,8 +1341,6 @@ foreign import ccall "hb.h &hb_set_destroy"           _hb_set_destroy           
 foreign import ccall "hb.h &hb_shape_plan_destroy"    _hb_shape_plan_destroy    :: FinalizerPtr ShapePlan
 foreign import ccall "hb.h &hb_unicode_funcs_destroy" _hb_unicode_funcs_destroy :: FinalizerPtr UnicodeFuncs
 
-foreign import ccall "&"                               hs_free_stable_ptr       :: FinalizerPtr ()
-
 foreign import ccall "wrapper" mkReferenceTableFunc :: ReferenceTableFunc a -> IO (FunPtr (ReferenceTableFunc a))
 foreign import ccall "wrapper" mkBufferMessageFunc :: BufferMessageFunc a -> IO (FunPtr (BufferMessageFunc a))
 foreign import ccall "wrapper" mkUnicodeCombiningClassFunc :: UnicodeCombiningClassFunc a -> IO (FunPtr (UnicodeCombiningClassFunc a))
@@ -1389,15 +1350,11 @@ foreign import ccall "wrapper" mkUnicodeGeneralCategoryFunc :: UnicodeGeneralCat
 foreign import ccall "wrapper" mkUnicodeMirroringFunc :: UnicodeMirroringFunc a -> IO (FunPtr (UnicodeMirroringFunc a))
 foreign import ccall "wrapper" mkUnicodeScriptFunc :: UnicodeScriptFunc a -> IO (FunPtr (UnicodeScriptFunc a))
 
--- * Inline C context
-
-getHsVariable :: String -> C.HaskellIdentifier -> TH.ExpQ
-getHsVariable err s = TH.lookupValueName (C.unHaskellIdentifier s) >>= \ case
-  Nothing -> fail $ "Cannot capture Haskell variable " ++ C.unHaskellIdentifier s ++ ", because it's not in scope. (" ++ err ++ ")"
-  Just hsName -> TH.varE hsName
-
 withKey :: Key a -> (Ptr OpaqueKey -> IO r) -> IO r
 withKey (Key k) = withForeignPtr k
+
+
+-- * Inline C context
 
 ptr :: C.TypeSpecifier -> C.Type i
 ptr = C.Ptr [] . C.TypeSpecifier mempty

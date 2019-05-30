@@ -68,7 +68,6 @@ module Graphics.Harfbuzz.Buffer
 , pattern BUFFER_REPLACEMENT_CODEPOINT_DEFAULT
 ) where
 
-
 import Control.Monad.IO.Class
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as ByteString
@@ -86,6 +85,7 @@ import Foreign.Storable
 import qualified Language.C.Inline as C
 
 import Graphics.Harfbuzz.Internal
+import Graphics.Harfbuzz.Private
 
 C.context $ C.baseCtx <> harfbuzzCtx
 C.include "<hb.h>"

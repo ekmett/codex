@@ -52,6 +52,7 @@ library raw
   build-tool-depends: hsc2hs:hsc2hs
   exposed-modules:
     Graphics.Harfbuzz.OpenType.Internal
+    Graphics.Harfbuzz.OpenType.Private
 
 library
   import: lib

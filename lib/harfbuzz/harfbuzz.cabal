@@ -49,7 +49,9 @@ library raw
   import: lib
   hs-source-dirs: raw
   build-tool-depends: hsc2hs:hsc2hs
-  exposed-modules: Graphics.Harfbuzz.Internal
+  exposed-modules:
+    Graphics.Harfbuzz.Internal
+    Graphics.Harfbuzz.Private
 
 library
   import: lib
