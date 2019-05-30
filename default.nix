@@ -38,17 +38,18 @@ let
 
   # Codex packages                    
   sources = {
-    atlas        = ./lib/atlas;
-    const        = ./lib/const;
-    fontconfig   = ./lib/fontconfig;
-    freetype     = ./lib/freetype;
-    glow         = ./lib/glow;
-    hkd          = ./lib/hkd;
-    harfbuzz     = ./lib/harfbuzz;
-    harfbuzz-opentype    = ./lib/harfbuzz-opentype;
-    harfbuzz-icu = ./lib/harfbuzz-icu;
-    ptrdiff      = ./lib/ptrdiff;
-    weak         = ./lib/weak;
+    atlas             = ./atlas;
+    const             = ./const;
+    fontconfig        = ./fontconfig;
+    freetype          = ./freetype;
+    glow              = ./glow;
+    hkd               = ./hkd;
+    harfbuzz          = ./harfbuzz;
+    harfbuzz-freetype = ./harfbuzz-freetype;
+    harfbuzz-opentype = ./harfbuzz-opentype;
+    harfbuzz-icu      = ./harfbuzz-icu;
+    ptrdiff           = ./ptrdiff;
+    weak              = ./weak;
   };
 
   c2nix = p: n: args:
@@ -58,16 +59,9 @@ let
   # Basic overrides to include our packages
   modHaskPkgs = haskellPackages.override {
     overrides = hself: hsuper: {
+
       ptrdiff      = c2nix hsuper "ptrdiff" {};
-
-      atlas        = (c2nix hsuper "atlas" {}).overrideAttrs (_: {
-        # nix builds don't like symlinks, move the real thing in.
-        postUnpack = ''
-          rm atlas/cbits/stb_rect_pack.h
-          cp ${nihs.stb}/stb_rect_pack.h atlas/cbits/
-        '';
-      });
-
+      atlas        = c2nix hsuper "atlas" {};
       hkd          = c2nix hself "hkd" {};
       const        = c2nix hsuper "const" {};
       weak         = c2nix hsuper "weak" {};
@@ -85,9 +79,9 @@ let
   glow              = c2nix modHaskPkgs "glow" {};
 
   # Build the UI derivation and include our specific dependencies.
-  ui = modHaskPkgs.callPackage ./lib/ui/ui.nix { 
-    fontconfig = fontconfig;
-    harfbuzz = harfbuzz;
+  ui = modHaskPkgs.callPackage ./ui/ui.nix { 
+    fontconfig   = fontconfig;
+    harfbuzz     = harfbuzz;
     harfbuzz-icu = harfbuzz-icu;
     glow         = glow;
   };
