@@ -30,8 +30,11 @@ module Graphics.Harfbuzz.Font
 , font_set_variations
 , font_set_var_coords_design
 , font_var_coords_normalized -- statevar
-
-, FontExtents(..)
+, FontExtents -- no constructor, partial fields
+  ( font_extents_ascender
+  , font_extents_descender
+  , font_extents_line_gap
+  )
 , FontFuncs
 , font_funcs_create
 , font_funcs_is_immutable

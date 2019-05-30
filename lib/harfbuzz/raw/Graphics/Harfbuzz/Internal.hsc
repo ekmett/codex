@@ -103,6 +103,7 @@ module Graphics.Harfbuzz.Internal
 , language_to_string, language_from_string
 , Map(..)
 , pattern MAP_VALUE_INVALID
+, Mask(..)
 , MemoryMode
   ( MemoryMode
   , MEMORY_MODE_DUPLICATE, MEMORY_MODE_READONLY
@@ -295,6 +296,7 @@ module Graphics.Harfbuzz.Internal
 , _hb_set_destroy
 , _hb_shape_plan_destroy
 , _hb_unicode_funcs_destroy
+, hs_free_stable_ptr
 , mkReferenceTableFunc
 , mkBufferMessageFunc
 , mkUnicodeCombiningClassFunc
@@ -307,8 +309,8 @@ module Graphics.Harfbuzz.Internal
 , withSelf, withPtr
 , cbool, boolc, w2c,c2w
 , newByteStringCStringLen
+, getHsVariable
 , harfbuzzCtx
-, hs_free_stable_ptr
 ) where
 
 import Control.Applicative
@@ -465,13 +467,35 @@ instance Storable GlyphExtents where
 
 newtype GlyphFlags = GlyphFlags CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Prim,Bits)
 
-newtype GlyphInfo = GlyphInfo (Ptr GlyphInfo) deriving (Eq,Ord,Data,Storable) -- we never manage
+data GlyphInfo = GlyphInfo
+  { glyph_info_codepoint :: {-# unpack #-} !Codepoint
+  , glyph_info_mask      :: {-# unpack #-} !Mask -- semi-private
+  , glyph_info_cluster   :: {-# unpack #-} !Word32
+  , glyph_info_var1, glyph_info_var2 :: {-# unpack #-} !Word32 -- private
+  } deriving (Eq,Ord,Show,Read)
+
+instance Storable GlyphInfo where
+  sizeOf _ = #size hb_glyph_info_t
+  alignment _ = #alignment hb_glyph_position_t
+  peek p = GlyphInfo
+    <$> (#peek hb_glyph_info_t, codepoint) p
+    <*> (#peek hb_glyph_info_t, mask) p
+    <*> (#peek hb_glyph_info_t, cluster) p
+    <*> (#peek hb_glyph_info_t, var1) p
+    <*> (#peek hb_glyph_info_t, var2) p
+  poke p GlyphInfo{..} = do
+    (#poke hb_glyph_info_t, codepoint) p glyph_info_codepoint
+    (#poke hb_glyph_info_t, mask) p glyph_info_mask
+    (#poke hb_glyph_info_t, cluster) p glyph_info_cluster
+    (#poke hb_glyph_info_t, var1) p glyph_info_var1
+    (#poke hb_glyph_info_t, var2) p glyph_info_var2
 
 data GlyphPosition = GlyphPosition
   { glyph_position_x_advance
   , glyph_position_y_advance
   , glyph_position_x_offset
   , glyph_position_y_offset :: {-# unpack #-} !Position
+  , glyph_position_var :: {-# unpack #-} !Word32 -- private
   } deriving (Eq,Ord,Show,Read)
 
 instance Storable GlyphPosition where
@@ -482,11 +506,13 @@ instance Storable GlyphPosition where
     <*> (#peek hb_glyph_position_t, y_advance) p
     <*> (#peek hb_glyph_position_t, x_offset) p
     <*> (#peek hb_glyph_position_t, y_offset) p
+    <*> (#peek hb_glyph_position_t, var) p
   poke p GlyphPosition{..} = do
     (#poke hb_glyph_position_t, x_advance) p glyph_position_x_advance
     (#poke hb_glyph_position_t, y_advance) p glyph_position_y_advance
     (#poke hb_glyph_position_t, x_offset) p glyph_position_x_offset
     (#poke hb_glyph_position_t, y_offset) p glyph_position_y_offset
+    (#poke hb_glyph_position_t, var) p glyph_position_var
 
 data OpaqueKey deriving Data
 newtype Key a = Key (ForeignPtr OpaqueKey) deriving (Eq,Ord,Show,Data)
@@ -494,6 +520,8 @@ newtype Key a = Key (ForeignPtr OpaqueKey) deriving (Eq,Ord,Show,Data)
 newtype Language = Language (Ptr Language) deriving (Eq,Ord,Data,Storable,Prim) -- we never manage
 
 newtype Map = Map (ForeignPtr Map) deriving (Eq,Ord,Show,Data)
+
+newtype Mask = Mask Word32 deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Prim,Bits)
 
 newtype MemoryMode = MemoryMode CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Prim)
 
@@ -1364,25 +1392,9 @@ foreign import ccall "wrapper" mkUnicodeScriptFunc :: UnicodeScriptFunc a -> IO 
 -- * Inline C context
 
 getHsVariable :: String -> C.HaskellIdentifier -> TH.ExpQ
-getHsVariable err s = do
-  mbHsName <- TH.lookupValueName $ C.unHaskellIdentifier s
-  case mbHsName of
-    Nothing -> fail $ "Cannot capture Haskell variable " ++ C.unHaskellIdentifier s ++
-                      ", because it's not in scope. (" ++ err ++ ")"
-    Just hsName -> TH.varE hsName
-
-anti :: C.Type C.CIdentifier -> TH.TypeQ -> TH.ExpQ -> C.SomeAntiQuoter
-anti cTy hsTyQ w = C.SomeAntiQuoter C.AntiQuoter
-  { C.aqParser = do
-    hId <- C.parseIdentifier
-    let cId = C.mangleHaskellIdentifier hId
-    return (cId, cTy, hId)
-  , C.aqMarshaller = \_purity _cTypes _cTy cId -> do
-    hsTy <- hsTyQ
-    hsExp <- getHsVariable "harfbuzzCtx" cId
-    hsExp' <- [|$w (coerce $(pure hsExp))|]
-    return (hsTy, hsExp')
-  }
+getHsVariable err s = TH.lookupValueName (C.unHaskellIdentifier s) >>= \ case
+  Nothing -> fail $ "Cannot capture Haskell variable " ++ C.unHaskellIdentifier s ++ ", because it's not in scope. (" ++ err ++ ")"
+  Just hsName -> TH.varE hsName
 
 withKey :: Key a -> (Ptr OpaqueKey -> IO r) -> IO r
 withKey (Key k) = withForeignPtr k
@@ -1417,6 +1429,7 @@ harfbuzzCtx = mempty
     , (C.TypeName "hb_glyph_position_t", [t|GlyphPosition|])
     , (C.TypeName "hb_language_t", [t|Ptr Language|])
     , (C.TypeName "hb_language_impl_t", [t|Language|])
+    , (C.TypeName "hb_mask_t", [t|Mask|])
     , (C.TypeName "hb_map_t", [t|Map|])
     , (C.TypeName "hb_memory_mode_t", [t|MemoryMode|])
     , (C.TypeName "hb_position_t", [t|Position|])
@@ -1449,7 +1462,7 @@ harfbuzzCtx = mempty
     , ("font-extents", anti (ptr $ C.TypeName "hb_font_extents_t") [t|Ptr FontExtents|] [|with|])
     , ("font-funcs", anti (ptr $ C.TypeName "hb_font_funcs_t") [t|Ptr FontFuncs|] [|withSelf|])
     , ("glyph-extents", anti (ptr $ C.TypeName "hb_glyph_extents_t") [t|Ptr GlyphExtents|] [|with|])
-    , ("glyph-info", anti (ptr $ C.TypeName "hb_glyph_info_t") [t|Ptr GlyphInfo|] [|withPtr|])
+    , ("glyph-info", anti (ptr $ C.TypeName "hb_glyph_info_t") [t|Ptr GlyphInfo|] [|with|])
     , ("key", anti (ptr $ C.TypeName "hb_user_data_key_t") [t|Ptr OpaqueKey|] [|withKey|])
     , ("language", anti (C.TypeSpecifier mempty $ C.TypeName "hb_language_t") [t|Ptr Language|] [|withPtr|])
     , ("map", anti (ptr $ C.TypeName "hb_map_t") [t|Ptr Map|] [|withSelf|])
@@ -1460,4 +1473,8 @@ harfbuzzCtx = mempty
     , ("shape-plan", anti (ptr $ C.TypeName "hb_shape_plan_t") [t|Ptr ShapePlan|] [|withSelf|])
     , ("unicode-funcs", anti (ptr $ C.TypeName "hb_unicode_funcs_t") [t|Ptr UnicodeFuncs|] [|withSelf|])
     ]
-  }
+  } where
+  anti cTy hsTyQ w = C.SomeAntiQuoter C.AntiQuoter
+    { C.aqParser = C.parseIdentifier <&> \hId -> (C.mangleHaskellIdentifier hId, cTy, hId)
+    , C.aqMarshaller = \_ _ _ cId -> (,) <$> hsTyQ <*> [|$w (coerce $(getHsVariable "harfbuzzCtx" cId))|]
+    }

@@ -5,22 +5,6 @@
 module Graphics.Harfbuzz.Buffer
 ( Buffer
 
-, BufferFlags(..)
-
-, BufferContentType(..)
-
-, BufferClusterLevel(..)
-
-, BufferSerializeFormat(..)
-, buffer_serialize_format_from_string, buffer_serialize_format_to_string
-
-, GlyphPosition(..)
-, GlyphFlags(..)
-
-, SegmentProperties(..)
--- , (==) provides hb_segment_properties_equal
--- , hash provides hb_segment_properties_hash
-
 , buffer_add
 , buffer_add_char
 , buffer_add_latin1 -- Char8.ByteString
@@ -38,7 +22,7 @@ module Graphics.Harfbuzz.Buffer
 , buffer_direction -- statevar
 , buffer_flags -- statevar
 , buffer_get_glyph_positions
-, buffer_get_glyph_flags
+, buffer_get_glyph_infos
 , buffer_get_length
 , buffer_guess_segment_properties
 , buffer_invisible_glyph
@@ -58,6 +42,29 @@ module Graphics.Harfbuzz.Buffer
 , buffer_set_message_func
 , buffer_unicode_funcs -- statevar
 
+, BufferFlags(..)
+, BufferContentType(..)
+, BufferClusterLevel(..)
+, BufferSerializeFormat(..)
+, buffer_serialize_format_from_string, buffer_serialize_format_to_string
+
+, GlyphInfo -- No constructor, partial fields
+  ( glyph_info_codepoint
+  , glyph_info_cluster
+  )
+, glyph_info_get_glyph_flags
+, GlyphPosition -- No constructor, partial fields
+  ( glyph_position_x_advance
+  , glyph_position_y_advance
+  , glyph_position_x_offset
+  , glyph_position_y_offset
+  )
+, GlyphFlags(..)
+
+, SegmentProperties(..)
+-- , (==) provides hb_segment_properties_equal
+-- , hash provides hb_segment_properties_hash
+
 , pattern BUFFER_REPLACEMENT_CODEPOINT_DEFAULT
 ) where
 
@@ -69,7 +76,6 @@ import Data.Text (Text)
 import qualified Data.Text.Foreign as Text
 import Data.Functor ((<&>))
 import Data.StateVar
-import Data.Traversable (for)
 import Foreign.C.String
 import Foreign.C.Types
 import Foreign.Marshal.Alloc
@@ -175,12 +181,14 @@ buffer_get_glyph_positions b = liftIO $ alloca $ \plen -> do
 
 -- @hb_buffer_get_glyph_infos@ only gives us access to @hb_glyph_info_glyph_flags@, so just map
 -- that over the list rather than trying to deal with memory management on an opaque object we know nothing about.
-buffer_get_glyph_flags :: MonadIO m => Buffer -> m [GlyphFlags]
-buffer_get_glyph_flags b = liftIO $ alloca $ \plen -> do
+buffer_get_glyph_infos :: MonadIO m => Buffer -> m [GlyphInfo]
+buffer_get_glyph_infos b = liftIO $ alloca $ \plen -> do
   pinfos <- [C.exp|hb_glyph_info_t * { hb_buffer_get_glyph_infos($buffer:b,$(unsigned int * plen)) }|]
   len <- peek plen
-  infos <- peekArray (fromIntegral len) pinfos
-  for infos $ \info -> [C.exp|hb_glyph_flags_t { hb_glyph_info_get_glyph_flags($glyph-info:info) }|]
+  peekArray (fromIntegral len) pinfos
+
+glyph_info_get_glyph_flags :: GlyphInfo -> GlyphFlags
+glyph_info_get_glyph_flags info = [C.pure|hb_glyph_flags_t { hb_glyph_info_get_glyph_flags($glyph-info:info) }|]
 
 buffer_guess_segment_properties :: MonadIO m => Buffer -> m ()
 buffer_guess_segment_properties b = liftIO [C.block|void { hb_buffer_guess_segment_properties($buffer:b); }|]
