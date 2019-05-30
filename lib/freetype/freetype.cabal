@@ -1,95 +1,13 @@
 cabal-version: 2.2
 name: freetype
 version: 0
-author: Edward Kmett <ekmett@gmail.com> and Jason Dagit <dagitj@gmail.com>
+author: Edward Kmett <ekmett@gmail.com>
 maintainer: Edward Kmett <ekmett@gmail.com>
-copyright: (C) Edward Kmett 2019, (C) Jason Dagit 2011
-synopsis: Haskell binding for FreeType 2 library
-description:
-  Wrapper around FreeType 2 library.  Relevant
-  exerpts from the FreeType 2 website:
-  .
-  What is FreeType 2?
-  .
-  FreeType 2 is a software font engine that is
-  designed to be small, efficient, highly
-  customizable, and portable while capable of
-  producing high-quality output (glyph images). It
-  can be used in graphics libraries, display
-  servers, font conversion tools, text image
-  generation tools, and many other products as
-  well.
-  .
-  The following is a non-exhaustive list of
-  features provided by FreeType 2.
-  .
-  * FreeType 2 provides a simple and easy-to-use
-  API to access font content in a uniform way,
-  independently of the file format. Additionally,
-  some format-specific APIs can be used to access
-  special data in the font file.
-  .
-  * Unlike most comparable libraries, FreeType 2
-  supports scalable font formats like TrueType or
-  Type 1 natively and can return the outline data
-  (and control instructions/hints) to client
-  applications.
-  .
-  By default, FreeType 2 supports the following
-  font formats.
-  .
-  * TrueType fonts (and collections)
-  .
-  * Type 1 fonts
-  .
-  * CID-keyed Type 1 fonts
-  .
-  * CFF fonts
-  .
-  * OpenType fonts (both TrueType and CFF variants)
-  .
-  * SFNT-based bitmap fonts
-  .
-  * X11 PCF fonts
-  .
-  * Windows FNT fonts
-  .
-  * BDF fonts (including anti-aliased ones)
-  .
-  * PFR fonts
-  .
-  * Type 42 fonts (limited support)
-  .
-  From a given glyph outline, FreeType 2 is capable
-  of producing a high-quality monochrome bitmap, or
-  anti-aliased pixmap, using 256 levels of
-  'gray'. This is much better than the 5 levels
-  used by Windows 9x\/98\/NT\/2000 or FreeType 1.
-  .
-  FreeType 2 supports all the character mappings
-  defined by the TrueType and OpenType
-  specification. It is also capable of
-  automatically synthetizing a Unicode charmap from
-  Type 1 fonts, which puts an end to the painful
-  'encoding translation' headache common with this
-  format (of course, original encodings are also
-  available in the case where you need them).
-  .
-  The FreeType 2 core API provides simple functions
-  to access advanced information like glyph names
-  or kerning data.
-  .
-  FreeType 2 provides information that is often not
-  available from other similar font engines, like
-  kerning distances, glyph names, vertical metrics,
-  etc.
-  .
-  FreeType 2 provides its own caching subsystem
-  since release 2.0.1. It can be used to cache
-  either face instances or glyph images
-  efficiently.
-license: BSD-3-Clause
-license-file: LICENSE
+copyright: (C) Edward Kmett 2019
+synopsis: FreeType 2
+description: FreeType 2
+license: BSD-2-Clause OR Apache-2.0
+license-file: LICENSE.md
 category: Graphics
 build-type: Simple
 
@@ -101,22 +19,30 @@ flag examples
   description: Build example programs
   default: False
 
-executable freetype-example
+common base
   default-language: Haskell2010
-  build-depends: array, base, freetype
-  main-is: Main.hs
-
-library
-  default-language: Haskell2010
+  pkgconfig-depends: freetype2
   build-depends:
     base > 4.11 && < 5,
     containers,
     inline-c,
     template-haskell
-  hs-source-dirs: src
+
+library raw
+  import: base
   build-tool-depends: hsc2hs:hsc2hs
-  ghc-options: -Wall
-  pkgconfig-depends: freetype2
+  hs-source-dirs: raw
   exposed-modules:
     Graphics.FreeType.Internal
-    Graphics.FreeType.Types
+    Graphics.FreeType.Private
+
+library
+  import: base
+  hs-source-dirs: src
+  ghc-options: -Wall
+  build-depends: raw
+  reexported-modules:
+    Graphics.FreeType.Internal
+  exposed-modules:
+    Graphics.FreeType
+    Graphics.FreeType.Version
