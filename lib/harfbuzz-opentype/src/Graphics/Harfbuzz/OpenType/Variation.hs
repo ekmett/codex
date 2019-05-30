@@ -34,6 +34,7 @@ import qualified Language.C.Inline as C
 
 import Graphics.Harfbuzz.Internal
 import Graphics.Harfbuzz.OpenType.Internal
+import Graphics.Harfbuzz.OpenType.Private
 
 C.context $ C.baseCtx <> harfbuzzOpenTypeCtx
 C.include "<hb.h>"

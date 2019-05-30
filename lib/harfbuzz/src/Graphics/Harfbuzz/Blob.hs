@@ -30,6 +30,7 @@ import Foreign.Storable
 import qualified Language.C.Inline as C
 
 import Graphics.Harfbuzz.Internal
+import Graphics.Harfbuzz.Private
 
 C.context $ C.baseCtx <> harfbuzzCtx
 C.include "<stdlib.h>" -- free

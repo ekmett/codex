@@ -66,6 +66,7 @@ import Foreign.Ptr
 import Foreign.Storable
 import qualified Language.C.Inline as C
 
+import Graphics.Harfbuzz.Private
 import Graphics.Harfbuzz.Internal
 
 C.context $ C.baseCtx <> harfbuzzCtx

@@ -172,13 +172,10 @@ module Graphics.Harfbuzz.OpenType.Internal
 , pattern TAG_VAR_AXIS_WIDTH
 , pattern TAG_VAR_AXIS_WEIGHT
 -- * internals
-, pump
 , harfbuzzOpenTypeCtx
 ) where
 
-import Control.Monad.IO.Class
 import Data.Bits
-import Data.Functor ((<&>))
 import Data.Primitive.Types
 import qualified Data.Map as Map
 import Foreign
@@ -471,11 +468,6 @@ pattern NAME_ID_INVALID = (#const HB_OT_NAME_ID_INVALID) :: Name
 pattern VAR_AXIS_FLAG_HIDDEN = (#const HB_OT_VAR_AXIS_FLAG_HIDDEN) :: VarAxisFlags
 pattern VAR_AXIS_FLAG__MAX_VALUE = (#const _HB_OT_VAR_AXIS_FLAG_MAX_VALUE) :: VarAxisFlags
 #endif
-
-pump :: MonadIO m => CUInt -> (CUInt -> CUInt -> IO (CUInt,CUInt,[a])) -> m [a]
-pump n f = liftIO $ do
-  (tot,ret,cs) <- f 0 n
-  if tot == ret then pure cs else f n (tot - n) <&> \(_,_,ds) -> cs ++ ds
 
 harfbuzzOpenTypeCtx :: C.Context
 harfbuzzOpenTypeCtx = harfbuzzCtx <> mempty
