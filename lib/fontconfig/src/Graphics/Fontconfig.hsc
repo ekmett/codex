@@ -170,9 +170,9 @@ import Data.Traversable
 import Data.Version
 import Foreign.C
 import Foreign.Const.Ptr
+import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
-import Foreign.Marshal.Utils (with)
 import Foreign.Ptr
 import Foreign.Storable
 import qualified Language.C.Inline as C
@@ -653,7 +653,7 @@ fontSetPrint s = liftIO $ do
 
 fontSetList :: (MonadIO m, Foldable f) => Config -> f FontSet -> Pattern -> ObjectSet -> m FontSet
 fontSetList c (toList -> xs) p o = liftIO $
-  runContT (traverse (ContT . withSelf) xs) $ \ys -> withArrayLen ys $ \ (fromIntegral -> nsets) sets->
+  runContT (traverse (ContT . withForeignPtr . coerce) xs) $ \ys -> withArrayLen ys $ \ (fromIntegral -> nsets) sets->
     [C.exp|FcFontSet* { FcFontSetList($config:c,$(FcFontSet** sets),$(int nsets),$pattern:p,$objectset:o) }|] >>= foreignFontSet
 {-# inlineable fontSetList #-}
 
@@ -724,7 +724,7 @@ cacheCopySet c = liftIO $ [C.exp|FcFontSet* { FcCacheCopySet($cache:c) }|] >>= f
 
 -- | @'cacheSubDirs' cache@ returns a list of the sub-directories contained in this cache
 cacheSubdirs :: MonadIO m => Cache -> m [FilePath]
-cacheSubdirs fc = liftIO $ withSelf fc $ \c -> do
+cacheSubdirs (Cache fc) = liftIO $ withForeignPtr fc $ \c -> do
   n <- [C.exp|int { FcCacheNumSubdir($(FcCache * c)) }|]
   for [0..n-1] $ \i ->
     [C.exp|const FcChar8 * { FcCacheSubdir($(FcCache * c),$(int i)) }|] >>= peekCUString -- not freeing matches observed internal fontconfig behavior 
@@ -889,7 +889,7 @@ fontRenderPrepare cfg pat font = liftIO $ [C.exp|FcPattern * { FcFontRenderPrepa
 
 #if USE_FREETYPE
 withFaceValue :: Face -> (Value -> IO r) -> IO r
-withFaceValue face f = withSelf face (f . ValueFace . constant)
+withFaceValue (Face face) f = withForeignPtr face (f . ValueFace . constant)
 
 patternAddFace :: MonadIO m => Pattern -> String -> Face -> m Bool
 patternAddFace p k v = liftIO $ [C.exp|int { FcPatternAddFTFace($pattern:p,$str:k,$face:v) }|] <&> cbool

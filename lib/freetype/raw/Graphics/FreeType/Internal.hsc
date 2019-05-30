@@ -8,12 +8,14 @@
 {-# language CPP #-}
 module Graphics.FreeType.Internal
 ( Face(..)
+, FaceRec
 , Library(..)
+, LibraryRec
+, Memory(..)
 , MemoryRec(..)
 , AllocFunc
 , FreeFunc
 , ReallocFunc
-, Memory(..)
 , pattern FREETYPE_MAJOR
 , pattern FREETYPE_MINOR
 , pattern FREETYPE_PATCH

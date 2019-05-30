@@ -1,12 +1,16 @@
 {-# language LambdaCase #-}
 {-# language QuasiQuotes #-}
 {-# language TemplateHaskell #-}
-module Graphics.FreeType.Private
+{-# language FlexibleContexts #-}
+module Graphics.Fontconfig.Private
 ( anti
+, withSelfMaybe
 ) where
 
 import Data.Coerce
 import Data.Functor ((<&>))
+import Foreign.ForeignPtr
+import Foreign.Ptr
 import qualified Language.C.Inline.Context as C
 import qualified Language.C.Inline.HaskellIdentifier as C
 import qualified Language.C.Types as C
@@ -22,3 +26,7 @@ anti cTy hsTyQ w = C.SomeAntiQuoter C.AntiQuoter
   { C.aqParser = C.parseIdentifier <&> \hId -> (C.mangleHaskellIdentifier hId, cTy, hId)
   , C.aqMarshaller = \_ _ _ cId -> (,) <$> hsTyQ <*> [|$w (coerce $(getHsVariable "freeTypeCtx" cId))|]
   }
+
+withSelfMaybe :: Coercible a (Maybe (ForeignPtr a)) => a -> (Ptr a -> IO r) -> IO r
+withSelfMaybe a f = maybe (f nullPtr) (`withForeignPtr` f) (coerce a)
+
