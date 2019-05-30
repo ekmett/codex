@@ -41,17 +41,14 @@ let
   sources = {
     atlas        = ./lib/atlas;
     const        = ./lib/const;
+    fontconfig   = ./lib/fontconfig;
     freetype     = ./lib/freetype;
     glow         = ./lib/glow;
+    hkd          = ./lib/hkd;
     harfbuzz     = ./lib/harfbuzz;
     harfbuzz-icu = ./lib/harfbuzz-icu;
+    ptrdiff      = ./lib/ptrdiff;
     weak         = ./lib/weak;
-    fontconfig   = ./lib/fontconfig;
-    hkd          = ./lib/hkd;
-  };
-
-  nihs = {
-    stb = ./nih/stb;
   };
 
   c2nix = p: n: args:
@@ -61,18 +58,11 @@ let
   # Basic overrides to include our packages
   modHaskPkgs = haskellPackages.override {
     overrides = hself: hsuper: {
-
-      atlas        = (c2nix hsuper "atlas" {}).overrideAttrs (_: {
-        # nix builds don't like symlinks, move the real thing in.
-        postUnpack = ''
-          rm atlas/cbits/stb_rect_pack.h
-          cp ${nihs.stb}/stb_rect_pack.h atlas/cbits/
-        '';
-      });
-
+      atlas        = c2nix hsuper "atlas" {};
       hkd          = c2nix hsuper "hkd" {};
       const        = c2nix hsuper "const" {};
       weak         = c2nix hsuper "weak" {};
+      ptrdiff      = c2nix hsuper "ptrdiff" {};
       # Provide the external lib dependency to match the cabal file
       freetype     = c2nix hself "freetype" { freetype2 = pkgs.freetype; };
     };
