@@ -1,4 +1,4 @@
-{ nixpkgs ? import ./nix/nixpkgs.nix
+{ nixpkgs ? import ./.nix/nixpkgs.nix
 , compiler ? "default"
 }:
 let
@@ -76,7 +76,7 @@ let
   glow       = c2nix modHaskPkgs "glow" {};
 
   # Build the UI derivation and include our specific dependencies.
-  ui = modHaskPkgs.callPackage ./ui.nix { 
+  ui = modHaskPkgs.callPackage ./lib/ui/ui.nix { 
     fontconfig = fontconfig;
     harfbuzz = harfbuzz;
     harfbuzz-icu = harfbuzz-icu;
