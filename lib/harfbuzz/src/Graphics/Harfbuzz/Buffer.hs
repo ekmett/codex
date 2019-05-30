@@ -87,7 +87,7 @@ import qualified Language.C.Inline as C
 import Graphics.Harfbuzz.Internal
 import Graphics.Harfbuzz.Private
 
-C.context $ C.baseCtx <> harfbuzzCtx
+C.context $ C.baseCtx <> C.bsCtx <> harfbuzzCtx
 C.include "<hb.h>"
 C.include "HsFFI.h"
 
@@ -157,17 +157,15 @@ buffer_add_text buffer text (fromIntegral -> item_offset) (fromIntegral -> item_
 
 buffer_add_latin1 :: MonadIO m => Buffer -> ByteString -> Int -> Int -> m ()
 buffer_add_latin1 buffer text (fromIntegral -> item_offset) (fromIntegral -> item_length) = liftIO $
-  ByteString.useAsCStringLen text $ \(castPtr -> cstr,fromIntegral -> len) ->
-    [C.block|void {
-      hb_buffer_add_latin1($buffer:buffer,$(const unsigned char * cstr),$(int len),$(unsigned int item_offset),$(int item_length));
-    }|]
+  [C.block|void {
+    hb_buffer_add_latin1($buffer:buffer,$bs-ptr:text,$bs-len:text,$(unsigned int item_offset),$(int item_length));
+  }|]
 
 buffer_add_utf8 :: MonadIO m => Buffer -> ByteString -> Int -> Int -> m ()
 buffer_add_utf8 buffer text (fromIntegral -> item_offset) (fromIntegral -> item_length) = liftIO $
-  ByteString.useAsCStringLen text $ \(cstr,fromIntegral -> len) ->
-    [C.block|void {
-      hb_buffer_add_utf8($buffer:buffer,$(const char * cstr),$(int len),$(unsigned int item_offset),$(int item_length));
-    }|]
+  [C.block|void {
+    hb_buffer_add_utf8($buffer:buffer,$bs-ptr:text,$bs-len:text,$(unsigned int item_offset),$(int item_length));
+  }|]
 
 buffer_append :: MonadIO m => Buffer -> Buffer -> Int -> Int -> m ()
 buffer_append buffer source (fromIntegral -> start) (fromIntegral -> end) = liftIO
@@ -220,28 +218,31 @@ buffer_serialize_glyphs b (fromIntegral -> start) (fromIntegral -> end) bs@(from
 
 buffer_deserialize_glyphs :: MonadIO m => Buffer -> ByteString -> Font -> BufferSerializeFormat -> m (Bool, Int)
 buffer_deserialize_glyphs buffer bs font format = liftIO $
-  ByteString.useAsCStringLen bs $ \(buf, fromIntegral -> buf_len) ->
-    alloca $ \end_ptr -> do
-      b <- [C.exp|hb_bool_t {
-        hb_buffer_deserialize_glyphs(
-          $buffer:buffer,
-          $(const char * buf),
-          $(int buf_len),
-          $(const char ** end_ptr),
-          $font:font,
-          $(hb_buffer_serialize_format_t format)
-        )
-      }|] <&> cbool
-      end <- peek end_ptr
-      pure (b, minusPtr end buf)
+  alloca $ \pdelta -> do
+    b <- [C.block|hb_bool_t {
+      const char * bs = $bs-ptr:bs;
+      const char * end_ptr;
+      hb_bool_t result = hb_buffer_deserialize_glyphs(
+        $buffer:buffer,
+        bs,
+        $bs-len:bs,
+        &end_ptr,
+        $font:font,
+        $(hb_buffer_serialize_format_t format)
+      );
+      *($(int * pdelta)) = end_ptr - bs;
+      return result;
+    }|]
+    delta <- peek pdelta
+    pure (cbool b, fromIntegral delta)
 
 -- | Register a callback for buffer messages
-buffer_set_message_func :: MonadIO m => Buffer -> (Buffer -> Font -> String -> IO ()) -> m ()
+buffer_set_message_func :: MonadIO m => Buffer -> (Buffer -> Font -> ByteString -> IO ()) -> m ()
 buffer_set_message_func b hfun = liftIO $ do
   (castFunPtr -> f) <- mkBufferMessageFunc $ \pbuffer pfont cmsg _ -> do
     buffer <- [C.exp|hb_buffer_t * { hb_buffer_reference($(hb_buffer_t * pbuffer)) }|] >>= foreignBuffer
     font <- [C.exp|hb_font_t * { hb_font_reference($(hb_font_t * pfont)) }|] >>= foreignFont
-    msg <- peekCString cmsg
+    msg <- ByteString.packCString cmsg
     hfun buffer font msg
   [C.block|void {
     hb_buffer_message_func_t f = $(hb_buffer_message_func_t f);
