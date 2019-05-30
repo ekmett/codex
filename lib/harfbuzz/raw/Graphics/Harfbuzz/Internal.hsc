@@ -315,6 +315,7 @@ import Data.Coerce
 import Data.Data (Data)
 import Data.Default (Default(..))
 import Data.Functor ((<&>))
+import Data.Function ((&))
 import Data.Hashable
 import Data.Primitive.Types
 import qualified Data.Map as Map
@@ -1353,7 +1354,6 @@ foreign import ccall "wrapper" mkUnicodeScriptFunc :: UnicodeScriptFunc a -> IO 
 withKey :: Key a -> (Ptr OpaqueKey -> IO r) -> IO r
 withKey (Key k) = withForeignPtr k
 
-
 -- * Inline C context
 
 ptr :: C.TypeSpecifier -> C.Type i
@@ -1411,24 +1411,24 @@ harfbuzzCtx = mempty
   , C.ctxAntiQuoters = Map.fromList
     [ ("ustr", anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char (Just C.Unsigned))) [t|Ptr CUChar|] [|withCUString|])
     , ("str", anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char Nothing)) [t|Ptr CChar|] [|withCString|])
-    , ("blob", anti (ptr $ C.TypeName "hb_blob_t") [t|Ptr Blob|] [|withSelf|])
-    , ("buffer", anti (ptr $ C.TypeName "hb_buffer_t") [t|Ptr Buffer|] [|withSelf|])
-    , ("face", anti (ptr $ C.TypeName "hb_face_t") [t|Ptr Face|] [|withSelf|])
+    , ("blob", anti (ptr $ C.TypeName "hb_blob_t") [t|Ptr Blob|] [|withForeignPtr|])
+    , ("buffer", anti (ptr $ C.TypeName "hb_buffer_t") [t|Ptr Buffer|] [|withForeignPtr|])
+    , ("face", anti (ptr $ C.TypeName "hb_face_t") [t|Ptr Face|] [|withForeignPtr|])
     , ("feature", anti (ptr $ C.TypeName "hb_feature_t") [t|Ptr Feature|] [|with|])
-    , ("font", anti (ptr $ C.TypeName "hb_font_t") [t|Ptr Font|] [|withSelf|])
+    , ("font", anti (ptr $ C.TypeName "hb_font_t") [t|Ptr Font|] [|withForeignPtr|])
     , ("font-extents", anti (ptr $ C.TypeName "hb_font_extents_t") [t|Ptr FontExtents|] [|with|])
-    , ("font-funcs", anti (ptr $ C.TypeName "hb_font_funcs_t") [t|Ptr FontFuncs|] [|withSelf|])
+    , ("font-funcs", anti (ptr $ C.TypeName "hb_font_funcs_t") [t|Ptr FontFuncs|] [|withForeignPtr|])
     , ("glyph-extents", anti (ptr $ C.TypeName "hb_glyph_extents_t") [t|Ptr GlyphExtents|] [|with|])
     , ("glyph-info", anti (ptr $ C.TypeName "hb_glyph_info_t") [t|Ptr GlyphInfo|] [|with|])
-    , ("key", anti (ptr $ C.TypeName "hb_user_data_key_t") [t|Ptr OpaqueKey|] [|withKey|])
-    , ("language", anti (C.TypeSpecifier mempty $ C.TypeName "hb_language_t") [t|Ptr Language|] [|withPtr|])
-    , ("map", anti (ptr $ C.TypeName "hb_map_t") [t|Ptr Map|] [|withSelf|])
-    , ("maybe-set", anti (ptr $ C.TypeName "hb_set_t") [t|Ptr Set|] [|maybeWith withSelf|])
+    , ("key", anti (ptr $ C.TypeName "hb_user_data_key_t") [t|Ptr OpaqueKey|] [|withForeignPtr|])
+    , ("language", anti (C.TypeSpecifier mempty $ C.TypeName "hb_language_t") [t|Ptr Language|] [|(&)|])
+    , ("map", anti (ptr $ C.TypeName "hb_map_t") [t|Ptr Map|] [|withForeignPtr|])
+    , ("maybe-set", anti (ptr $ C.TypeName "hb_set_t") [t|Ptr Set|] [|maybeWith withForeignPtr|])
     , ("maybe-tags", anti (ptr $ C.TypeName "hb_tag_t") [t|Ptr Tag|] [|maybeWith (withArray0 TAG_NONE) |])
     , ("segment-properties", anti (ptr $ C.TypeName "hb_segment_properties_t") [t|Ptr SegmentProperties|] [|with|])
-    , ("set", anti (ptr $ C.TypeName "hb_set_t") [t|Ptr Set|] [|withSelf|])
-    , ("shape-plan", anti (ptr $ C.TypeName "hb_shape_plan_t") [t|Ptr ShapePlan|] [|withSelf|])
-    , ("unicode-funcs", anti (ptr $ C.TypeName "hb_unicode_funcs_t") [t|Ptr UnicodeFuncs|] [|withSelf|])
+    , ("set", anti (ptr $ C.TypeName "hb_set_t") [t|Ptr Set|] [|withForeignPtr|])
+    , ("shape-plan", anti (ptr $ C.TypeName "hb_shape_plan_t") [t|Ptr ShapePlan|] [|withForeignPtr|])
+    , ("unicode-funcs", anti (ptr $ C.TypeName "hb_unicode_funcs_t") [t|Ptr UnicodeFuncs|] [|withForeignPtr|])
     ]
   } where
   anti cTy hsTyQ w = C.SomeAntiQuoter C.AntiQuoter

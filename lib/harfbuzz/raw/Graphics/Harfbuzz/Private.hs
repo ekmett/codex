@@ -3,16 +3,13 @@
 module Graphics.Harfbuzz.Private
 ( getHsVariable
 , hs_free_stable_ptr
-, withSelf, withPtr
 , cbool, boolc, w2c, c2w
 , newByteStringCStringLen
 ) where
 
 import qualified Data.ByteString as Strict
 import qualified Data.ByteString.Internal as Strict
-import Data.Coerce
 import Data.Word
-import Data.Function ((&))
 import Foreign.C.Types
 import Foreign.C.String
 import Foreign.ForeignPtr
@@ -28,12 +25,6 @@ getHsVariable err s = TH.lookupValueName (C.unHaskellIdentifier s) >>= \ case
   Just hsName -> TH.varE hsName
 
 foreign import ccall "&" hs_free_stable_ptr       :: FinalizerPtr ()
-
-withSelf :: Coercible a (ForeignPtr a) => a -> (Ptr a -> IO r) -> IO r
-withSelf = withForeignPtr . coerce
-
-withPtr :: Coercible a (Ptr a) => a -> (Ptr a -> IO r) -> IO r
-withPtr = (&) . coerce
 
 cbool :: CInt -> Bool
 cbool = toEnum . fromIntegral
