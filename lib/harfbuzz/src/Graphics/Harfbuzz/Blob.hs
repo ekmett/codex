@@ -33,16 +33,17 @@ import qualified Language.C.Inline as C
 import Graphics.Harfbuzz.Internal
 import Graphics.Harfbuzz.Private
 
-C.context $ C.baseCtx <> harfbuzzCtx
+C.context $ C.baseCtx <> C.bsCtx <> harfbuzzCtx
 C.include "<stdlib.h>" -- free
+C.include "<string.h>" -- strndup
 C.include "<hb.h>"
 
 blob_create :: MonadIO m => ByteString -> MemoryMode -> m Blob
-blob_create bs mode = liftIO $ do
-  (cstr, fromIntegral -> len) <- newByteStringCStringLen bs
+blob_create bs mode = liftIO $
   [C.block|hb_blob_t * {
-    char * s = $(char * cstr);
-    return hb_blob_create(s,$(unsigned int len),$(hb_memory_mode_t mode),s,free);
+    int len = $bs-len:bs;
+    char * s = strndup($bs-ptr:bs,len);
+    return hb_blob_create(s,len,$(hb_memory_mode_t mode),s,free);
   }|] >>= foreignBlob
 
 blob_create_from_file :: MonadIO m => FilePath -> m Blob

@@ -34,6 +34,7 @@ common lib
   import: base
   pkgconfig-depends: harfbuzz
   extra-libraries: harfbuzz
+  ghc-options: -optc -Wno-pointer-sign
   build-depends:
     bytestring,
     containers >= 0.6,
