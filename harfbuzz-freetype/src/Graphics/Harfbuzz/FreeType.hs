@@ -1,3 +1,5 @@
+{-# language TemplateHaskell #-}
+{-# language QuasiQuotes #-}
 module Graphics.Harfbuzz.FreeType
 ( face_create_referenced
 , font_create_referenced
