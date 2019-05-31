@@ -151,6 +151,11 @@ module Graphics.Fontconfig
   , withLangSetValue
   , withRangeValue
   , withMatrixValue
+
+  , weightFromOpenTypeDouble
+  , weightToOpenTypeDouble
+  , weightFromOpenType
+  , weightToOpenType
   ) where
 
 import Control.Monad
@@ -908,3 +913,15 @@ valueMatch (Type type_) p = liftIO $ do
 fontRenderPrepare :: MonadIO m => Config -> Pattern -> Pattern -> m Pattern
 fontRenderPrepare cfg pat font = liftIO $ [C.exp|FcPattern * { FcFontRenderPrepare($config:cfg,$pattern:pat,$pattern:font) }|] >>= foreignPattern
 {-# inlinable fontRenderPrepare #-}
+
+weightFromOpenTypeDouble :: Double -> Double
+weightFromOpenTypeDouble (coerce -> d) = coerce [C.pure|double { FcWeightFromOpenTypeDouble($(double d)) }|]
+
+weightToOpenTypeDouble :: Double -> Double
+weightToOpenTypeDouble (coerce -> d) = coerce [C.pure|double { FcWeightToOpenTypeDouble($(double d)) }|]
+
+weightFromOpenType :: Int -> Int
+weightFromOpenType (fromIntegral -> i) = fromIntegral [C.pure|int { FcWeightFromOpenType($(int i)) }|]
+
+weightToOpenType :: Int -> Int
+weightToOpenType (fromIntegral -> i) = fromIntegral [C.pure|int { FcWeightToOpenType($(int i)) }|]
