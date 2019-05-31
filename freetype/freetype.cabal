@@ -54,3 +54,14 @@ library
     Graphics.FreeType
     Graphics.FreeType.Library
     Graphics.FreeType.Version
+
+test-suite spec
+  import: base
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  hs-source-dirs: test
+  build-depends:
+    freetype,
+    hspec,
+    tasty,
+    tasty-hspec
