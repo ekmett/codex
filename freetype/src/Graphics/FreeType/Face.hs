@@ -17,9 +17,13 @@ module Graphics.FreeType.Face
 -- * manual reference counting
 , reference_face
 , done_face
+
+-- * Using the face
+, get_char_index
 ) where
 
 import Data.ByteString
+import Data.Functor ((<&>))
 import Control.Monad.IO.Class
 import Foreign.Marshal.Alloc
 import Foreign.Storable
@@ -59,3 +63,6 @@ reference_face face = liftIO $ [C.exp|FT_Error { FT_Reference_Face($fptr-ptr:(FT
 -- but you may need this if you claim ownership of a face from another library.
 done_face :: MonadIO m => Face -> m ()
 done_face face = liftIO $ [C.exp|FT_Error { FT_Done_Face($fptr-ptr:(FT_Face face))}|] >>= ok
+
+get_char_index :: MonadIO m => Face -> Char -> m Int
+get_char_index face (fromIntegral . fromEnum -> c) = liftIO $ [C.exp|FT_UInt { FT_Get_Char_Index($fptr-ptr:(FT_Face face),$(FT_ULong c)) }|] <&> fromIntegral
