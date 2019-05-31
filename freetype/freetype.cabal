@@ -11,6 +11,10 @@ license: BSD-2-Clause OR Apache-2.0
 license-file: LICENSE.md
 category: Graphics
 build-type: Simple
+extra-source-files:
+  cbits/ft.h
+  cbits/err_exports.h
+  cbits/err_patterns.h
 
 source-repository head
   type: git
@@ -33,6 +37,8 @@ library raw
   import: base
   build-tool-depends: hsc2hs:hsc2hs
   hs-source-dirs: raw
+  c-sources: cbits/ft.c
+  include-dirs: cbits
   exposed-modules:
     Graphics.FreeType.Internal
     Graphics.FreeType.Private
@@ -46,4 +52,5 @@ library
     Graphics.FreeType.Internal
   exposed-modules:
     Graphics.FreeType
+    Graphics.FreeType.Library
     Graphics.FreeType.Version
