@@ -3,7 +3,7 @@ name: harfbuzz-icu
 version: 0
 synopsis: Harfbuzz-ICU interoperability
 description: Harfbuzz-ICU interoperability.
-homepage: https://github.com/ekmett/ui#readme
+homepage: https://github.com/ekmett/codex/tree/master/harfbuzz-icu#readme
 license: BSD-2-Clause OR Apache-2.0
 license-file: LICENSE.md
 author: Edward Kmett

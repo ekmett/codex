@@ -3,7 +3,7 @@ name: glow
 version: 0
 synopsis: Low-level wrappings around the 'gl' library
 description: Low-level wrappings around the 'gl' library.
-homepage: https://github.com/ekmett/ui#readme
+homepage: https://github.com/ekmett/codex/tree/master/glow#readme
 license: BSD-2-Clause OR Apache-2.0
 license-file: LICENSE.md
 author: Edward Kmett
@@ -18,7 +18,7 @@ extra-doc-files:
 
 source-repository head
   type: git
-  location: https://github.com/ekmett/ui
+  location: https://github.com/ekmett/codex
 
 library
   hs-source-dirs: src

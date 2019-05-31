@@ -3,7 +3,7 @@ name: harfbuzz
 version: 0
 synopsis: Text shaping using harfbuzz
 description: Text shaping using harfbuzz
-homepage: https://github.com/ekmett/codex#readme
+homepage: https://github.com/ekmett/codex/tree/master/harfbuzz#readme
 license: BSD-2-Clause OR Apache-2.0
 license-file: LICENSE.md
 author: Edward Kmett

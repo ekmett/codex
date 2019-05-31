@@ -4,6 +4,7 @@ version: 0
 author: Edward Kmett <ekmett@gmail.com>
 maintainer: Edward Kmett <ekmett@gmail.com>
 copyright: (C) Edward Kmett 2019
+homepage: https://github.com/ekmett/codex/tree/master/freetype#readme
 synopsis: FreeType 2
 description: FreeType 2
 license: BSD-2-Clause OR Apache-2.0
