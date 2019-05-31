@@ -1,6 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
---------------------------------------------------------------------
 -- |
 -- Copyright :  (c) 2014 Edward Kmett and Jan-Philip Loos
 -- License   :  BSD2
@@ -10,25 +9,24 @@
 --
 -- Separable 'Programs's can be combined to a 'ProgramPipeline'
 -- Requires: 4.1+ or GL_ARB_separate_shader_objects
---------------------------------------------------------------------
 module Graphics.Glow.ProgramPipeline
-  ( ProgramPipeline
-  , PipelineStage
-  , boundProgramPipeline
-  , useProgramStages
-  -- * Properties
-  , programPipelineParameter1
-  , activeShaderProgram
-  , programPipelineInfoLog
-  , validateProgramPipeline
-  , validateProgramPipelineStatus
-  -- * Stages
-  , vertexShader
-  , fragmentShader
-  , tessControlShader
-  , tessEvaluationShader
-  , geometryShader
-  ) where
+( ProgramPipeline
+, PipelineStage
+, boundProgramPipeline
+, useProgramStages
+-- * Properties
+, programPipelineParameter1
+, activeShaderProgram
+, programPipelineInfoLog
+, validateProgramPipeline
+, validateProgramPipelineStatus
+-- * Stages
+, vertexShader
+, fragmentShader
+, tessControlShader
+, tessEvaluationShader
+, geometryShader
+) where
 
 import Control.Applicative
 import Control.Monad.IO.Class

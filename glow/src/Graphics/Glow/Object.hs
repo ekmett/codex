@@ -6,10 +6,10 @@
 -- Portability: non-portable
 --
 module Graphics.Glow.Object
-  ( Object(..)
-  , Gen(..)
-  , checkName
-  ) where
+( Object(..)
+, Gen(..)
+, checkName
+) where
 
 import Control.Monad
 import Control.Monad.IO.Class

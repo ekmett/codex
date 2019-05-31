@@ -7,13 +7,13 @@
 -- Portability: non-portable
 --
 module Graphics.Glow.Pixel
-  ( InternalFormat
-  , PixelFormat
-  , PixelType
-  , compSize1D
-  , compSize2D
-  , compSize3D
-  ) where
+( InternalFormat
+, PixelFormat
+, PixelType
+, compSize1D
+, compSize2D
+, compSize3D
+) where
 
 import Data.Bits
 import Graphics.GL.Standard21

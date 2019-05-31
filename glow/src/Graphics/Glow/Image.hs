@@ -10,14 +10,14 @@
 --
 -- Transcoding between @JuicyPixels@ and @gl@
 module Graphics.Glow.Image
-  ( 
-  -- * Uploading to OpenGL
-    Image2D(upload,store)
-  -- * Downloading from OpenGL
-  , download, downloadM
-  -- * Image formats
-  , ImageFormat(..)
-  ) where
+( 
+-- * Uploading to OpenGL
+  Image2D(upload,store)
+-- * Downloading from OpenGL
+, download, downloadM
+-- * Image formats
+, ImageFormat(..)
+) where
 
 import Codec.Picture
 import Codec.Picture.Types

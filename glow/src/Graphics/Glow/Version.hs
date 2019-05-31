@@ -6,13 +6,13 @@
 -- Portability: non-portable
 --
 module Graphics.Glow.Version
-  ( vendor
-  , renderer
-  , version
-  , shadingLanguageVersion
-  , shadingLanguageVersions
-  , gles
-  ) where
+( vendor
+, renderer
+, version
+, shadingLanguageVersion
+, shadingLanguageVersions
+, gles
+) where
 
 import Control.Monad
 import Data.List (isPrefixOf)

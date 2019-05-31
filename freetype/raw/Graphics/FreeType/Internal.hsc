@@ -9,6 +9,14 @@
 {-# language GeneralizedNewtypeDeriving #-}
 {-# language CPP #-}
 
+-- |
+-- Copyright :  (c) 2019 Edward Kmett
+-- License   :  BSD-2-Clause OR Apache-2.0
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+--
+
 #ifndef HLINT
 #include <ft2build.h>
 #include FT_FREETYPE_H

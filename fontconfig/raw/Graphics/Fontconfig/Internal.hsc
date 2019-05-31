@@ -16,8 +16,14 @@
 {-# language LambdaCase #-}
 {-# language CPP #-}
 {-# options_ghc -Wno-missing-pattern-synonym-signatures #-}
-
--- | ffi to the fontconfig library
+-- |
+-- Copyright :  (c) 2019 Edward Kmett
+-- License   :  BSD-2-Clause OR Apache-2.0
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+--
+-- FFI to the fontconfig library
 --
 -- As an internal module, I don't consider this module as supported by the PVP. Be careful.
 module Graphics.Fontconfig.Internal

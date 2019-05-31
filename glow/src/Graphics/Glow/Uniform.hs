@@ -12,35 +12,35 @@
 -- Portability: non-portable
 --
 module Graphics.Glow.Uniform
-  (
-  -- * Uniform Locations
-    UniformLocation
-  , uniformLocation
-  , uniformMat4s
-  , uniformMat4
-  -- * Program Uniforms
-  -- $programUniform
-  , programUniform1f
-  , programUniform2f
-  , programUniform3f
-  , programUniform4f
-  , programUniform1d
-  , programUniform2d
-  , programUniform3d
-  , programUniform4d
-  , programUniform1i
-  , programUniform2i
-  , programUniform3i
-  , programUniform4i
-  , programUniform1ui
-  , programUniform2ui
-  , programUniform3ui
-  , programUniform4ui
-  -- * Uniform Types
-  , UniformType
-  , showUniformType
-  , uniformTypeName
-  ) where
+(
+-- * Uniform Locations
+  UniformLocation
+, uniformLocation
+, uniformMat4s
+, uniformMat4
+-- * Program Uniforms
+-- $programUniform
+, programUniform1f
+, programUniform2f
+, programUniform3f
+, programUniform4f
+, programUniform1d
+, programUniform2d
+, programUniform3d
+, programUniform4d
+, programUniform1i
+, programUniform2i
+, programUniform3i
+, programUniform4i
+, programUniform1ui
+, programUniform2ui
+, programUniform3ui
+, programUniform4ui
+-- * Uniform Types
+, UniformType
+, showUniformType
+, uniformTypeName
+) where
 
 import Control.Monad.IO.Class
 import Data.Coerce

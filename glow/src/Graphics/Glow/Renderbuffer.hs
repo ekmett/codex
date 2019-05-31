@@ -14,13 +14,13 @@
 -- otherwise from it. 
 --
 module Graphics.Glow.Renderbuffer
-  ( Renderbuffer
+( Renderbuffer
+, RenderbufferTarget
+  ( RenderbufferTargeting
   , RenderbufferTarget
-    ( RenderbufferTargeting
-    , RenderbufferTarget
-    )
-  , boundRenderbuffer
-  ) where
+  )
+, boundRenderbuffer
+) where
 
 import Control.Monad
 import Control.Monad.IO.Class

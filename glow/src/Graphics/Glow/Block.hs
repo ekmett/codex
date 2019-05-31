@@ -22,12 +22,12 @@
 -- Note STD430 can only be used for shader storage blocks, NOT
 -- uniform blocks!
 module Graphics.Glow.Block
-  ( Offset(..)
-  , Block(..)
-  , GBlock(..)
-  , STD140(..)
-  , STD430(..)
-  ) where
+( Offset(..) -- TODO replace with Diff from ptrdiff
+, Block(..)
+, GBlock(..)
+, STD140(..)
+, STD430(..)
+) where -- 
 
 import Control.Applicative
 import Control.Category
