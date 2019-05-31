@@ -89,6 +89,8 @@ get_next_char face c = liftIO $
   alloca $ \agindex ->
     (,) <$> [C.exp|FT_UInt { FT_Get_Next_Char($fptr-ptr:(FT_Face face),$(FT_ULong c),$(FT_UInt * agindex)) }|] <*> peek agindex
 
+-- | Normally this is used to read additional information for the face object, such as attaching an AFM file that comes
+-- with a Type 1 font to get the kerning values and other metrics.
 attach_file :: MonadIO m => Face -> FilePath -> m ()
 attach_file face path = liftIO $
   [C.exp|FT_Error { FT_Attach_File($fptr-ptr:(FT_Face face),$str:path) }|] >>= ok
