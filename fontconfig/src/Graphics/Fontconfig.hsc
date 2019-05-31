@@ -285,10 +285,10 @@ import Data.StateVar
 import Data.Traversable
 import Data.Version
 import Foreign.C
+import Foreign.Const.Marshal.Utils
 import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
-import Foreign.Marshal.Utils
 import Foreign.Ptr
 import Foreign.Storable
 import qualified Language.C.Inline as C
@@ -1015,7 +1015,7 @@ withRangeValue :: Range -> (Ptr Value -> IO r) -> IO r
 withRangeValue cs f = withForeignPtr (coerce cs) $ \p -> withValue TypeRange (constant p) f
 
 withMatrixValue :: Matrix -> (Ptr Value -> IO r) -> IO r
-withMatrixValue cs f = with cs $ \p -> withValue TypeMatrix (constant p) f
+withMatrixValue cs f = withConst cs $ \p -> withValue TypeMatrix p f
 
 patternAdd :: MonadIO m => Pattern -> String -> Ptr Value -> Bool -> m Bool
 patternAdd p k v (marshal -> append) = liftIO $
