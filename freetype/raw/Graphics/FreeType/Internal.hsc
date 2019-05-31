@@ -23,7 +23,7 @@
 #include FT_MODULE_H
 #include FT_SYSTEM_H
 #include FT_TYPES_H
-#include "err.h"
+#include "hsc-err.h"
 #let err_exports = err_exports()
 #let err_patterns = err_patterns()
 #endif
@@ -77,10 +77,10 @@ newtype Error = Error CInt deriving (Eq,Ord,Show,Num,Enum,Real,Integral,Storable
 #err_patterns
 #endif
 
-foreign import ccall unsafe "ft.h" get_error_string :: Error -> CString
+foreign import ccall unsafe "ft.h" hs_get_error_string :: Error -> CString
 
 instance Exception Error where
-  displayException = unsafeLocalState . peekCString . get_error_string
+  displayException = unsafeLocalState . peekCString . hs_get_error_string
 
 -- | Ensure that the 'Error' is ok, otherwise throw it.
 ok :: Error -> IO ()
