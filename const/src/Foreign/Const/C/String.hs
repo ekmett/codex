@@ -5,33 +5,38 @@
 {-# language ScopedTypeVariables #-}
 {-# language TypeFamilies #-}
 {-# language Trustworthy #-}
-
+-- |
+-- Copyright :  (c) 2019 Edward Kmett
+-- License   :  BSD-2-Clause OR Apache-2.0
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+--
 module Foreign.Const.C.String 
-  ( ConstCString
-  , ConstCStringLen
-  , ConstCWString
-  , ConstCWStringLen
-  , constCString
-  , constCWString
+( ConstCString
+, ConstCStringLen
+, ConstCWString
+, ConstCWStringLen
+, constCString
+, constCWString
 
-  , ACString
-  , ACWString
+, ACString
+, ACWString
 
-  , peekACAString
-  , peekACAStringLen
-  , peekACString
-  , peekACStringLen
-  , peekACWString
-  , peekACWStringLen
-  , withConstCAString
-  , withConstCAStringLen
-  , withConstCString
-  , withConstCStringLen
-  , withConstCWString
-  , withConstCWStringLen
-  ) where
+, peekACAString
+, peekACAStringLen
+, peekACString
+, peekACStringLen
+, peekACWString
+, peekACWStringLen
+, withConstCAString
+, withConstCAStringLen
+, withConstCString
+, withConstCStringLen
+, withConstCWString
+, withConstCWStringLen
+) where
 
---import Control.Arrow
 import Data.Coerce
 import Data.Type.Coercion
 import Foreign.C.String

@@ -16,42 +16,41 @@
 {-# language TypeFamilies #-}
 {-# language RankNTypes #-}
 {-# language PolyKinds #-}
-
 -- |
 -- Copyright :  (c) 2019 Edward Kmett
 -- License   :  BSD-2-Clause OR Apache-2.0
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable
-
+--
 module Data.Const.Unsafe
-  ( Constable
-  , ConstPtr(..)
-  , ConstForeignPtr(..)
-  , ConstArray(..)
-  , ConstByteArray(..)
-  , ConstPrimArray(..)
-  , ConstMutVar(..)
-  , ConstIORef(..)
-  , ConstSTRef(..)
-  , SmallConstArray(..) -- to mirror SmallMutableArray's naming
-  , ConstCString
-  , ConstCStringLen
-  , ConstCWString
-  , ConstCWStringLen
-  , constant, unsafeConstantCoercion -- note, using the symmetry of this coercion is dangerous
-  , APtr, unsafePtr, unsafePtrCoercion
-  , AForeignPtr, unsafeForeignPtr, unsafeForeignPtrCoercion
-  , AnArray, unsafeArray, unsafeArrayCoercion
-  , AByteArray, unsafeByteArray, unsafeByteArrayCoercion
-  , APrimArray, unsafePrimArray, unsafePrimArrayCoercion
-  , ASmallArray, unsafeSmallArray, unsafeSmallArrayCoercion
-  , AMutVar, unsafeMutVar, unsafeMutVarCoercion
-  , AnIORef, unsafeIORef, unsafeIORefCoercion
-  , AnSTRef, unsafeSTRef, unsafeSTRefCoercion
-  , ACString, unsafeCStringCoercion
-  , ACWString, unsafeCWStringCoercion
-  ) where
+( Constable
+, ConstPtr(..)
+, ConstForeignPtr(..)
+, ConstArray(..)
+, ConstByteArray(..)
+, ConstPrimArray(..)
+, ConstMutVar(..)
+, ConstIORef(..)
+, ConstSTRef(..)
+, SmallConstArray(..) -- to mirror SmallMutableArray's naming
+, ConstCString
+, ConstCStringLen
+, ConstCWString
+, ConstCWStringLen
+, constant, unsafeConstantCoercion -- note, using the symmetry of this coercion is dangerous
+, APtr, unsafePtr, unsafePtrCoercion
+, AForeignPtr, unsafeForeignPtr, unsafeForeignPtrCoercion
+, AnArray, unsafeArray, unsafeArrayCoercion
+, AByteArray, unsafeByteArray, unsafeByteArrayCoercion
+, APrimArray, unsafePrimArray, unsafePrimArrayCoercion
+, ASmallArray, unsafeSmallArray, unsafeSmallArrayCoercion
+, AMutVar, unsafeMutVar, unsafeMutVarCoercion
+, AnIORef, unsafeIORef, unsafeIORefCoercion
+, AnSTRef, unsafeSTRef, unsafeSTRefCoercion
+, ACString, unsafeCStringCoercion
+, ACWString, unsafeCWStringCoercion
+) where
 
 import Data.Coerce
 import Data.Data

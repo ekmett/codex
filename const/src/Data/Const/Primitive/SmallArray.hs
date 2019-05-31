@@ -4,24 +4,23 @@
 {-# language ConstraintKinds #-}
 {-# language TypeFamilies #-}
 {-# language Trustworthy #-}
-
 -- |
 -- Copyright :  (c) 2019 Edward Kmett
 -- License   :  BSD-2-Clause OR Apache-2.0
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable
-
+--
 module Data.Const.Primitive.SmallArray
-  ( SmallConstArray
-  , smallConstArray
-  , ASmallArray
-  , readASmallArray
-  , sameSmallArray
-  , copyASmallArray
-  , cloneASmallArray
-  , sizeofASmallArray
-  ) where
+( SmallConstArray
+, smallConstArray
+, ASmallArray
+, readASmallArray
+, sameSmallArray
+, copyASmallArray
+, cloneASmallArray
+, sizeofASmallArray
+) where
 
 import Control.Monad.Primitive
 import Data.Coerce

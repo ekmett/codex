@@ -5,29 +5,28 @@
 {-# language TypeFamilies #-}
 {-# language Trustworthy #-}
 {-# language CPP #-}
-
 -- |
 -- Copyright :  (c) 2019 Edward Kmett
 -- License   :  BSD-2-Clause OR Apache-2.0
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable
-
+--
 module Data.Const.Primitive.ByteArray
-  ( ConstByteArray
-  , constByteArray
-  , AByteArray
+( ConstByteArray
+, constByteArray
+, AByteArray
 
-  , readAByteArray
-  , sameByteArray
-  , copyAByteArray
-  , copyAByteArrayToAddr
-  , moveAByteArray
-  , sizeofAByteArray
-  , getSizeofAByteArray
-  , isAByteArrayPinned
-  , constByteArrayContents
-  ) where
+, readAByteArray
+, sameByteArray
+, copyAByteArray
+, copyAByteArrayToAddr
+, moveAByteArray
+, sizeofAByteArray
+, getSizeofAByteArray
+, isAByteArrayPinned
+, constByteArrayContents
+) where
 
 import Control.Monad.Primitive
 import Data.Coerce
