@@ -19,11 +19,19 @@ module Graphics.FreeType.Face
 , done_face
 
 -- * Using the face
+, attach_file
 , get_char_index
+, get_first_char
+, get_next_char
+, get_name_index
+, set_pixel_sizes
+, load_char
 ) where
 
 import Data.ByteString
-import Data.Functor ((<&>))
+-- import Data.Functor ((<&>))
+import Data.Int
+import Data.Word
 import Control.Monad.IO.Class
 import Foreign.Marshal.Alloc
 import Foreign.Storable
@@ -51,18 +59,46 @@ new_memory_face library base (fromIntegral -> face_index) = liftIO $
     peek p >>= foreignFace
 
 -- | Add a reference to a face
--- 
+--
 -- For the most part this should already be done for you through the API provided in Haskell,
 -- but you may need this if you transfer the face to another library.
 reference_face :: MonadIO m => Face -> m ()
-reference_face face = liftIO $ [C.exp|FT_Error { FT_Reference_Face($fptr-ptr:(FT_Face face))}|] >>= ok
+reference_face face = liftIO $
+  [C.exp|FT_Error { FT_Reference_Face($fptr-ptr:(FT_Face face))}|] >>= ok
 
 -- | Remove a reference to a face
 --
 -- For the most part this should already be done for you through the API provided in Haskell,
 -- but you may need this if you claim ownership of a face from another library.
 done_face :: MonadIO m => Face -> m ()
-done_face face = liftIO $ [C.exp|FT_Error { FT_Done_Face($fptr-ptr:(FT_Face face))}|] >>= ok
+done_face face = liftIO $
+  [C.exp|FT_Error { FT_Done_Face($fptr-ptr:(FT_Face face))}|] >>= ok
 
-get_char_index :: MonadIO m => Face -> Char -> m Int
-get_char_index face (fromIntegral . fromEnum -> c) = liftIO $ [C.exp|FT_UInt { FT_Get_Char_Index($fptr-ptr:(FT_Face face),$(FT_ULong c)) }|] <&> fromIntegral
+get_char_index :: MonadIO m => Face -> Word32 -> m Word32
+get_char_index face c = liftIO $
+  [C.exp|FT_UInt { FT_Get_Char_Index($fptr-ptr:(FT_Face face),$(FT_ULong c)) }|]
+
+-- | Returns the charmap's first code and the glyph index of the first character code, 0 if the charmap is empty.
+get_first_char :: MonadIO m => Face -> m (Word32, Word32)
+get_first_char face = liftIO $
+  alloca $ \agindex ->
+    (,) <$> [C.exp|FT_UInt { FT_Get_First_Char($fptr-ptr:(FT_Face face),$(FT_UInt * agindex)) }|] <*> peek agindex
+
+get_next_char :: MonadIO m => Face -> Word32 -> m (Word32, Word32)
+get_next_char face c = liftIO $
+  alloca $ \agindex ->
+    (,) <$> [C.exp|FT_UInt { FT_Get_Next_Char($fptr-ptr:(FT_Face face),$(FT_ULong c),$(FT_UInt * agindex)) }|] <*> peek agindex
+
+attach_file :: MonadIO m => Face -> FilePath -> m ()
+attach_file face path = liftIO $
+  [C.exp|FT_Error { FT_Attach_File($fptr-ptr:(FT_Face face),$str:path) }|] >>= ok
+
+set_pixel_sizes :: MonadIO m => Face -> Int -> Int -> m ()
+set_pixel_sizes face (fromIntegral -> pixel_width) (fromIntegral -> pixel_height) = liftIO $
+  [C.exp|FT_Error { FT_Set_Pixel_Sizes($fptr-ptr:(FT_Face face),$(FT_UInt pixel_width),$(FT_UInt pixel_height)) }|] >>= ok
+
+get_name_index :: MonadIO m => Face -> ByteString -> m Word32
+get_name_index face name = liftIO [C.exp|FT_UInt { FT_Get_Name_Index($fptr-ptr:(FT_Face face),$bs-cstr:name) }|]
+
+load_char :: MonadIO m => Face -> Word32 -> Int32 -> m ()
+load_char face char_code load_flags = liftIO $ [C.exp|FT_Error { FT_Load_Char($fptr-ptr:(FT_Face face),$(FT_ULong char_code),$(FT_Int32 load_flags)) }|] >>= ok

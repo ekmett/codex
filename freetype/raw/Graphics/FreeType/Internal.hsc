@@ -57,7 +57,9 @@ module Graphics.FreeType.Internal
 ) where
 
 import Control.Exception
+import Data.Int
 import qualified Data.Map as Map
+import Data.Word
 import Foreign.C.String
 import Foreign.C.Types
 import Foreign.ForeignPtr
@@ -151,11 +153,13 @@ freeTypeCtx = mempty
   { C.ctxTypesTable = Map.fromList
     [ (C.TypeName "FT_Error", [t|Error|])
     , (C.TypeName "FT_Face", [t|Ptr FaceRec|])
-    , (C.TypeName "FT_Long", [t|CLong|])
-    , (C.TypeName "FT_ULong", [t|CULong|])
+    , (C.TypeName "FT_Long", [t|Int32|])
+    , (C.TypeName "FT_ULong", [t|Word32|])
     , (C.TypeName "FT_FaceRec_", [t|FaceRec|])
-    , (C.TypeName "FT_Int", [t|CInt|])
-    , (C.TypeName "FT_UInt", [t|CUInt|])
+    , (C.TypeName "FT_Int32", [t|Int32|])
+    , (C.TypeName "FT_UInt32", [t|Word32|])
+    , (C.TypeName "FT_Int", [t|Int32|])
+    , (C.TypeName "FT_UInt", [t|Word32|])
     , (C.TypeName "FT_Library", [t|Ptr LibraryRec|])
     , (C.TypeName "FT_LibraryRec_", [t|LibraryRec|])
     , (C.TypeName "FT_Memory", [t|Ptr MemoryRec|])
