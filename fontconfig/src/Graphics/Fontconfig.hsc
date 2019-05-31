@@ -3,12 +3,14 @@
 {-# language DeriveDataTypeable #-}
 {-# language FlexibleContexts #-}
 {-# language TemplateHaskell #-}
+{-# language PatternSynonyms #-}
 {-# language DeriveAnyClass #-}
 {-# language ViewPatterns #-}
 {-# language TypeFamilies #-}
 {-# language QuasiQuotes #-}
 {-# language LambdaCase #-}
 {-# language CPP #-}
+{-# options_ghc -Wno-missing-pattern-synonym-signatures #-}
 
 module Graphics.Fontconfig
   ( Config
@@ -95,6 +97,9 @@ module Graphics.Fontconfig
   , cacheCopySet
   , cacheSubdirs
   , cacheNumFont
+  , pattern CACHE_SUFFIX
+  , pattern DIR_CACHE_FILE
+  , pattern USER_CACHE_FILE
 
   , StrSet
   , strSetCreate
@@ -152,10 +157,120 @@ module Graphics.Fontconfig
   , withRangeValue
   , withMatrixValue
 
+
   , weightFromOpenTypeDouble
   , weightToOpenTypeDouble
   , weightFromOpenType
   , weightToOpenType
+
+  , pattern FC_MAJOR
+  , pattern FC_MINOR
+  , pattern FC_REVISION
+  , pattern FC_VERSION
+
+  , pattern SLANT_ROMAN
+  , pattern SLANT_ITALIC
+  , pattern SLANT_OBLIQUE
+
+  , pattern WIDTH_ULTRACONDENSED
+  , pattern WIDTH_EXTRACONDENSED
+  , pattern WIDTH_CONDENSED
+  , pattern WIDTH_SEMICONDENSED
+  , pattern WIDTH_NORMAL
+  , pattern WIDTH_SEMIEXPANDED
+  , pattern WIDTH_EXPANDED
+  , pattern WIDTH_EXTRAEXPANDED
+  , pattern WIDTH_ULTRAEXPANDED
+
+  , pattern RGBA_UNKNOWN
+  , pattern RGBA_RGB
+  , pattern RGBA_BGR
+  , pattern RGBA_VRGB
+  , pattern RGBA_VBGR
+  , pattern RGBA_NONE
+
+  , pattern HINT_NONE
+  , pattern HINT_SLIGHT
+  , pattern HINT_MEDIUM
+  , pattern HINT_FULL
+
+  , pattern LCD_NONE
+  , pattern LCD_DEFAULT
+  , pattern LCD_LIGHT
+  , pattern LCD_LEGACY
+
+  , pattern WEIGHT_THIN
+  , pattern WEIGHT_EXTRALIGHT
+  , pattern WEIGHT_ULTRALIGHT
+  , pattern WEIGHT_LIGHT
+  , pattern WEIGHT_DEMILIGHT
+  , pattern WEIGHT_SEMILIGHT
+  , pattern WEIGHT_BOOK
+  , pattern WEIGHT_REGULAR
+  , pattern WEIGHT_NORMAL
+  , pattern WEIGHT_MEDIUM
+  , pattern WEIGHT_DEMIBOLD
+  , pattern WEIGHT_SEMIBOLD
+  , pattern WEIGHT_BOLD
+  , pattern WEIGHT_EXTRABOLD
+  , pattern WEIGHT_ULTRABOLD
+  , pattern WEIGHT_BLACK
+  , pattern WEIGHT_HEAVY
+  , pattern WEIGHT_EXTRABLACK
+  , pattern WEIGHT_ULTRABLACK
+
+  -- * Standard properties
+  , pattern ANTIALIAS
+  , pattern ASPECT
+  , pattern AUTOHINT
+  , pattern CAPABILITY
+  , pattern CHAR_WIDTH
+  , pattern CHAR_HEIGHT
+  , pattern CHARSET
+  , pattern COLOR
+  , pattern DECORATIVE
+  , pattern DPI
+  , pattern EMBEDDED_BITMAP
+  , pattern EMBOLDEN
+  , pattern FAMILY
+  , pattern FAMILYLANG
+  , pattern FILE
+  , pattern FONTFORMAT
+  , pattern FONTVERSION
+  , pattern FONT_FEATURES
+  , pattern FONT_VARIATIONS
+  , pattern FOUNDRY
+  , pattern FT_FACE
+  , pattern FULLNAME
+  , pattern FULLNAMELANG
+  , pattern HASH
+  , pattern HINTING
+  , pattern HINT_STYLE
+  , pattern INDEX
+  , pattern LANG
+  , pattern LCD_FILTER
+  , pattern MATRIX
+  , pattern MINSPACE
+  , pattern NAMELANG
+  , pattern OUTLINE
+  , pattern PIXEL_SIZE
+  , pattern POSTSCRIPT_NAME
+  , pattern PRGNAME
+  , pattern RASTERIZER
+  , pattern RGBA
+  , pattern SCALABLE
+  , pattern SCALE
+  , pattern SIZE
+  , pattern SLANT
+  , pattern SOURCE
+  , pattern SPACING
+  , pattern STYLE
+  , pattern STYLELANG
+  , pattern SYMBOL
+  , pattern VARIABLE
+  , pattern VERTICAL_LAYOUT
+  , pattern WEIGHT
+  , pattern WIDTH
   ) where
 
 import Control.Monad
@@ -185,6 +300,12 @@ C.context $ C.baseCtx <> C.fptrCtx <> fontconfigCtx
 C.include "<fontconfig/fontconfig.h>"
 
 #include <fontconfig/fontconfig.h>
+
+pattern CACHE_SUFFIX = (#const FC_CACHE_SUFFIX)
+pattern DIR_CACHE_FILE = (#const FC_DIR_CACHE_FILE)
+pattern USER_CACHE_FILE = (#const FC_USER_CACHE_FILE)
+
+
 
 --------------------------------------------------------------------------------
 -- * Utilities
@@ -621,10 +742,10 @@ fontSet :: MonadIO m => [Pattern] -> m FontSet
 fontSet ps = liftIO $ do
   s <- [C.exp|FcFontSet * { FcFontSetCreate() }|]
   for_ ps $ \p ->
-    [C.block|int { 
+    [C.block|int {
       FcPattern *p = $pattern:p;
       FcPatternReference(p);
-      return FcFontSetAdd($(FcFontSet* s),p); 
+      return FcFontSetAdd($(FcFontSet* s),p);
     }|] >>= check . cbool
   foreignFontSet s
 {-# inlineable fontSet #-}
@@ -723,7 +844,7 @@ cacheSubdirs :: MonadIO m => Cache -> m [FilePath]
 cacheSubdirs (Cache fc) = liftIO $ withForeignPtr fc $ \c -> do
   n <- [C.exp|int { FcCacheNumSubdir($(FcCache * c)) }|]
   for [0..n-1] $ \i ->
-    [C.exp|const FcChar8 * { FcCacheSubdir($(FcCache * c),$(int i)) }|] >>= peekCUString -- not freeing matches observed internal fontconfig behavior 
+    [C.exp|const FcChar8 * { FcCacheSubdir($(FcCache * c),$(int i)) }|] >>= peekCUString -- not freeing matches observed internal fontconfig behavior
 {-# inlinable cacheSubdirs #-}
 
 -- | @'cacheNumFont' cache@ returns the number of fonts described by this cache.
@@ -871,7 +992,7 @@ valueEqual a b = liftIO $ [C.exp|int { FcValueEqual(*$(FcValue * a),*$(FcValue *
 {-# inlinable valueEqual #-}
 
 withStringValue :: String -> (Ptr Value -> IO r) -> IO r
-withStringValue s f = withCUString s $ \p -> withValue TypeString (constant p) f 
+withStringValue s f = withCUString s $ \p -> withValue TypeString (constant p) f
 
 withBoolValue :: Bool -> (Ptr Value -> IO r) -> IO r
 withBoolValue = withValue TypeBool . FcBool . boolc
@@ -909,10 +1030,68 @@ valueMatch (Type type_) p = liftIO $ do
 
 -- TODO: patternGet?
 
+
+pattern FC_MAJOR = (#const FC_VERSION) :: Int
+pattern FC_MINOR = (#const FC_MINOR) :: Int
+pattern FC_REVISION = (#const FC_REVISION) :: Int
+pattern FC_VERSION = (#const FC_VERSION) :: Int
+
 -- | @'fontRenderPrepare' cfg pat font@ creates a new pattern consisting of elements of @font@ not appearing in @pat@, elements of @pat@ not appearing in @font@ and the best matching value from @pat@ for elements appearing in both. The result is passed to @FcConfigSubstituteWithPat@ with @kind@ @FcMatchFont@ and then returned.
 fontRenderPrepare :: MonadIO m => Config -> Pattern -> Pattern -> m Pattern
 fontRenderPrepare cfg pat font = liftIO $ [C.exp|FcPattern * { FcFontRenderPrepare($config:cfg,$pattern:pat,$pattern:font) }|] >>= foreignPattern
 {-# inlinable fontRenderPrepare #-}
+
+
+pattern SLANT_ROMAN = (#const FC_SLANT_ROMAN)
+pattern SLANT_ITALIC = (#const FC_SLANT_ITALIC)
+pattern SLANT_OBLIQUE = (#const FC_SLANT_OBLIQUE)
+
+pattern WIDTH_ULTRACONDENSED  = (#const FC_WIDTH_ULTRACONDENSED) :: Int
+pattern WIDTH_EXTRACONDENSED  = (#const FC_WIDTH_EXTRACONDENSED) :: Int
+pattern WIDTH_CONDENSED  = (#const FC_WIDTH_CONDENSED) :: Int
+pattern WIDTH_SEMICONDENSED  = (#const FC_WIDTH_SEMICONDENSED) :: Int
+pattern WIDTH_NORMAL   = (#const FC_WIDTH_NORMAL ) :: Int
+pattern WIDTH_SEMIEXPANDED  = (#const FC_WIDTH_SEMIEXPANDED) :: Int
+pattern WIDTH_EXPANDED  = (#const FC_WIDTH_EXPANDED) :: Int
+pattern WIDTH_EXTRAEXPANDED  = (#const FC_WIDTH_EXTRAEXPANDED) :: Int
+pattern WIDTH_ULTRAEXPANDED  = (#const FC_WIDTH_ULTRAEXPANDED) :: Int
+
+pattern RGBA_UNKNOWN  = (#const FC_RGBA_UNKNOWN) :: Int
+pattern RGBA_RGB  = (#const FC_RGBA_RGB) :: Int
+pattern RGBA_BGR  = (#const FC_RGBA_BGR) :: Int
+pattern RGBA_VRGB  = (#const FC_RGBA_VRGB) :: Int
+pattern RGBA_VBGR  = (#const FC_RGBA_VBGR) :: Int
+pattern RGBA_NONE  = (#const FC_RGBA_NONE) :: Int
+
+pattern HINT_NONE = (#const FC_HINT_NONE) :: Int
+pattern HINT_SLIGHT = (#const FC_HINT_SLIGHT) :: Int
+pattern HINT_MEDIUM = (#const FC_HINT_MEDIUM) :: Int
+pattern HINT_FULL = (#const FC_HINT_FULL) :: Int
+
+pattern LCD_NONE  = (#const FC_LCD_NONE) :: Int
+pattern LCD_DEFAULT  = (#const FC_LCD_DEFAULT) :: Int
+pattern LCD_LIGHT  = (#const FC_LCD_LIGHT) :: Int
+pattern LCD_LEGACY  = (#const FC_LCD_LEGACY) :: Int
+
+pattern WEIGHT_THIN = (#const FC_WEIGHT_THIN) :: Int
+pattern WEIGHT_EXTRALIGHT = (#const FC_WEIGHT_EXTRALIGHT) :: Int
+pattern WEIGHT_ULTRALIGHT = (#const FC_WEIGHT_ULTRALIGHT) :: Int
+pattern WEIGHT_LIGHT = (#const FC_WEIGHT_LIGHT) :: Int
+pattern WEIGHT_DEMILIGHT = (#const FC_WEIGHT_DEMILIGHT) :: Int
+pattern WEIGHT_SEMILIGHT = (#const FC_WEIGHT_SEMILIGHT) :: Int
+pattern WEIGHT_BOOK = (#const FC_WEIGHT_BOOK) :: Int
+pattern WEIGHT_REGULAR = (#const FC_WEIGHT_REGULAR) :: Int
+pattern WEIGHT_NORMAL = (#const FC_WEIGHT_NORMAL) :: Int
+pattern WEIGHT_MEDIUM = (#const FC_WEIGHT_MEDIUM) :: Int
+pattern WEIGHT_DEMIBOLD = (#const FC_WEIGHT_DEMIBOLD) :: Int
+pattern WEIGHT_SEMIBOLD = (#const FC_WEIGHT_SEMIBOLD) :: Int
+pattern WEIGHT_BOLD = (#const FC_WEIGHT_BOLD) :: Int
+pattern WEIGHT_EXTRABOLD = (#const FC_WEIGHT_EXTRABOLD) :: Int
+pattern WEIGHT_ULTRABOLD = (#const FC_WEIGHT_ULTRABOLD) :: Int
+pattern WEIGHT_BLACK = (#const FC_WEIGHT_BLACK) :: Int
+pattern WEIGHT_HEAVY = (#const FC_WEIGHT_HEAVY) :: Int
+pattern WEIGHT_EXTRABLACK = (#const FC_WEIGHT_EXTRABLACK) :: Int
+pattern WEIGHT_ULTRABLACK = (#const FC_WEIGHT_ULTRABLACK) :: Int
 
 weightFromOpenTypeDouble :: Double -> Double
 weightFromOpenTypeDouble (coerce -> d) = coerce [C.pure|double { FcWeightFromOpenTypeDouble($(double d)) }|]
@@ -925,3 +1104,60 @@ weightFromOpenType (fromIntegral -> i) = fromIntegral [C.pure|int { FcWeightFrom
 
 weightToOpenType :: Int -> Int
 weightToOpenType (fromIntegral -> i) = fromIntegral [C.pure|int { FcWeightToOpenType($(int i)) }|]
+
+-- well known properties
+pattern FAMILY           = "family" -- String
+pattern STYLE            = "style" -- String
+pattern SLANT            = "slant" -- Int
+pattern WEIGHT           = "weight" -- Int
+pattern SIZE             = "size" -- Range (double)
+pattern ASPECT           = "aspect" -- Double
+pattern PIXEL_SIZE       = "pixelsize" -- Double
+pattern SPACING          = "spacing" -- Int
+pattern FOUNDRY          = "foundry" -- String
+pattern ANTIALIAS        = "antialias" -- Bool (depends)
+pattern HINTING          = "hinting" -- Bool (true)
+pattern HINT_STYLE       = "hintstyle" -- Int
+pattern VERTICAL_LAYOUT  = "verticallayout" -- Bool (false)
+pattern AUTOHINT         = "autohint" -- Bool (false)
+-- FC_GLOBAL_ADVANCE is deprecated. this is simply ignored on freetype 2.4.5 or later
+-- pattern GLOBAL_ADVANCE   = "globaladvance" -- Bool (true)
+pattern WIDTH            = "width" -- Int
+pattern FILE             = "file" -- String
+pattern INDEX            = "index" -- Int
+pattern FT_FACE          = "ftface" -- FT_Face
+pattern RASTERIZER       = "rasterizer" -- String (deprecated)
+pattern OUTLINE          = "outline" -- Bool
+pattern SCALABLE         = "scalable" -- Bool
+pattern COLOR            = "color" -- Bool
+pattern VARIABLE         = "variable" -- Bool
+pattern SCALE            = "scale" -- double (deprecated)
+pattern SYMBOL           = "symbol" -- Bool
+pattern DPI              = "dpi" -- double
+pattern RGBA             = "rgba" -- Int
+pattern MINSPACE         = "minspace" -- Bool use minimum line spacing
+pattern SOURCE           = "source" -- String (deprecated)
+pattern CHARSET          = "charset" -- CharSet
+pattern LANG             = "lang" -- String RFC 3066 langs
+pattern FONTVERSION      = "fontversion" -- Int from 'head' table
+pattern FULLNAME         = "fullname" -- String
+pattern FAMILYLANG       = "familylang" -- String RFC 3066 langs
+pattern STYLELANG        = "stylelang" -- String RFC 3066 langs
+pattern FULLNAMELANG     = "fullnamelang" -- String RFC 3066 langs
+pattern CAPABILITY       = "capability" -- String
+pattern FONTFORMAT       = "fontformat" -- String
+pattern EMBOLDEN         = "embolden" -- Bool - true if emboldening needed
+pattern EMBEDDED_BITMAP  = "embeddedbitmap" -- Bool - true to enable embedded bitmaps
+pattern DECORATIVE       = "decorative" -- Bool - true if style is a decorative variant
+pattern LCD_FILTER       = "lcdfilter" -- Int
+pattern FONT_FEATURES    = "fontfeatures" -- String
+pattern FONT_VARIATIONS  = "fontvariations" -- String
+pattern NAMELANG         = "namelang" -- String RFC 3866 langs
+pattern PRGNAME          = "prgname" -- String
+pattern HASH             = "hash" -- String (deprecated)
+pattern POSTSCRIPT_NAME  = "postscriptname" -- String
+
+pattern CHAR_WIDTH = "charwidth" -- Int
+pattern CHAR_HEIGHT = "charheight" -- Int
+pattern MATRIX = "matrix" -- Matrix
+
