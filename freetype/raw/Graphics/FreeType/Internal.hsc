@@ -12,7 +12,9 @@
 #ifndef HLINT
 #include <ft2build.h>
 #include FT_FREETYPE_H
+#include FT_MODULE_H
 #include FT_SYSTEM_H
+#include FT_TYPES_H
 #include "err.h"
 #let err_exports = err_exports()
 #let err_patterns = err_patterns()
@@ -38,6 +40,10 @@ module Graphics.FreeType.Internal
 , pattern FREETYPE_MAJOR
 , pattern FREETYPE_MINOR
 , pattern FREETYPE_PATCH
+
+, foreignLibrary
+, foreignFace
+-- * contexts
 , freeTypeCtx
 ) where
 
@@ -47,6 +53,7 @@ import qualified Data.Map as Map
 import Foreign.C.String
 import Foreign.C.Types
 import Foreign.ForeignPtr
+import qualified Foreign.Concurrent as Concurrent
 import Foreign.Marshal.Unsafe
 import Foreign.Ptr
 import Foreign.Storable
@@ -109,13 +116,35 @@ instance Storable MemoryRec where
 
 newtype Memory = Memory (ForeignPtr MemoryRec) deriving (Eq,Ord,Show)
 
+C.context $ C.baseCtx <> mempty
+  { C.ctxTypesTable = Map.fromList
+    [ (C.TypeName "FT_Error", [t|Error|])
+    , (C.TypeName "FT_Face", [t|Ptr FaceRec|])
+    , (C.TypeName "FT_Library", [t|Ptr LibraryRec|])
+    ]
+  }
+
+C.include "<ft2build.h>"
+C.verbatim "#include FT_FREETYPE_H"
+C.verbatim "#include FT_MODULE_H"
+C.verbatim "#include FT_TYPES_H"
+
+foreignFace :: Ptr FaceRec -> IO Face
+foreignFace p = Face <$> Concurrent.newForeignPtr p ([C.exp|FT_Error { FT_Done_Face($(FT_Face p)) }|] >>= ok)
+
+-- | Assumes we are using @FT_New_Library@ management rather than @FT_Init_FreeType@ management
+foreignLibrary :: Ptr LibraryRec -> IO Library
+foreignLibrary p = Library <$> Concurrent.newForeignPtr p ([C.exp|FT_Error { FT_Done_Library($(FT_Library p)) }|] >>= ok)
+
 freeTypeCtx :: C.Context
 freeTypeCtx = mempty
   { C.ctxTypesTable = Map.fromList
-    [ (C.TypeName "FT_Face", [t|CInt|])
+    [ (C.TypeName "FT_Error", [t|Error|])
+    , (C.TypeName "FT_Face", [t|Ptr FaceRec|])
+    , (C.TypeName "FT_FaceRec_", [t|FaceRec|])
     , (C.TypeName "FT_Int", [t|CInt|])
     , (C.TypeName "FT_Library", [t|Ptr LibraryRec|])
-    , (C.TypeName "FT_LibraryRec_", [t|Ptr LibraryRec|])
+    , (C.TypeName "FT_LibraryRec_", [t|LibraryRec|])
     , (C.TypeName "FT_Memory", [t|Ptr MemoryRec|])
     , (C.TypeName "FT_MemoryRec_", [t|MemoryRec|])
     ]
