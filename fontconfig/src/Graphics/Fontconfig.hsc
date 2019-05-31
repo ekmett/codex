@@ -13,265 +13,265 @@
 {-# options_ghc -Wno-missing-pattern-synonym-signatures #-}
 
 module Graphics.Fontconfig
-  ( Config
-  , init
-  , initBringUptoDate
-  , initLoadConfig
-  , initLoadConfigAndFonts
-  , initReinitialize
-  , fini
+( Config
+, init
+, initBringUptoDate
+, initLoadConfig
+, initLoadConfigAndFonts
+, initReinitialize
+, fini
 
-  , getVersion
+, getVersion
 
-  , configAppFontAddDir
-  , configAppFontAddFile
-  , configAppFontClear
-  , configBuildFonts
-  , configCreate
-  , configCurrent
-  , configEnableHome
-  , configGetCacheDirs
-  , configGetConfigDirs
-  , configGetConfigFiles
-  , configGetFontDirs
-  , configGetFonts
-  , configHome
-  , configParseAndLoad
-  , configRescanInterval
-  , configSysRoot
-  , configUptoDate
+, configAppFontAddDir
+, configAppFontAddFile
+, configAppFontClear
+, configBuildFonts
+, configCreate
+, configCurrent
+, configEnableHome
+, configGetCacheDirs
+, configGetConfigDirs
+, configGetConfigFiles
+, configGetFontDirs
+, configGetFonts
+, configHome
+, configParseAndLoad
+, configRescanInterval
+, configSysRoot
+, configUptoDate
 
-  , ObjectSet
-  , objectSet
-  , objectSetAdd
+, ObjectSet
+, objectSet
+, objectSetAdd
 
-  , Pattern
-  , patternCreate
-  , patternDuplicate
-  , patternDuplicatePtr
-  , patternEqual
-  , patternEqualSubset
-  , patternFilter
-  , patternAddInteger, patternGetInteger
-  , patternAddDouble,  patternGetDouble
-  , patternAddBool,    patternGetBool
-  , patternAddString,  patternGetString
-  , patternAddCharSet, patternGetCharSet
-  , patternAddLangSet, patternGetLangSet
-  , patternAddRange,   patternGetRange
-  , patternRemove
-  , patternHash
-  , patternObjectCount
-  , patternDel
-  , patternPrint
-  , patternFormat
+, Pattern
+, patternCreate
+, patternDuplicate
+, patternDuplicatePtr
+, patternEqual
+, patternEqualSubset
+, patternFilter
+, patternAddInteger, patternGetInteger
+, patternAddDouble,  patternGetDouble
+, patternAddBool,    patternGetBool
+, patternAddString,  patternGetString
+, patternAddCharSet, patternGetCharSet
+, patternAddLangSet, patternGetLangSet
+, patternAddRange,   patternGetRange
+, patternRemove
+, patternHash
+, patternObjectCount
+, patternDel
+, patternPrint
+, patternFormat
 
-  , nameParse
-  , nameUnparse
+, nameParse
+, nameUnparse
 
-  , Range
-  , rangeCreateDouble
-  , rangeCreateInteger
-  , rangeCopy
-  , rangeCopyPtr
-  , rangeGetDouble
+, Range
+, rangeCreateDouble
+, rangeCreateInteger
+, rangeCopy
+, rangeCopyPtr
+, rangeGetDouble
 
-  , FontSet
-  , fontSet
-  , fontSetAdd
-  , fontSetList
-  , fontSetPrint
+, FontSet
+, fontSet
+, fontSetAdd
+, fontSetList
+, fontSetPrint
 
-  , Cache, Stat
-  , dirCacheLoad
-  , dirCacheLoadFile
-  , dirCacheClean
-  , dirCacheRescan
-  , dirCacheUnlink
-  , dirCacheRead
-  , dirCacheCreateUUID
-  , dirCacheDeleteUUID
-  , dirCacheValid
-  , cacheCreateTagFile
-  , cacheDir
-  , cacheCopySet
-  , cacheSubdirs
-  , cacheNumFont
-  , pattern CACHE_SUFFIX
-  , pattern DIR_CACHE_FILE
-  , pattern USER_CACHE_FILE
+, Cache, Stat
+, dirCacheLoad
+, dirCacheLoadFile
+, dirCacheClean
+, dirCacheRescan
+, dirCacheUnlink
+, dirCacheRead
+, dirCacheCreateUUID
+, dirCacheDeleteUUID
+, dirCacheValid
+, cacheCreateTagFile
+, cacheDir
+, cacheCopySet
+, cacheSubdirs
+, cacheNumFont
+, pattern CACHE_SUFFIX
+, pattern DIR_CACHE_FILE
+, pattern USER_CACHE_FILE
 
-  , StrSet
-  , strSetCreate
-  , strSetMember
-  , strSetEqual
-  , strSetAdd
-  , strSetAddFilename
-  , strSetDel
+, StrSet
+, strSetCreate
+, strSetMember
+, strSetEqual
+, strSetAdd
+, strSetAddFilename
+, strSetDel
 
-  , CharSet
-  , charSetCreate
-  , charSetAddChar
-  , charSetDelChar
-  , charSetCopy
-  , charSetCopyPtr -- not const due to refcounting
-  , charSetEqual
-  , charSetIntersect
-  , charSetUnion
-  , charSetSubtract
-  , charSetMerge
-  , charSetHasChar
-  , charSetCount
-  , charSetIntersectCount
-  , charSetSubtractCount
-  , charSetIsSubset
+, CharSet
+, charSetCreate
+, charSetAddChar
+, charSetDelChar
+, charSetCopy
+, charSetCopyPtr -- not const due to refcounting
+, charSetEqual
+, charSetIntersect
+, charSetUnion
+, charSetSubtract
+, charSetMerge
+, charSetHasChar
+, charSetCount
+, charSetIntersectCount
+, charSetSubtractCount
+, charSetIsSubset
 
-  , LangSet
-  , langSetCreate
-  , langSetCopy
-  , langSetCopyPtr
-  , langSetAdd
-  , langSetDel
-  , langSetContains
-  , langSetEqual
-  , langSetHash
-  , langSetUnion
-  , langSetSubtract
+, LangSet
+, langSetCreate
+, langSetCopy
+, langSetCopyPtr
+, langSetAdd
+, langSetDel
+, langSetContains
+, langSetEqual
+, langSetHash
+, langSetUnion
+, langSetSubtract
 
-  , defaultSubstitute
-  , fontRenderPrepare
+, defaultSubstitute
+, fontRenderPrepare
 
-  , AllocationFailed(..)
+, AllocationFailed(..)
 
-  , Value
-  , valueEqual
-  , valueMatch
-  , patternAdd
-  , patternAddWeak
-  , withStringValue
-  , withBoolValue
-  , withDoubleValue
-  , withIntegerValue
-  , withCharSetValue
-  , withLangSetValue
-  , withRangeValue
-  , withMatrixValue
+, Value
+, valueEqual
+, valueMatch
+, patternAdd
+, patternAddWeak
+, withStringValue
+, withBoolValue
+, withDoubleValue
+, withIntegerValue
+, withCharSetValue
+, withLangSetValue
+, withRangeValue
+, withMatrixValue
 
 
-  , weightFromOpenTypeDouble
-  , weightToOpenTypeDouble
-  , weightFromOpenType
-  , weightToOpenType
+, weightFromOpenTypeDouble
+, weightToOpenTypeDouble
+, weightFromOpenType
+, weightToOpenType
 
-  , pattern FC_MAJOR
-  , pattern FC_MINOR
-  , pattern FC_REVISION
-  , pattern FC_VERSION
+, pattern FC_MAJOR
+, pattern FC_MINOR
+, pattern FC_REVISION
+, pattern FC_VERSION
 
-  , pattern SLANT_ROMAN
-  , pattern SLANT_ITALIC
-  , pattern SLANT_OBLIQUE
+, pattern SLANT_ROMAN
+, pattern SLANT_ITALIC
+, pattern SLANT_OBLIQUE
 
-  , pattern WIDTH_ULTRACONDENSED
-  , pattern WIDTH_EXTRACONDENSED
-  , pattern WIDTH_CONDENSED
-  , pattern WIDTH_SEMICONDENSED
-  , pattern WIDTH_NORMAL
-  , pattern WIDTH_SEMIEXPANDED
-  , pattern WIDTH_EXPANDED
-  , pattern WIDTH_EXTRAEXPANDED
-  , pattern WIDTH_ULTRAEXPANDED
+, pattern WIDTH_ULTRACONDENSED
+, pattern WIDTH_EXTRACONDENSED
+, pattern WIDTH_CONDENSED
+, pattern WIDTH_SEMICONDENSED
+, pattern WIDTH_NORMAL
+, pattern WIDTH_SEMIEXPANDED
+, pattern WIDTH_EXPANDED
+, pattern WIDTH_EXTRAEXPANDED
+, pattern WIDTH_ULTRAEXPANDED
 
-  , pattern RGBA_UNKNOWN
-  , pattern RGBA_RGB
-  , pattern RGBA_BGR
-  , pattern RGBA_VRGB
-  , pattern RGBA_VBGR
-  , pattern RGBA_NONE
+, pattern RGBA_UNKNOWN
+, pattern RGBA_RGB
+, pattern RGBA_BGR
+, pattern RGBA_VRGB
+, pattern RGBA_VBGR
+, pattern RGBA_NONE
 
-  , pattern HINT_NONE
-  , pattern HINT_SLIGHT
-  , pattern HINT_MEDIUM
-  , pattern HINT_FULL
+, pattern HINT_NONE
+, pattern HINT_SLIGHT
+, pattern HINT_MEDIUM
+, pattern HINT_FULL
 
-  , pattern LCD_NONE
-  , pattern LCD_DEFAULT
-  , pattern LCD_LIGHT
-  , pattern LCD_LEGACY
+, pattern LCD_NONE
+, pattern LCD_DEFAULT
+, pattern LCD_LIGHT
+, pattern LCD_LEGACY
 
-  , pattern WEIGHT_THIN
-  , pattern WEIGHT_EXTRALIGHT
-  , pattern WEIGHT_ULTRALIGHT
-  , pattern WEIGHT_LIGHT
-  , pattern WEIGHT_DEMILIGHT
-  , pattern WEIGHT_SEMILIGHT
-  , pattern WEIGHT_BOOK
-  , pattern WEIGHT_REGULAR
-  , pattern WEIGHT_NORMAL
-  , pattern WEIGHT_MEDIUM
-  , pattern WEIGHT_DEMIBOLD
-  , pattern WEIGHT_SEMIBOLD
-  , pattern WEIGHT_BOLD
-  , pattern WEIGHT_EXTRABOLD
-  , pattern WEIGHT_ULTRABOLD
-  , pattern WEIGHT_BLACK
-  , pattern WEIGHT_HEAVY
-  , pattern WEIGHT_EXTRABLACK
-  , pattern WEIGHT_ULTRABLACK
+, pattern WEIGHT_THIN
+, pattern WEIGHT_EXTRALIGHT
+, pattern WEIGHT_ULTRALIGHT
+, pattern WEIGHT_LIGHT
+, pattern WEIGHT_DEMILIGHT
+, pattern WEIGHT_SEMILIGHT
+, pattern WEIGHT_BOOK
+, pattern WEIGHT_REGULAR
+, pattern WEIGHT_NORMAL
+, pattern WEIGHT_MEDIUM
+, pattern WEIGHT_DEMIBOLD
+, pattern WEIGHT_SEMIBOLD
+, pattern WEIGHT_BOLD
+, pattern WEIGHT_EXTRABOLD
+, pattern WEIGHT_ULTRABOLD
+, pattern WEIGHT_BLACK
+, pattern WEIGHT_HEAVY
+, pattern WEIGHT_EXTRABLACK
+, pattern WEIGHT_ULTRABLACK
 
-  -- * Standard properties
-  , pattern ANTIALIAS
-  , pattern ASPECT
-  , pattern AUTOHINT
-  , pattern CAPABILITY
-  , pattern CHAR_WIDTH
-  , pattern CHAR_HEIGHT
-  , pattern CHARSET
-  , pattern COLOR
-  , pattern DECORATIVE
-  , pattern DPI
-  , pattern EMBEDDED_BITMAP
-  , pattern EMBOLDEN
-  , pattern FAMILY
-  , pattern FAMILYLANG
-  , pattern FILE
-  , pattern FONTFORMAT
-  , pattern FONTVERSION
-  , pattern FONT_FEATURES
-  , pattern FONT_VARIATIONS
-  , pattern FOUNDRY
-  , pattern FT_FACE
-  , pattern FULLNAME
-  , pattern FULLNAMELANG
-  , pattern HASH
-  , pattern HINTING
-  , pattern HINT_STYLE
-  , pattern INDEX
-  , pattern LANG
-  , pattern LCD_FILTER
-  , pattern MATRIX
-  , pattern MINSPACE
-  , pattern NAMELANG
-  , pattern OUTLINE
-  , pattern PIXEL_SIZE
-  , pattern POSTSCRIPT_NAME
-  , pattern PRGNAME
-  , pattern RASTERIZER
-  , pattern RGBA
-  , pattern SCALABLE
-  , pattern SCALE
-  , pattern SIZE
-  , pattern SLANT
-  , pattern SOURCE
-  , pattern SPACING
-  , pattern STYLE
-  , pattern STYLELANG
-  , pattern SYMBOL
-  , pattern VARIABLE
-  , pattern VERTICAL_LAYOUT
-  , pattern WEIGHT
-  , pattern WIDTH
-  ) where
+-- * Standard properties
+, pattern ANTIALIAS
+, pattern ASPECT
+, pattern AUTOHINT
+, pattern CAPABILITY
+, pattern CHAR_WIDTH
+, pattern CHAR_HEIGHT
+, pattern CHARSET
+, pattern COLOR
+, pattern DECORATIVE
+, pattern DPI
+, pattern EMBEDDED_BITMAP
+, pattern EMBOLDEN
+, pattern FAMILY
+, pattern FAMILYLANG
+, pattern FILE
+, pattern FONTFORMAT
+, pattern FONTVERSION
+, pattern FONT_FEATURES
+, pattern FONT_VARIATIONS
+, pattern FOUNDRY
+, pattern FT_FACE
+, pattern FULLNAME
+, pattern FULLNAMELANG
+, pattern HASH
+, pattern HINTING
+, pattern HINT_STYLE
+, pattern INDEX
+, pattern LANG
+, pattern LCD_FILTER
+, pattern MATRIX
+, pattern MINSPACE
+, pattern NAMELANG
+, pattern OUTLINE
+, pattern PIXEL_SIZE
+, pattern POSTSCRIPT_NAME
+, pattern PRGNAME
+, pattern RASTERIZER
+, pattern RGBA
+, pattern SCALABLE
+, pattern SCALE
+, pattern SIZE
+, pattern SLANT
+, pattern SOURCE
+, pattern SPACING
+, pattern STYLE
+, pattern STYLELANG
+, pattern SYMBOL
+, pattern VARIABLE
+, pattern VERTICAL_LAYOUT
+, pattern WEIGHT
+, pattern WIDTH
+) where
 
 import Control.Monad
 import Control.Monad.Trans.Cont
