@@ -52,6 +52,7 @@ library
     Graphics.FreeType.Internal
   exposed-modules:
     Graphics.FreeType
+    Graphics.FreeType.Face
     Graphics.FreeType.Library
     Graphics.FreeType.Version
 
