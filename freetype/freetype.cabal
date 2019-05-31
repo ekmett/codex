@@ -13,8 +13,7 @@ category: Graphics
 build-type: Simple
 extra-source-files:
   cbits/ft.h
-  cbits/err_exports.h
-  cbits/err_patterns.h
+  cbits/hsc-err.h
 
 source-repository head
   type: git
@@ -29,6 +28,7 @@ common base
   pkgconfig-depends: freetype2
   build-depends:
     base > 4.11 && < 5,
+    bytestring,
     containers,
     inline-c,
     template-haskell
