@@ -9,10 +9,10 @@
 -- Portability: non-portable
 --
 module UI
-  ( main
-  , UI(..)
-  , HasUI(..)
-  ) where
+( main
+, UI(..)
+, HasUI(..)
+) where
 
 import Control.Lens (view)
 import Control.Lens.TH (makeClassy)
