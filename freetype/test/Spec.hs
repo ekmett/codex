@@ -23,7 +23,4 @@ spec = Hspec.after_ performMajorGC $ do
 main :: IO ()
 main = do
   spec' <- testSpec "spec" spec
-  defaultMain $ 
-    testGroup "tests"
-      [ spec'
-      ]
+  defaultMain spec'

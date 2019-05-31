@@ -11,14 +11,15 @@
 --
 module Graphics.FreeType.Face
 ( Face
--- * create a reference counted library with all of the usual defaults
 , new_face
+, new_memory_face
 
--- * reference counting
+-- * manual reference counting
 , reference_face
 , done_face
 ) where
 
+import Data.ByteString
 import Control.Monad.IO.Class
 import Foreign.Marshal.Alloc
 import Foreign.Storable
@@ -37,6 +38,12 @@ new_face :: MonadIO m => Library -> FilePath -> Int -> m Face
 new_face library path (fromIntegral -> face_index) = liftIO $
   alloca $ \p -> do
     [C.exp|FT_Error { FT_New_Face($library:library,$str:path,$(FT_Long face_index),$(FT_Face * p))}|] >>= ok
+    peek p >>= foreignFace
+
+new_memory_face :: MonadIO m => Library -> ByteString -> Int -> m Face
+new_memory_face library base (fromIntegral -> face_index) = liftIO $
+  alloca $ \p -> do
+    [C.exp|FT_Error { FT_New_Memory_Face($library:library,$bs-ptr:base,$bs-len:base,$(FT_Long face_index),$(FT_Face * p))}|] >>= ok
     peek p >>= foreignFace
 
 -- | Add a reference to a face
