@@ -90,9 +90,11 @@ ok e = throwIO e
 data FaceRec
 newtype Face = Face (ForeignPtr FaceRec) deriving (Eq,Ord,Show)
 
+#ifndef HLINT
 pattern FREETYPE_MAJOR = (#const FREETYPE_MAJOR) :: Int
 pattern FREETYPE_MINOR = (#const FREETYPE_MINOR) :: Int
 pattern FREETYPE_PATCH = (#const FREETYPE_PATCH) :: Int
+#endif
 
 data LibraryRec
 newtype Library = Library (ForeignPtr LibraryRec) deriving (Eq,Ord,Show)

@@ -76,11 +76,11 @@ done_library :: MonadIO m => Library -> m ()
 done_library library = liftIO $ [C.exp|FT_Error { FT_Done_Library($fptr-ptr:(FT_Library library))}|] >>= ok
 
 property_set :: MonadIO m => Library -> ByteString -> ByteString -> Ptr a -> m ()
-property_set library module_name property_name (castPtr -> value) = liftIO $ do
+property_set library module_name property_name (castPtr -> value) = liftIO $
   [C.exp|FT_Error { FT_Property_Set($fptr-ptr:(FT_Library library),$bs-cstr:module_name,$bs-cstr:property_name,$(void * value))}|] >>= ok
   
 property_get :: MonadIO m => Library -> ByteString -> ByteString -> Ptr a -> m ()
-property_get library module_name property_name (castPtr -> value) = liftIO $ do
+property_get library module_name property_name (castPtr -> value) = liftIO $
   [C.exp|FT_Error { FT_Property_Get($fptr-ptr:(FT_Library library),$bs-cstr:module_name,$bs-cstr:property_name,$(void * value))}|] >>= ok
   
 
