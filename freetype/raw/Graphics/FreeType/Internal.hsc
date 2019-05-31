@@ -5,9 +5,27 @@
 {-# language RecordWildCards #-}
 {-# language ScopedTypeVariables #-}
 {-# language OverloadedStrings #-}
+{-# language ForeignFunctionInterface #-}
+{-# language GeneralizedNewtypeDeriving #-}
 {-# language CPP #-}
+
+#ifndef HLINT
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include FT_SYSTEM_H
+#include "err.h"
+#let err_exports = err_exports()
+#let err_patterns = err_patterns()
+#endif
+
 module Graphics.FreeType.Internal
-( Face(..)
+( Error
+  ( Error
+#ifndef HLINT
+#err_exports
+#endif
+  ) 
+, Face(..)
 , FaceRec
 , Library(..)
 , LibraryRec
@@ -22,11 +40,13 @@ module Graphics.FreeType.Internal
 , freeTypeCtx
 ) where
 
+import Control.Exception
 import Data.Data (Data)
 import qualified Data.Map as Map
 import Foreign.C.String
 import Foreign.C.Types
 import Foreign.ForeignPtr
+import Foreign.Marshal.Unsafe
 import Foreign.Ptr
 import Foreign.Storable
 import qualified Language.C.Inline as C
@@ -34,11 +54,17 @@ import qualified Language.C.Inline.Context as C
 import qualified Language.C.Types as C
 import Graphics.FreeType.Private
 
+-- | By convention the library will throw any non-0 FT_Error encountered.
+newtype Error = Error CInt deriving (Eq,Ord,Show,Num,Enum,Real,Integral,Storable)
+
 #ifndef HLINT
-#include <ft2build.h>
-#include FT_FREETYPE_H
-#include FT_SYSTEM_H
+#err_patterns
 #endif
+
+foreign import ccall unsafe "ft.h" get_error_string :: Error -> CString
+
+instance Exception Error where
+  displayException = unsafeLocalState . peekCString . get_error_string
 
 data FaceRec
 newtype Face = Face (ForeignPtr FaceRec) deriving (Eq,Ord,Show)
