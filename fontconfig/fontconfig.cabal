@@ -52,6 +52,7 @@ library
   hs-source-dirs: src
   build-depends: raw
   reexported-modules:
-    Graphics.Fontconfig.Internal
+    Graphics.Fontconfig.Internal,
+    Graphics.Fontconfig.Private
   exposed-modules:
     Graphics.Fontconfig

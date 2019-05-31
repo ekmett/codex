@@ -17,27 +17,17 @@ module Graphics.Fontconfig.FreeType
 
 import Control.Monad.IO.Class
 import Data.Functor ((<&>))
-import Data.String
-import qualified Data.Map as Map
-import qualified Foreign.Concurrent as Concurrent
 import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
 import Foreign.Ptr
 import Foreign.Storable
-import qualified Language.C.Inline as C
-import qualified Language.C.Inline.Context as C
-import qualified Language.C.Types as C
-
 import Graphics.Fontconfig
 import Graphics.Fontconfig.Internal
-import Graphics.FreeType.Internal (Face(..), Error(Error), ok, FaceRec)
+import Graphics.Fontconfig.Private (withCUString)
+import Graphics.FreeType.Internal (Face(..), FaceRec, foreignFace, freeTypeCtx)
+import qualified Language.C.Inline as C
 
-C.context $ C.baseCtx <> C.fptrCtx <> fontconfigCtx <> mempty 
-  { C.ctxTypesTable = Map.fromList
-    [ (C.TypeName (fromString "FT_Face"), [t| Ptr FaceRec |])
-    , (C.TypeName (fromString "FT_Error"), [t| Error |])
-    ]
-  }
+C.context $ C.baseCtx <> C.fptrCtx <> fontconfigCtx <> freeTypeCtx
 C.include "<fontconfig/fontconfig.h>"
 C.include "<fontconfig/fcfreetype.h>"
 C.include "<ft2build.h>"
@@ -52,9 +42,6 @@ C.verbatim "#include FT_FREETYPE_H"
 
 pattern TypeFace :: Type (Ptr FaceRec)
 pattern TypeFace = #const FcTypeFTFace
-
-foreignFace :: Ptr FaceRec -> IO Face
-foreignFace p = Face <$> Concurrent.newForeignPtr p ([C.exp|FT_Error { FT_Done_Face($(FT_Face p)) }|] >>= ok)
 
 withFaceValue :: Face -> (Ptr Value -> IO r) -> IO r
 withFaceValue (Face face) f = withForeignPtr face $ \p -> withValue TypeFace p f
