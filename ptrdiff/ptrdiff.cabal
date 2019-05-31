@@ -2,7 +2,7 @@ cabal-version: 2.2
 name: ptrdiff
 version: 0
 synopsis: Type-checked pointer diffs
-homepage: https://github.com/ekmett/codex#readme
+homepage: https://github.com/ekmett/codex/tree/master/ptrdiff#readme
 license: BSD-2-Clause OR Apache-2.0
 license-file: LICENSE.md
 author: Edward Kmett

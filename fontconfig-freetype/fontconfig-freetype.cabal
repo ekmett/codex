@@ -7,7 +7,7 @@ description:
   between fontconfig and freetype using
   by binding the contents of
   @fontconfig/fcfreetype.h@
-homepage: https://github.com/ekmett/codex#readme
+homepage: https://github.com/ekmett/codex/tree/master/fontconfig-freetype#readme
 license: BSD-2-Clause OR Apache-2.0
 license-file: LICENSE.md
 author: Edward Kmett

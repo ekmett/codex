@@ -2,7 +2,7 @@ cabal-version: 2.2
 name: atlas
 version: 0
 synopsis: Skyline rectangle packing
-homepage: https://github.com/ekmett/codex#readme
+homepage: https://github.com/ekmett/codex/tree/master/atlas#readme
 license: BSD-2-Clause OR Apache-2.0
 license-file: LICENSE.md
 author: Edward Kmett
