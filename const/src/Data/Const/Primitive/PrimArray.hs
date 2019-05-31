@@ -4,26 +4,25 @@
 {-# language ConstraintKinds #-}
 {-# language TypeFamilies #-}
 {-# language Trustworthy #-}
-
 -- |
 -- Copyright :  (c) 2019 Edward Kmett
 -- License   :  BSD-2-Clause OR Apache-2.0
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable
-
+--
 module Data.Const.Primitive.PrimArray
-  ( ConstPrimArray
-  , constPrimArray
-  , APrimArray
+( ConstPrimArray
+, constPrimArray
+, APrimArray
 
-  , readAPrimArray
-  , samePrimArray
-  , copyAPrimArray
-  , copyAPrimArrayToPtr
-  , sizeofAPrimArray
-  , getSizeofAPrimArray
-  ) where
+, readAPrimArray
+, samePrimArray
+, copyAPrimArray
+, copyAPrimArrayToPtr
+, sizeofAPrimArray
+, getSizeofAPrimArray
+) where
 
 import Control.Monad.Primitive
 import Data.Coerce

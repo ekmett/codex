@@ -2,6 +2,13 @@
 {-# language QuasiQuotes #-}
 {-# language ViewPatterns #-}
 {-# language OverloadedStrings #-}
+-- |
+-- Copyright :  (c) 2019 Edward Kmett
+-- License   :  BSD-2-Clause OR Apache-2.0
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+--
 module Graphics.Harfbuzz.FreeType
 ( hb_ft_face_create_referenced
 , hb_ft_font_create_referenced

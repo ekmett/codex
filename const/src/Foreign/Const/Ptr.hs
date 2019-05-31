@@ -4,37 +4,34 @@
 {-# language ConstraintKinds #-}
 {-# language TypeFamilies #-}
 {-# language Trustworthy #-}
-
 -- |
 -- Copyright :  (c) 2019 Edward Kmett
 -- License   :  BSD-2-Clause OR Apache-2.0
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable
-
+--
 module Foreign.Const.Ptr
-  ( ConstPtr
-  , constPtr
-  , APtr
+( ConstPtr
+, constPtr
+, APtr
 
-  -- * const-agnostic operations
-  , peekAt
-  , peekAtElemOff
-  , peekAtByteOff
+-- * const-agnostic operations
+, peekAt
+, peekAtElemOff
+, peekAtByteOff
 
-  -- * const preserving operations
+-- * const preserving operations
+, minusAPtr
+, castAPtr
+, plusAPtr
+, alignAPtr
 
-  , minusAPtr
-  , castAPtr
-  , plusAPtr
-  , alignAPtr
-
-  -- * operations returning const pointers
-
-  , nullConstPtr
-  , castConstPtr
-  , plusConstPtr
-  , alignConstPtr
+-- * operations returning const pointers
+, nullConstPtr
+, castConstPtr
+, plusConstPtr
+, alignConstPtr
   ) where
 
 import Data.Coerce

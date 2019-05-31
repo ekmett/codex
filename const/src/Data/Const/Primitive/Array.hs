@@ -4,24 +4,23 @@
 {-# language ConstraintKinds #-}
 {-# language TypeFamilies #-}
 {-# language Trustworthy #-}
-
 -- |
 -- Copyright :  (c) 2019 Edward Kmett
 -- License   :  BSD-2-Clause OR Apache-2.0
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable
-
+--
 module Data.Const.Primitive.Array
-  ( ConstArray
-  , constArray
-  , AnArray
-  , readAnArray
-  , sameArray
-  , copyAnArray
-  , cloneAnArray
-  , sizeofAnArray
-  ) where
+( ConstArray
+, constArray
+, AnArray
+, readAnArray
+, sameArray
+, copyAnArray
+, cloneAnArray
+, sizeofAnArray
+) where
 
 import Control.Monad.Primitive
 import Data.Coerce

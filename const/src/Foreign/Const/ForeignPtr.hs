@@ -5,43 +5,41 @@
 {-# language ConstraintKinds #-}
 {-# language TypeFamilies #-}
 {-# language Trustworthy #-}
-
 -- |
 -- Copyright :  (c) 2019 Edward Kmett
 -- License   :  BSD-2-Clause OR Apache-2.0
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable
-
+--
 module Foreign.Const.ForeignPtr
-  ( ConstForeignPtr
-  , constForeignPtr
+( ConstForeignPtr
+, constForeignPtr
 
-  , AForeignPtr
+, AForeignPtr
 
-  -- * const foreign pointer operations
+-- * const foreign pointer operations
 
-  , newConstForeignPtr
-  , newConstForeignPtr_
-  , castConstForeignPtr
-  , plusConstForeignPtr
-  , newConstForeignPtrEnv
-  , withConstForeignPtr
+, newConstForeignPtr
+, newConstForeignPtr_
+, castConstForeignPtr
+, plusConstForeignPtr
+, newConstForeignPtrEnv
+, withConstForeignPtr
 
-  -- * const-preserving foreign pointer operations
+-- * const-preserving foreign pointer operations
 
-  , Unforeign
-  , plusAForeignPtr
-  , withAForeignPtr
+, Unforeign
+, plusAForeignPtr
+, withAForeignPtr
 
-  -- * const agnostic foreign pointer operations
+-- * const agnostic foreign pointer operations
 
-  , addAForeignPtrFinalizer
-  , addAForeignPtrFinalizerEnv
-  , finalizeAForeignPtr
-  , touchAForeignPtr
-
-  ) where
+, addAForeignPtrFinalizer
+, addAForeignPtrFinalizerEnv
+, finalizeAForeignPtr
+, touchAForeignPtr
+) where
 
 import Data.Coerce
 import Data.Type.Coercion

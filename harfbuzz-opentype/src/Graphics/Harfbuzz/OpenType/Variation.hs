@@ -4,6 +4,12 @@
 {-# language PatternSynonyms #-}
 {-# options_ghc -Wno-incomplete-uni-patterns #-}
 -- |
+-- Copyright :  (c) 2019 Edward Kmett
+-- License   :  BSD-2-Clause OR Apache-2.0
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+--
 module Graphics.Harfbuzz.OpenType.Variation
 ( pattern TAG_VAR_AXIS_ITALIC
 , pattern TAG_VAR_AXIS_OPTICAL_SIZE
