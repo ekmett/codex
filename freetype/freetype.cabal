@@ -12,8 +12,9 @@ license-file: LICENSE.md
 category: Graphics
 build-type: Simple
 extra-source-files:
-  cbits/ft.h
-  cbits/hsc-err.h
+  cbits/*.h
+  test/fonts/*.ttf
+  test/fonts/*.otf
 
 source-repository head
   type: git
