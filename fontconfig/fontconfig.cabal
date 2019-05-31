@@ -20,10 +20,6 @@ source-repository head
   type: git
   location: https://github.com/ekmett/codex
 
-flag freetype
-  default: True
-  manual: True
-
 common lib
   hs-source-dirs: src
   build-tool-depends: hsc2hs:hsc2hs
@@ -43,10 +39,6 @@ common lib
     StateVar,
     template-haskell,
     transformers
-
-  if flag(freetype)
-    build-depends: freetype
-    cpp-options: -DUSE_FREETYPE
 
 library raw
   import: lib

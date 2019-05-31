@@ -57,9 +57,6 @@ module Graphics.Fontconfig
   , patternAddCharSet, patternGetCharSet
   , patternAddLangSet, patternGetLangSet
   , patternAddRange,   patternGetRange
-#if USE_FREETYPE
-  , patternAddFace,   patternGetFace
-#endif
   , patternRemove
   , patternHash
   , patternObjectCount
@@ -141,21 +138,19 @@ module Graphics.Fontconfig
 
   , AllocationFailed(..)
 
-  , Value(..)
+  , Value
   , valueEqual
+  , valueMatch
   , patternAdd
   , patternAddWeak
   , withStringValue
-
-#if USE_FREETYPE
-  , withFaceValue
-  , freeTypeCharIndex
-  , freeTypeCharSet
-  , freeTypeCharSetAndSpacing
-  , freeTypeQuery
-  , freeTypeQueryAll
-  , freeTypeQueryFace
-#endif
+  , withBoolValue
+  , withDoubleValue
+  , withIntegerValue
+  , withCharSetValue
+  , withLangSetValue
+  , withRangeValue
+  , withMatrixValue
   ) where
 
 import Control.Monad
@@ -169,7 +164,6 @@ import Data.StateVar
 import Data.Traversable
 import Data.Version
 import Foreign.C
-import Foreign.Const.Ptr
 import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
@@ -180,15 +174,12 @@ import Prelude hiding (init)
 import System.IO
 
 import Graphics.Fontconfig.Internal
+import Graphics.Fontconfig.Private
 
 C.context $ C.baseCtx <> C.fptrCtx <> fontconfigCtx
 C.include "<fontconfig/fontconfig.h>"
 
-#ifdef USE_FREETYPE
-C.include "<ft2build.h>"
-C.verbatim "#include FT_FREETYPE_H"
-C.include "<fontconfig/fcfreetype.h>"
-#endif
+#include <fontconfig/fontconfig.h>
 
 --------------------------------------------------------------------------------
 -- * Utilities
@@ -864,71 +855,56 @@ langSetSubtract :: MonadIO m => LangSet -> LangSet -> m LangSet
 langSetSubtract c d = liftIO $ [C.exp|FcLangSet * { FcLangSetSubtract($langset:c, $langset:d) }|] >>= foreignLangSet
 {-# inlinable langSetSubtract #-}
 
---withValue :: Ptr Value -> Value -> IO ()
---withValue :: Value -> (Ptr Value -> IO r) -> IO r
+withValue :: forall a r. Storable a => Type a -> a -> (Ptr Value -> IO r) -> IO r
+withValue (Type type_) u f = allocaBytes (#size FcValue) $ \p -> do
+  (#poke FcValue, type) p type_
+  (#poke FcValue, u) p u
+  f p
 
-valueEqual :: MonadIO m => Value -> Value -> m Bool
-valueEqual a b = liftIO $ [C.exp|int { FcValueEqual(*($value:a),*($value:b)) }|] <&> cbool
+valueEqual :: MonadIO m => Ptr Value -> Ptr Value -> m Bool
+valueEqual a b = liftIO $ [C.exp|int { FcValueEqual(*$(FcValue * a),*$(FcValue * b)) }|] <&> cbool
 {-# inlinable valueEqual #-}
 
-withStringValue :: String -> (Value -> IO r) -> IO r
-withStringValue s f = withCString s (f . ValueString . castConstPtr)
+withStringValue :: String -> (Ptr Value -> IO r) -> IO r
+withStringValue s f = withCUString s $ \p -> withValue TypeString (constant p) f 
 
-patternAdd :: MonadIO m => Pattern -> String -> Value -> Bool -> m Bool
+withBoolValue :: Bool -> (Ptr Value -> IO r) -> IO r
+withBoolValue = withValue TypeBool . FcBool . boolc
+
+withDoubleValue :: Double -> (Ptr Value -> IO r) -> IO r
+withDoubleValue = withValue TypeDouble
+
+withCharSetValue :: CharSet -> (Ptr Value -> IO r) -> IO r
+withCharSetValue cs f = withForeignPtr (coerce cs) $ \p -> withValue TypeCharSet (constant p) f
+
+withLangSetValue :: LangSet -> (Ptr Value -> IO r) -> IO r
+withLangSetValue cs f = withForeignPtr (coerce cs) $ \p -> withValue TypeLangSet (constant p) f
+
+withIntegerValue :: Int -> (Ptr Value -> IO r) -> IO r
+withIntegerValue cs f = withValue TypeInteger (fromIntegral cs) f
+
+withRangeValue :: Range -> (Ptr Value -> IO r) -> IO r
+withRangeValue cs f = withForeignPtr (coerce cs) $ \p -> withValue TypeRange (constant p) f
+
+withMatrixValue :: Matrix -> (Ptr Value -> IO r) -> IO r
+withMatrixValue cs f = withForeignPtr (coerce cs) $ \p -> withValue TypeMatrix (constant p) f
+
+patternAdd :: MonadIO m => Pattern -> String -> Ptr Value -> Bool -> m Bool
 patternAdd p k v (marshal -> append) = liftIO $
-  [C.exp|int { FcPatternAdd($pattern:p,$str:k,*($value:v),$(int append)) }|] <&> cbool
+  [C.exp|int { FcPatternAdd($pattern:p,$str:k,*($(FcValue * v)),$(int append)) }|] <&> cbool
 
-patternAddWeak :: MonadIO m => Pattern -> String -> Value -> Bool -> m Bool
+patternAddWeak :: MonadIO m => Pattern -> String -> Ptr Value -> Bool -> m Bool
 patternAddWeak p k v (marshal -> append) = liftIO $
-  [C.exp|int { FcPatternAddWeak($pattern:p,$str:k,*($value:v),$(int append)) }|] <&> cbool
+  [C.exp|int { FcPatternAddWeak($pattern:p,$str:k,*($(FcValue *v)),$(int append)) }|] <&> cbool
+
+valueMatch :: (MonadIO m, Storable a) => Type a -> Ptr Value -> m (Maybe a)
+valueMatch (Type type_) p = liftIO $ do
+  type2 <- (#peek FcValue, type) p
+  if type_ == type2 then Just <$> (#peek FcValue, u) p else pure Nothing
+
+-- TODO: patternGet?
 
 -- | @'fontRenderPrepare' cfg pat font@ creates a new pattern consisting of elements of @font@ not appearing in @pat@, elements of @pat@ not appearing in @font@ and the best matching value from @pat@ for elements appearing in both. The result is passed to @FcConfigSubstituteWithPat@ with @kind@ @FcMatchFont@ and then returned.
 fontRenderPrepare :: MonadIO m => Config -> Pattern -> Pattern -> m Pattern
 fontRenderPrepare cfg pat font = liftIO $ [C.exp|FcPattern * { FcFontRenderPrepare($config:cfg,$pattern:pat,$pattern:font) }|] >>= foreignPattern
 {-# inlinable fontRenderPrepare #-}
-
-#if USE_FREETYPE
-withFaceValue :: Face -> (Value -> IO r) -> IO r
-withFaceValue (Face face) f = withForeignPtr face (f . ValueFace . constant)
-
-patternAddFace :: MonadIO m => Pattern -> String -> Face -> m Bool
-patternAddFace p k v = liftIO $ [C.exp|int { FcPatternAddFTFace($pattern:p,$str:k,$face:v) }|] <&> cbool
-{-# inlinable patternAddFace #-}
-
-patternGetFace :: MonadIO m => Pattern -> String -> Int -> m (Result Face)
-patternGetFace p k (fromIntegral -> i) = liftIO $
-  alloca $ \fp -> do
-    result <- [C.exp|int { FcPatternGetFTFace($pattern:p,$str:k,$(int i),$(struct FT_FaceRec_ ** fp)) }|]
-    getResult result $ do
-      f <- peek fp
-      [C.block|void { FT_Reference_Face($(struct FT_FaceRec_ * f)); }|]
-      foreignFace f
-{-# inlinable patternGetFace #-}
-
-freeTypeCharIndex :: MonadIO m => Face -> Char -> m Int
-freeTypeCharIndex f (fromIntegral . fromEnum -> c) = liftIO $ [C.exp|int { FcFreeTypeCharIndex($face:f,$(FcChar32 c)) }|] <&> fromIntegral
-
-freeTypeCharSet :: MonadIO m => Face -> m CharSet
-freeTypeCharSet f = liftIO $ [C.exp|FcCharSet * { FcFreeTypeCharSet($face:f,0) }|] >>= foreignCharSet
-
-freeTypeCharSetAndSpacing :: MonadIO m => Face -> m (CharSet, Spacing)
-freeTypeCharSetAndSpacing f = liftIO $ alloca $ \ip ->
-  (,) <$> ([C.exp|FcCharSet * { FcFreeTypeCharSet($face:f,0) }|] >>= foreignCharSet) <*> peek ip
-  
--- | Construct a pattern representing the nth face in the file. Returns the number of faces in the file as well.
-freeTypeQuery :: MonadIO m => FilePath -> Int -> m (Pattern, Int)
-freeTypeQuery p (fromIntegral -> i) = liftIO $ alloca $ \count -> 
-  (,) <$> ([C.exp|FcPattern * { FcFreeTypeQuery($ustr:p,$(int i),0,$(int * count)) }|] >>= foreignPattern)
-      <*> (peek count <&> fromIntegral)
-
--- | Constructs patterns found in 'file'. If the id is -1 then all patterns found in the file are added to the supplied set, otherwise
--- just the selected pattern is added. Returns the number of patterns added to the fontset and the number of faces in the file.
-freeTypeQueryAll :: MonadIO m => FilePath -> Int -> FontSet -> m (Int, Int)
-freeTypeQueryAll p (fromIntegral -> i) fs = liftIO $ alloca $ \count -> 
-  (,) <$> ([C.exp|unsigned int { FcFreeTypeQueryAll($ustr:p,$(int i),0,$(int * count),$fontset:fs) }|] <&> fromIntegral)
-      <*> (peek count <&> fromIntegral)
-
--- | Constructs a pattern representing a given font face. The FilePath and id are used soly as data for pattern elements. (FC_FILE, FC_INDEX, possibly FC_FAMILY).
-freeTypeQueryFace :: MonadIO m => Face -> FilePath -> Int -> m Pattern
-freeTypeQueryFace f p (fromIntegral -> i) = liftIO $ [C.exp|FcPattern * { FcFreeTypeQueryFace($face:f,$ustr:p,$(int i),0) }|] >>= foreignPattern
-#endif
