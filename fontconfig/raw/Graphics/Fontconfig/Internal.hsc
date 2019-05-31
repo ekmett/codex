@@ -7,6 +7,7 @@
 {-# language FlexibleContexts #-}
 {-# language PatternSynonyms #-}
 {-# language TemplateHaskell #-}
+{-# language RecordWildCards #-}
 {-# language DeriveAnyClass #-}
 {-# language DeriveFunctor #-}
 {-# language DeriveGeneric #-}
@@ -99,7 +100,6 @@ module Graphics.Fontconfig.Internal
 , foreignConfig
 , foreignFontSet
 , foreignLangSet
-, foreignMatrix
 , foreignObjectSet
 , foreignPattern
 , foreignRange
@@ -124,7 +124,6 @@ import Data.Default (Default(..))
 import qualified Data.Map as Map
 import Foreign.C
 import Foreign.ForeignPtr
-import Foreign.Marshal.Alloc
 import Foreign.Marshal.Utils
 import Foreign.Ptr
 import Foreign.Storable
@@ -145,7 +144,27 @@ newtype Range = Range { getRange :: ForeignPtr Range } deriving (Eq, Ord, Show, 
 newtype CharSet = CharSet { getCharSet :: ForeignPtr CharSet } deriving (Eq, Ord, Show, Data)
 newtype LangSet = LangSet { getLangSet :: ForeignPtr LangSet } deriving (Eq, Ord, Show, Data)
 newtype StrSet = StrSet { getStrSet :: ForeignPtr StrSet } deriving (Eq, Ord, Show, Data)
-newtype Matrix = Matrix { getMatrix:: ForeignPtr Matrix } deriving (Eq,Ord,Show,Data)
+
+data Matrix = Matrix
+  { matrix_xx
+  , matrix_xy
+  , matrix_yx
+  , matrix_yy :: {-# unpack #-} !Double
+  } deriving (Eq,Show,Data)
+
+instance Storable Matrix where
+  sizeOf _ = #size FcMatrix
+  alignment _ = #alignment FcMatrix
+  peek p = Matrix
+    <$> (#peek FcMatrix, xx) p
+    <*> (#peek FcMatrix, xy) p
+    <*> (#peek FcMatrix, yx) p
+    <*> (#peek FcMatrix, yy) p
+  poke p Matrix{..} = do
+    (#poke FcMatrix, xx) p matrix_xx
+    (#poke FcMatrix, xy) p matrix_xy
+    (#poke FcMatrix, yx) p matrix_yx
+    (#poke FcMatrix, yy) p matrix_yy
 
 #ifndef HLINT
 newtype SetName = SetName CInt deriving newtype (Eq,Ord,Show,Read,Enum,Num,Real,Integral,Storable)
@@ -294,9 +313,6 @@ foreignRange = fmap Range . newForeignPtr _FcRangeDestroy
 foreignStrSet :: Ptr StrSet -> IO StrSet
 foreignStrSet = fmap StrSet . newForeignPtr _FcStrSetDestroy
 
-foreignMatrix :: Ptr Matrix -> IO Matrix
-foreignMatrix = fmap Matrix . newForeignPtr finalizerFree
-
 -- * Inline C context
 
 fontconfigCtx :: C.Context
@@ -330,9 +346,8 @@ fontconfigCtx = mempty
     , ("langset",     anti (ptr (C.TypeName "FcLangSet")) [t| Ptr LangSet |] [| withForeignPtr |])
     , ("strset",      anti (ptr (C.TypeName "FcStrSet")) [t| Ptr StrSet |] [| withForeignPtr |])
     , ("pattern",     anti (ptr (C.TypeName "FcPattern")) [t| Ptr Pattern |] [| withForeignPtr |])
-    , ("matrix",      anti (ptr (C.TypeName "FcMatrix")) [t| Ptr Matrix |] [| withForeignPtr |])
+    , ("matrix",      anti (ptr (C.TypeName "FcMatrix")) [t| Ptr Matrix |] [| with |])
     , ("range",       anti (ptr (C.TypeName "FcRange")) [t| Ptr Range |] [| withForeignPtr |])
-    , ("value",       anti (ptr (C.TypeName "FcValue")) [t| Ptr Value |] [| with |])
     , ("stat",        anti (ptr (C.Struct "stat")) [t| Ptr Stat |] [| withForeignPtr |])
     , ("maybe-stat",  anti (ptr (C.Struct "stat")) [t| Ptr Stat |] [| maybeWith withForeignPtr |])
     ]
