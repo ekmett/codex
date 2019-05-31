@@ -1,8 +1,15 @@
 {-# language CPP #-}
+-- |
+-- Copyright :  (c) 2019 Edward Kmett and Sean Chalmers
+-- License   :  BSD-2-Clause OR Apache-2.0
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+--
 module UI.Shaders
-  ( namedStrings
-  , shader
-  ) where
+( namedStrings
+, shader
+) where
 
 import Control.Monad.IO.Class (MonadIO(..))
 import qualified Data.ByteString.Char8 as Char8

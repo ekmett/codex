@@ -8,32 +8,39 @@
 {-# language LambdaCase #-}
 {-# language EmptyCase #-}
 #endif
--- | "Higher-Kinded Data" such as it is
+-- |
+-- Copyright :  (c) 2019 Edward Kmett
+-- License   :  BSD-2-Clause OR Apache-2.0
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+--
+-- "Higher-Kinded Data" such as it is
 module Data.HKD 
-  ( type (~>)
-  -- * Functor
-  , FFunctor(..)
-  -- * Contravariant
-  , FContravariant(..)
-  -- * Foldable
-  , FFoldable(..)
-  , flength
-  , ftraverse_
-  , ffor_
-  -- * Traversable
-  , FTraversable(..)
-  , ffoldMapDefault
-  , ffmapDefault
-  , ffor
-  -- * Utilities
-  , Log(..)
-  , Tab(..)
-  , indexLog
-  , Element(..)
-  , Nat(..)
-  , A(..)
-  , Lim(..)
-  ) where
+( type (~>)
+-- * Functor
+, FFunctor(..)
+-- * Contravariant
+, FContravariant(..)
+-- * Foldable
+, FFoldable(..)
+, flength
+, ftraverse_
+, ffor_
+-- * Traversable
+, FTraversable(..)
+, ffoldMapDefault
+, ffmapDefault
+, ffor
+-- * Utilities
+, Log(..)
+, Tab(..)
+, indexLog
+, Element(..)
+, Nat(..)
+, A(..)
+, Lim(..)
+) where
 
 import Control.Applicative
 import Data.Coerce
