@@ -12,28 +12,36 @@
 {-# language TemplateHaskell #-}
 {-# language MultiWayIf #-}
 {-# language FlexibleInstances #-}
-
--- | skyline packing using @stb_rect_pack.h@
+-- |
+-- Copyright :  (c) 2019 Edward Kmett
+-- License   :  BSD-2-Clause OR Apache-2.0
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+--
+-- Details of the implementation.
+--
+-- The contents of this module do not fall under the PVP. Use at your own risk.
 module Data.Atlas.Internal
-  ( Atlas(..), Coord, Rect, Node
-  , withAtlas
-  , heuristicId, Heuristic(..)
-  , stbrp_init_target
-  , stbrp_setup_allow_out_of_mem
-  , stbrp_pack_rects
-  , stbrp_setup_heuristic
-  , sizeOfAtlas
-  , sizeOfNode
-  , sizeOfRect
-  -- less marshaling than a more accurate Rect
-  , Pt(..), HasPt(..)
-  , peekWH, peekXY
-  , Box(..), HasBox(..)
-  , pokePts
-  , boxMaybe
-  ) where
+( Atlas(..), Coord, Rect, Node
+, withAtlas
+, heuristicId, Heuristic(..)
+, stbrp_init_target
+, stbrp_setup_allow_out_of_mem
+, stbrp_pack_rects
+, stbrp_setup_heuristic
+, sizeOfAtlas
+, sizeOfNode
+, sizeOfRect
+, Pt(..), HasPt(..)
+, peekWH, peekXY
+, Box(..), HasBox(..)
+, pokePts
+, boxMaybe
+) where
 
 import Control.Lens
+import Data.Coerce
 import Data.Data (Data)
 import Data.Default
 import Data.HKD
@@ -47,12 +55,11 @@ import GHC.Arr
 #include "stb_rect_pack.h"
 #endif
 
--- opaque. TODO: use ForeignPtr
-newtype Atlas s = Atlas { getAtlas :: ForeignPtr (Atlas s) }
+newtype Atlas s = Atlas (ForeignPtr (Atlas s))
   deriving (Eq,Ord,Show,Data)
 
 withAtlas :: Atlas s -> (Ptr (Atlas s) -> IO r) -> IO r
-withAtlas = withForeignPtr . getAtlas
+withAtlas = withForeignPtr . coerce
 
 sizeOfAtlas :: Int
 sizeOfAtlas = #size stbrp_context
@@ -87,8 +94,9 @@ foreign import ccall "stbrp_rect_pack.h stbrp_pack_rects" stbrp_pack_rects :: Pt
 foreign import ccall "stbrp_rect_pack.h stbrp_setup_heuristic" stbrp_setup_heuristic :: Ptr (Atlas s) -> CInt -> IO ()
 
 -- | Use and cast back and forth to ints instead for more natural API?
-data Pt = Pt { _ptX, _ptY :: {-# unpack #-} !Int }
-  deriving (Eq,Ord,Show,Read)
+data Pt = Pt
+  { _ptX, _ptY :: {-# unpack #-} !Int
+  } deriving (Eq,Ord,Show,Read)
 
 makeClassy ''Pt
 
@@ -112,7 +120,11 @@ peekXY p = (\(w :: Coord) (h :: Coord) -> Pt (fromIntegral w) (fromIntegral h))
   <*> (#peek stbrp_rect, y) p
 
 -- hkd rectangles
-data Box f = Box { _boxPosition :: !(f Pt), _boxSize :: {-# unpack #-} !Pt }
+data Box f = Box
+  { _boxPosition :: !(f Pt)
+  , _boxSize :: {-# unpack #-} !Pt
+  }
+
 makeClassy ''Box
 
 instance FFunctor Box where
@@ -134,16 +146,13 @@ pokePts :: (a -> Box t) -> Ptr Rect -> [a] -> IO ()
 pokePts f ptr vals0 = go vals0 0 where
   go ((f -> Box _ (Pt w h)):vals) !i = do
     let p = plusPtr ptr (i*sizeOfRect)
-    -- (#poke stbrp_rect, id) p (0 :: CInt)
     (#poke stbrp_rect, w) p (fromIntegral w :: Coord)
     (#poke stbrp_rect, h) p (fromIntegral h :: Coord)
-    -- (#poke stbrp_rect, x) p (0 :: Coord)
-    -- (#poke stbrp_rect, y) p (0 :: Coord)
     go vals (i + 1)
   go []  _ = pure ()
 {-# inline pokePts #-}
 
 boxMaybe :: Ptr Rect -> IO (Maybe Pt)
 boxMaybe p = (#peek stbrp_rect, was_packed) p >>= \case
-  (0 :: CInt) -> pure Nothing -- invalid packing
-  _ -> Just <$> peekXY p -- valid packing
+  (0 :: CInt) -> pure Nothing
+  _ -> Just <$> peekXY p

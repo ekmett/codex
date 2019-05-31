@@ -3,22 +3,29 @@
 {-# language UndecidableInstances #-}
 {-# language MultiParamTypeClasses #-}
 {-# language FlexibleInstances #-}
-
--- | skyline packing using @stb_rect_pack.h@
+-- |
+-- Copyright :  (c) 2019 Edward Kmett
+-- License   :  BSD-2-Clause OR Apache-2.0
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+--
+-- skyline packing using @stb_rect_pack.h@
 module Data.Atlas
-  ( Atlas
-  , new, new_
-  -- * Setup
-  , Heuristic(..), heuristic
-  , allowOOM
-  -- * Using a context
-  , pack
-  , Pt(..), HasPt(..)
-  , Box(..), HasBox(..)
-
-  -- convenience
-  , boxy
-  ) where
+( Atlas
+, new
+, new_
+-- * Setup
+, Heuristic(..)
+, heuristic
+, allowOOM
+-- * Using a context
+, pack
+, Pt(..), HasPt(..)
+, Box(..), HasBox(..)
+-- * Convenience
+, boxy
+) where
 
 import Control.Lens
 import Control.Monad
@@ -32,7 +39,7 @@ import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
 import Foreign.Ptr
 
--- | create a packing context with an optional node count, when @node count < width@ is used this results in quantization unless allowOOM is set
+-- | Create a packing context with an optional node count, when @node count < width@ is used this results in quantization unless allowOOM is set
 -- when no value is supplied, it defaults to the width of the 'Atlas'.
 --
 -- Uses a 'ForeignPtr' behind the scenes, so there is no memory management to be done, it is handled by the garbage collector
