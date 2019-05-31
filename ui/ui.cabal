@@ -91,7 +91,7 @@ executable ui
   ghc-options: -O2
   build-depends: ui
 
-test-suite ui-test
+test-suite spec
   import: common, threaded
   type: exitcode-stdio-1.0
   hs-source-dirs: test

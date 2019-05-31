@@ -1,3 +1,7 @@
+module Main
+( main
+) where
+
 import Control.Monad.Primitive
 import Control.Monad.ST
 import Data.Atlas
