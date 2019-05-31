@@ -2,7 +2,7 @@
 #include <memory.h>
 #include "ft.h"
 
-const char * get_error_string(FT_Error e) {
+const char * hs_get_error_string(FT_Error e) {
 #undef FTERRORS_H_
 #define FT_ERROR_START_LIST switch ( e ) {
 #define FT_NOERRORDEF(e,s) case 0: return s;

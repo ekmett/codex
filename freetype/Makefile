@@ -14,7 +14,7 @@ repl:
 	cabal v2-repl $(LIBRARY) --repl-options=-fobject-code --repl-options=-v1 --repl-options=-ferror-spans --repl-options=-j
 
 test:
-	cabal v2-test $(LIBRARY)-test
+	cabal v2-test spec
 
 watch:
 	ghcid -p $(LIBRARY) --color -c 'cabal v2-repl $(LIBRARY) --repl-options=-fno-code --repl-options=-fno-break-on-exception --repl-options=-fno-break-on-error --repl-options=-v1 --repl-options=-ferror-spans --repl-options=-j'
