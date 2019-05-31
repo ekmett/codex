@@ -2,7 +2,7 @@
 {-# language QuasiQuotes #-}
 {-# language TemplateHaskell #-}
 module Graphics.FreeType.Library
-( 
+( Library
 ) where
 
 --import Control.Monad.IO.Class
