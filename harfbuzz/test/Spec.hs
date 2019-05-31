@@ -11,8 +11,6 @@ import Test.Hspec as Hspec
 import Test.Tasty
 import Test.Tasty.Hspec
 
-import Graphics.Harfbuzz.Unicode
-
 gc :: UnicodeGeneralCategory -> GeneralCategory
 gc (UNICODE_GENERAL_CATEGORY x) = x
 
@@ -58,12 +56,12 @@ spec = Hspec.after_ performMajorGC $ do
       blob_is_immutable x `shouldReturn` True
     it "we get out what we put in" $ do
       x <- blob_create "hello" MEMORY_MODE_READONLY
-      withBlobData x packACStringLen `shouldReturn` "hello"
+      with_blob_data x packACStringLen `shouldReturn` "hello"
     it "trims correctly" $ do
       x <- blob_create "hello" MEMORY_MODE_WRITABLE
       y <- blob_create_sub_blob x 2 2
-      withBlobData x packACStringLen `shouldReturn` "hello"
-      withBlobData y packACStringLen `shouldReturn` "ll"
+      with_blob_data x packACStringLen `shouldReturn` "hello"
+      with_blob_data y packACStringLen `shouldReturn` "ll"
     it "forming a sub_blob renders the parent immutable" $ do
       x <- blob_create "hello" MEMORY_MODE_WRITABLE
       _ <- blob_create_sub_blob x 2 2
@@ -147,7 +145,4 @@ spec = Hspec.after_ performMajorGC $ do
 main :: IO ()
 main = do
   spec' <- testSpec "spec" spec
-  defaultMain $
-    testGroup "tests"
-      [ spec'
-      ]
+  defaultMain spec'
