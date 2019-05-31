@@ -20,104 +20,109 @@
 --
 -- As an internal module, I don't consider this module as supported by the PVP. Be careful.
 module Graphics.Fontconfig.Internal
-  ( Config(..)
-  , ObjectSet(..)
-  , Pattern(..)
-  , FontSet(..)
-  , SetName
-    ( SetName
-    , SetSystem
-    , SetApplication
-    )
-  , Stat(..), statCreate
-  , Cache(..)
-  , Range(..)
-  , CharSet(..)
-  , LangSet(..)
-  , StrSet(..)
-  , Face(..)
-  , Matrix(..)
-  , Value(..)
+( Config(..)
+, ObjectSet(..)
+, Pattern(..)
+, FontSet(..)
+, SetName
+  ( SetName
+  , SetSystem
+  , SetApplication
+  )
+, Stat(..), statCreate
+, Cache(..)
+, Range(..)
+, CharSet(..)
+, LangSet(..)
+, StrSet(..)
+, Matrix(..)
+, Value
 
-  -- * Results
-  , StrList
-  , ValueBinding
-    ( ValueBinding
-    , ValueBindingWeak
-    , ValueBindingStrong
-    , ValueBindingSame
-    )
-  , FcBool
-    ( FcFalse
-    , FcTrue
-    , FcDontCare
-    )
-  , MatchKind
-    ( MatchKind
-    , MatchPattern
-    , MatchFont
-    , MatchScan
-    )
-  , Spacing
-    ( Spacing
-    , MONO
-    , DUAL
-    , PROPORTIONAL
-    , CHARCELL
-    )
-  , LangResult
-    ( LangResult
-    , LangEqual
-    , LangDifferentCountry
-    , LangDifferentTerritory
-    , LangDifferentLang
-    )
-  , marshal, unmarshal, unmarshal'
-  , Result(..), CResult, getResult
-  , AllocationFailed(..)
-  -- * inline-c
-  , fontconfigCtx
-  -- * utilities
-  -- , withSelf, withMaybeSelf, withSelfMaybe
-  , check, cbool, boolc, peekCUString
+-- * Results
+, StrList
+, ValueBinding
+  ( ValueBinding
+  , ValueBindingWeak
+  , ValueBindingStrong
+  , ValueBindingSame
+  )
+, FcBool
+  ( FcBool
+  , FcFalse
+  , FcTrue
+  , FcDontCare
+  )
+, MatchKind
+  ( MatchKind
+  , MatchPattern
+  , MatchFont
+  , MatchScan
+  )
+, Spacing
+  ( Spacing
+  , MONO
+  , DUAL
+  , PROPORTIONAL
+  , CHARCELL
+  )
+, LangResult
+  ( LangResult
+  , LangEqual
+  , LangDifferentCountry
+  , LangDifferentTerritory
+  , LangDifferentLang
+  )
+, Type
+  ( Type
+  , TypeVoid
+  , TypeInteger
+  , TypeDouble
+  , TypeString
+  , TypeBool
+  , TypeMatrix
+  , TypeCharSet
+  , TypeLangSet
+  , TypeRange
+  )
+, Result(..)
+, CResult
+, getResult
 
-  , foreignCache
-  , foreignCharSet
-  , foreignConfig
-  , foreignFontSet
-  , foreignLangSet
-  , foreignMatrix
-  , foreignObjectSet
-  , foreignPattern
-  , foreignRange
-  , foreignStrSet
-#if USE_FREETYPE
-  , foreignFace
-#endif
+, AllocationFailed(..)
 
-  , _FcCharSetDestroy
-  , _FcConfigDestroy
-  , _FcDirCacheUnload
-  , _FcFontSetDestroy
-  , _FcLangSetDestroy
-  , _FcObjectSetDestroy
-  , _FcPatternDestroy
-  , _FcRangeDestroy
-  , _FcStrSetDestroy
-  , _FcValueDestroy
+-- * inline-c
+, fontconfigCtx
 
+-- * FFI
+, foreignCache
+, foreignCharSet
+, foreignConfig
+, foreignFontSet
+, foreignLangSet
+, foreignMatrix
+, foreignObjectSet
+, foreignPattern
+, foreignRange
+, foreignStrSet
 
-  ) where
+, _FcCharSetDestroy
+, _FcConfigDestroy
+, _FcDirCacheUnload
+, _FcFontSetDestroy
+, _FcLangSetDestroy
+, _FcObjectSetDestroy
+, _FcPatternDestroy
+, _FcRangeDestroy
+, _FcStrSetDestroy
+, _FcValueDestroy
+) where
 
-import Control.Exception
 import Control.Monad
-import Data.Coerce
 import Data.Const.Unsafe
 import Data.Data (Data)
 import Data.Default (Default(..))
 import qualified Data.Map as Map
 import Foreign.C
-import qualified Foreign.Concurrent as Concurrent
 import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Utils
@@ -127,9 +132,6 @@ import GHC.Generics (Generic)
 import qualified Language.C.Inline as C
 import qualified Language.C.Inline.Context as C
 import qualified Language.C.Types as C
-#if USE_FREETYPE
-import Graphics.FreeType.Internal (Face(..),FaceRec)
-#endif
 
 import Graphics.Fontconfig.Private
 
@@ -143,13 +145,7 @@ newtype Range = Range { getRange :: ForeignPtr Range } deriving (Eq, Ord, Show, 
 newtype CharSet = CharSet { getCharSet :: ForeignPtr CharSet } deriving (Eq, Ord, Show, Data)
 newtype LangSet = LangSet { getLangSet :: ForeignPtr LangSet } deriving (Eq, Ord, Show, Data)
 newtype StrSet = StrSet { getStrSet :: ForeignPtr StrSet } deriving (Eq, Ord, Show, Data)
-
-#if !USE_FREETYPE
-data FaceRec
-newtype Face = Face { getFace :: ForeignPtr FaceRec } deriving (Eq,Ord,Show)
-#endif
-
-newtype Matrix = Matrix { getMatrix:: ForeignPtr Matrix } deriving (Eq,Ord,Show,Data) -- TODO use a struct and store it
+newtype Matrix = Matrix { getMatrix:: ForeignPtr Matrix } deriving (Eq,Ord,Show,Data)
 
 #ifndef HLINT
 newtype SetName = SetName CInt deriving newtype (Eq,Ord,Show,Read,Enum,Num,Real,Integral,Storable)
@@ -182,23 +178,24 @@ pattern MONO = (#const FC_MONO) :: Spacing
 pattern DUAL = (#const FC_DUAL) :: Spacing
 pattern PROPORTIONAL = (#const FC_PROPORTIONAL) :: Spacing
 pattern CHARCELL = (#const FC_CHARCELL) :: Spacing
+
+newtype Type a = Type CInt deriving newtype (Eq,Ord,Show,Read,Enum,Num,Real,Integral,Storable)
+pattern TypeVoid = (#const FcTypeVoid) :: Type ()
+pattern TypeInteger = (#const FcTypeInteger) :: Type CInt
+pattern TypeDouble = (#const FcTypeDouble) :: Type Double
+pattern TypeString = (#const FcTypeString) :: Type (ConstPtr CUChar)
+pattern TypeBool = (#const FcTypeBool) :: Type FcBool
+pattern TypeMatrix = (#const FcTypeMatrix) :: Type (ConstPtr Matrix)
+pattern TypeCharSet = (#const FcTypeCharSet) :: Type (ConstPtr CharSet)
+pattern TypeLangSet = (#const FcTypeLangSet) :: Type (ConstPtr LangSet)
+pattern TypeRange = (#const FcTypeRange) :: Type (ConstPtr Range)
+-- pattern TypeFace provided by fontconfig-freetype
 #endif
 
 data StrList
+data Value
 
 -- newtype Value = Value { getValue :: ForeignPtr Value } deriving (Eq, Ord, Show, Data)
-data Value
-  = ValueUnknown
-  | ValueVoid    !(Ptr ())
-  | ValueInteger !Int
-  | ValueDouble  !Double
-  | ValueString  !(ConstPtr CUChar)
-  | ValueBool    !FcBool
-  | ValueMatrix  !(ConstPtr Matrix)
-  | ValueCharSet !(ConstPtr CharSet)
-  | ValueFace    !(ConstPtr FaceRec)
-  | ValueLangSet !(ConstPtr LangSet)
-  | ValueRange   !(ConstPtr Range)
 
 -- bootstrapping Storable Value
 C.context $ C.baseCtx <> mempty
@@ -206,8 +203,6 @@ C.context $ C.baseCtx <> mempty
     [ (C.TypeName "FcValue", [t| Value |])
     , (C.TypeName "FcMatrix", [t| Matrix |])
     , (C.TypeName "FcCharSet", [t| CharSet |])
-    , (C.Struct   "FT_FaceRec_", [t| FaceRec |])
-    , (C.TypeName "FT_Face", [t| Ptr FaceRec |])
     , (C.TypeName "FcLangSet", [t| LangSet |])
     , (C.TypeName "FcRange", [t| Range |])
     , (C.TypeName "FcChar8", [t| CUChar |])
@@ -215,54 +210,13 @@ C.context $ C.baseCtx <> mempty
   }
 
 C.include "<fontconfig/fontconfig.h>"
-#if USE_FREETYPE
-C.include "<fontconfig/fcfreetype.h>"
-#endif
 
 #ifndef HLINT
 #include <fontconfig/fontconfig.h>
-# if USE_FREETYPE
-#  include <fontconfig/fcfreetype.h>
-# endif
 #endif
 
-#ifndef HLINT
-instance Storable Value where
-  sizeOf _ = #size FcValue
-  alignment _ = #alignment FcValue
-  poke v = \case
-    ValueUnknown -> [C.block|void { $(FcValue *v)->type = FcTypeUnknown; }|]
-    ValueVoid f -> [C.block|void { FcValue*v = $(FcValue*v); v->type = FcTypeVoid; v->u.f = $(void*f); }|]
-    ValueInteger (fromIntegral -> i) -> [C.block|void { FcValue*v = $(FcValue*v); v->type = FcTypeInteger; v->u.i = $(int i); }|]
-    ValueDouble (coerce -> d) -> [C.block|void { FcValue*v = $(FcValue*v); v->type = FcTypeDouble;  v->u.d = $(double d); }|]
-    ValueString (unsafePtr -> s) -> [C.block|void { FcValue*v = $(FcValue*v); v->type = FcTypeString; v->u.s = $(const FcChar8 * s); }|]
-    ValueBool (marshal -> b) -> [C.block|void { FcValue*v = $(FcValue*v); v->type = FcTypeBool;    v->u.b = $(int b); }|]
-    ValueMatrix (unsafePtr -> m) -> [C.block|void { FcValue*v = $(FcValue*v); v->type = FcTypeMatrix; v->u.m = $(const FcMatrix * m); }|]
-    ValueCharSet (unsafePtr -> c) -> [C.block|void { FcValue*v = $(FcValue*v); v->type = FcTypeCharSet; v->u.c = $(const FcCharSet * c); }|]
-    ValueFace (unsafePtr -> f) -> [C.block|void { FcValue*v = $(FcValue*v); v->type = FcTypeVoid; v->u.f = (void*)($(const FT_Face f));}|]
-    ValueLangSet (unsafePtr -> l) -> [C.block|void { FcValue*v = $(FcValue*v); v->type = FcTypeLangSet; v->u.l = $(const FcLangSet * l); }|]
-    ValueRange (unsafePtr -> r) -> [C.block|void { FcValue*v = $(FcValue*v); v->type = FcTypeRange; v->u.r = $(const FcRange * r); }|]
-  peek v = [C.exp|int { $(FcValue*v)->type } |] >>= \case
-    (#const FcTypeVoid) -> ValueVoid <$> [C.exp|void* { $(FcValue*v)->u.f }|]
-    (#const FcTypeInteger) -> ValueInteger . fromIntegral <$> [C.exp|int { $(FcValue*v)->u.i }|]
-    (#const FcTypeDouble) -> ValueDouble . coerce <$> [C.exp|double { $(FcValue*v)->u.d }|]
-    (#const FcTypeString) -> ValueString . ConstPtr <$> [C.exp|const FcChar8 * { $(FcValue*v)->u.s }|]
-    (#const FcTypeBool) -> ValueBool . unmarshal' <$> [C.exp|int { $(FcValue*v)->u.b }|]
-    (#const FcTypeMatrix) -> ValueMatrix . ConstPtr  <$> [C.exp|const FcMatrix * { $(FcValue*v)->u.m }|]
-    (#const FcTypeCharSet) -> ValueCharSet . ConstPtr <$> [C.exp|const FcCharSet * { $(FcValue*v)->u.c }|]
-    (#const FcTypeFTFace) -> ValueFace . ConstPtr <$> [C.exp|const struct FT_FaceRec_ * { (const struct FT_FaceRec_ *)($(FcValue*v)->u.f) }|]
-    (#const FcTypeLangSet) -> ValueLangSet . ConstPtr <$> [C.exp|const FcLangSet * { $(FcValue*v)->u.l }|]
-    (#const FcTypeRange) -> ValueRange . ConstPtr <$> [C.exp|const FcRange * { $(FcValue*v)->u.r }|]
-    _ -> pure ValueUnknown
-#endif
-
---withSelf :: Coercible a (ForeignPtr a) => a -> (Ptr a -> IO r) -> IO r
---withSelf = withForeignPtr . coerce
-
--- withMaybeSelf :: Coercible a (ForeignPtr a) => Maybe a -> (Ptr a -> IO r) -> IO r
--- withMaybeSelf a f = maybe (f nullPtr) (`withSelf` f) a
-
-instance Default Config where def = Config Nothing
+instance Default Config where
+  def = Config Nothing
 
 statCreate :: IO Stat
 statCreate = Stat <$> mallocForeignPtrBytes (#size struct stat)
@@ -299,35 +253,6 @@ getResult (#const FcResultNoId) _ = pure ResultNoId
 getResult (#const FcResultOutOfMemory) _ = pure ResultOutOfMemory
 getResult _ _ = error "Font.Config.Internal.getResult: unknown result"
 #endif
-
--- this allows for expansion or partial implementation of the list of alternatives
-unmarshal :: forall a. (Enum a, Bounded a) => CInt -> Maybe a
-unmarshal (fromIntegral -> m)
-  | fromEnum (minBound :: a) <= m && m <= fromEnum (maxBound :: a) = Just (toEnum m)
-  | otherwise = Nothing
-
-unmarshal' :: Enum a => CInt -> a
-unmarshal' = toEnum . fromIntegral
-
-marshal :: Enum a => a -> CInt
-marshal = fromIntegral . fromEnum
-
-withCUString :: String -> (Ptr CUChar -> IO r) -> IO r
-withCUString s f = withCString s (f . castPtr)
-
-data AllocationFailed = AllocationFailed deriving (Show, Data, Exception)
-
-check :: Bool -> IO ()
-check b = unless b $ throwIO AllocationFailed
-
-cbool :: CInt -> Bool
-cbool = (0/=)
-
-boolc :: Bool -> CInt
-boolc = fromIntegral . fromEnum
-
-peekCUString :: Ptr CUChar -> IO String
-peekCUString = peekCString . castPtr
 
 foreign import ccall "fontconfig/fontconfig.h &FcConfigDestroy" _FcConfigDestroy :: FinalizerPtr Config
 foreign import ccall "fontconfig/fontconfig.h &FcObjectSetDestroy" _FcObjectSetDestroy:: FinalizerPtr ObjectSet
@@ -372,11 +297,6 @@ foreignStrSet = fmap StrSet . newForeignPtr _FcStrSetDestroy
 foreignMatrix :: Ptr Matrix -> IO Matrix
 foreignMatrix = fmap Matrix . newForeignPtr finalizerFree
 
-#if USE_FREETYPE
-foreignFace :: Ptr FaceRec -> IO Face
-foreignFace p = Face <$> Concurrent.newForeignPtr p [C.block|void { FT_Done_Face($(FT_Face p)); }|]
-#endif
-
 -- * Inline C context
 
 fontconfigCtx :: C.Context
@@ -397,8 +317,6 @@ fontconfigCtx = mempty
     , (C.TypeName "FcStrSet", [t| StrSet |])
     , (C.TypeName "FcValue", [t| Value |])
     , (C.TypeName "FcStrList", [t| StrList |])
-    , (C.Struct   "FT_FaceRec_", [t| FaceRec |])
-    , (C.TypeName "FT_Face", [t| Ptr FaceRec |])
     , (C.Struct "stat", [t| Stat |])
     ]
   , C.ctxAntiQuoters = Map.fromList
@@ -413,7 +331,6 @@ fontconfigCtx = mempty
     , ("strset",      anti (ptr (C.TypeName "FcStrSet")) [t| Ptr StrSet |] [| withForeignPtr |])
     , ("pattern",     anti (ptr (C.TypeName "FcPattern")) [t| Ptr Pattern |] [| withForeignPtr |])
     , ("matrix",      anti (ptr (C.TypeName "FcMatrix")) [t| Ptr Matrix |] [| withForeignPtr |])
-    , ("face",        anti (ptr (C.Struct "FT_FaceRec_")) [t| Ptr FaceRec |] [| withForeignPtr |])
     , ("range",       anti (ptr (C.TypeName "FcRange")) [t| Ptr Range |] [| withForeignPtr |])
     , ("value",       anti (ptr (C.TypeName "FcValue")) [t| Ptr Value |] [| with |])
     , ("stat",        anti (ptr (C.Struct "stat")) [t| Ptr Stat |] [| withForeignPtr |])
