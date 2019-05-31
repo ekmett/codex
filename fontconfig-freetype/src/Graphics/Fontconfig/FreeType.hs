@@ -22,8 +22,7 @@ import Graphics.FreeType.Internal (Face(..),FaceRec)
 
 C.context $ C.baseCtx <> C.fontconfigCtx <> mempty 
   { C.ctxTypesTable = Map.fromList
-    [ (C.Struct   "FT_FaceRec_", [t| FaceRec |])
-    , (C.TypeName "FT_Face", [t| Ptr FaceRec |])
+    [ (C.TypeName "FT_Face", [t| Ptr FaceRec |])
     ]
   }
 C.include "<fontconfig/fontconfig.h>"
