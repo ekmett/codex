@@ -148,6 +148,7 @@ module Graphics.Fontconfig
 , valueMatch
 , patternAdd
 , patternAddWeak
+, withValue
 , withStringValue
 , withBoolValue
 , withDoubleValue

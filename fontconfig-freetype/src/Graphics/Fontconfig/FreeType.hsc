@@ -1,5 +1,9 @@
+{-# language TemplateHaskell #-}
+{-# language QuasiQuotes #-}
+{-# language PatternSynonyms #-}
+{-# language ViewPatterns #-}
 module Graphics.Fontconfig.FreeType
-( TypeFace
+( pattern TypeFace
 , patternAddFace
 , patternGetFace
 , withFaceValue
@@ -13,40 +17,49 @@ module Graphics.Fontconfig.FreeType
 
 import Control.Monad.IO.Class
 import Data.Functor ((<&>))
+import Data.String
+import qualified Data.Map as Map
+import qualified Foreign.Concurrent as Concurrent
 import Foreign.ForeignPtr
+import Foreign.Marshal.Alloc
 import Foreign.Ptr
 import Foreign.Storable
 import qualified Language.C.Inline as C
+import qualified Language.C.Inline.Context as C
+import qualified Language.C.Types as C
+
+import Graphics.Fontconfig
 import Graphics.Fontconfig.Internal
 import Graphics.FreeType.Internal (Face(..),FaceRec)
 
-C.context $ C.baseCtx <> C.fontconfigCtx <> mempty 
+C.context $ C.baseCtx <> C.fptrCtx <> fontconfigCtx <> mempty 
   { C.ctxTypesTable = Map.fromList
-    [ (C.TypeName "FT_Face", [t| Ptr FaceRec |])
+    [ (C.TypeName (fromString "FT_Face"), [t| Ptr FaceRec |])
     ]
   }
 C.include "<fontconfig/fontconfig.h>"
 C.include "<fontconfig/fcfreetype.h>"
-C.include "<ft2build.h>
-C.verbatim "#include FC_FREETYPE_H"
+C.include "<ft2build.h>"
+C.verbatim "#include FT_FREETYPE_H"
 
 #ifndef HLINT
 #include <fontconfig/fontconfig.h>
 #include <fontconfig/fcfreetype.h>
-#include "<ft2build.h>
-#include FC_FREETYPE_H
+#include <ft2build.h>
+#include FT_FREETYPE_H
 #endif
 
-pattern TypeFace = (#const FcTypeFTFace) :: Type (Ptr FT_FaceRec)
+pattern TypeFace :: Type (Ptr FaceRec)
+pattern TypeFace = #const FcTypeFTFace
 
 foreignFace :: Ptr FaceRec -> IO Face
 foreignFace p = Face <$> Concurrent.newForeignPtr p [C.block|void { FT_Done_Face($(FT_Face p)); }|]
 
-withFaceValue :: Face -> (Value -> IO r) -> IO r
+withFaceValue :: Face -> (Ptr Value -> IO r) -> IO r
 withFaceValue (Face face) f = withForeignPtr face $ \p -> withValue TypeFace p f
 
 patternAddFace :: MonadIO m => Pattern -> String -> Face -> m Bool
-patternAddFace p k v = liftIO $ [C.exp|int { FcPatternAddFTFace($pattern:p,$str:k,$face:v) }|] <&> cbool
+patternAddFace p k v = liftIO $ [C.exp|int { FcPatternAddFTFace($pattern:p,$str:k,$fptr-ptr:(FT_Face v)) }|] <&> (/=0)
 {-# inlinable patternAddFace #-}
 
 patternGetFace :: MonadIO m => Pattern -> String -> Int -> m (Result Face)
