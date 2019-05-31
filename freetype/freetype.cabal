@@ -26,6 +26,10 @@ flag examples
 common base
   default-language: Haskell2010
   pkgconfig-depends: freetype2
+  ghc-options:
+    -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+    -Wredundant-constraints -Widentities -Wmissing-export-lists
+    -optc -Wno-pointer-sign
   build-depends:
     base > 4.11 && < 5,
     bytestring,
@@ -46,7 +50,6 @@ library raw
 library
   import: base
   hs-source-dirs: src
-  ghc-options: -Wall
   build-depends: raw
   reexported-modules:
     Graphics.FreeType.Internal

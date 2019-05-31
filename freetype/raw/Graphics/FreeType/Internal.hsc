@@ -8,6 +8,7 @@
 {-# language ForeignFunctionInterface #-}
 {-# language GeneralizedNewtypeDeriving #-}
 {-# language CPP #-}
+{-# options_ghc -Wno-missing-pattern-synonym-signatures #-}
 
 -- |
 -- Copyright :  (c) 2019 Edward Kmett
@@ -56,7 +57,6 @@ module Graphics.FreeType.Internal
 ) where
 
 import Control.Exception
-import Data.Data (Data)
 import qualified Data.Map as Map
 import Foreign.C.String
 import Foreign.C.Types
