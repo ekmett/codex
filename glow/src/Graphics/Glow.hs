@@ -6,26 +6,26 @@
 -- Portability: non-portable
 --
 module Graphics.Glow
-  ( module Graphics.Glow.Attribute
-  , module Graphics.Glow.Block
-  , module Graphics.Glow.Buffer
-  , module Graphics.Glow.Draw
-  , module Graphics.Glow.Error
-  , module Graphics.Glow.Framebuffer
-  , module Graphics.Glow.Image
-  , module Graphics.Glow.Object
-  , module Graphics.Glow.Pixel
-  , module Graphics.Glow.Program
-  , module Graphics.Glow.ProgramPipeline
-  , module Graphics.Glow.Renderbuffer
-  , module Graphics.Glow.Sampler
-  , module Graphics.Glow.Shader
-  , module Graphics.Glow.Texture
-  , module Graphics.Glow.Types
-  , module Graphics.Glow.Uniform
-  , module Graphics.Glow.Version
-  , module Graphics.Glow.VertexArray
-  ) where
+( module Graphics.Glow.Attribute
+, module Graphics.Glow.Block
+, module Graphics.Glow.Buffer
+, module Graphics.Glow.Draw
+, module Graphics.Glow.Error
+, module Graphics.Glow.Framebuffer
+, module Graphics.Glow.Image
+, module Graphics.Glow.Object
+, module Graphics.Glow.Pixel
+, module Graphics.Glow.Program
+, module Graphics.Glow.ProgramPipeline
+, module Graphics.Glow.Renderbuffer
+, module Graphics.Glow.Sampler
+, module Graphics.Glow.Shader
+, module Graphics.Glow.Texture
+, module Graphics.Glow.Types
+, module Graphics.Glow.Uniform
+, module Graphics.Glow.Version
+, module Graphics.Glow.VertexArray
+) where
 
 import Graphics.Glow.Attribute
 import Graphics.Glow.Block

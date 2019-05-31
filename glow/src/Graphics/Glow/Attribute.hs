@@ -18,24 +18,24 @@
 --
 -- OpenGL Attributes
 module Graphics.Glow.Attribute
-  ( 
-  -- * Layout
-    Layout(..)
-  , BaseType, Components, Normalized, Stride, OffsetPtr
-  -- * Attributes
-  , Attribute(..)
-  , AttributeLocation
-  , attributeLocation
-  -- * Attribute Layout Definition
-  , vertexAttribute
-  , setVertexAttribute
-  , vertexAttribPointerI
-  , vertexAttribPointer
-  -- * Layout Annotation
-  , UnAnnotated(..), LayoutAnnotation(..)
-  , HasLayoutAnnotation(..)
-  , AsType(..)
-  ) where
+( 
+-- * Layout
+  Layout(..)
+, BaseType, Components, Normalized, Stride, OffsetPtr
+-- * Attributes
+, Attribute(..)
+, AttributeLocation
+, attributeLocation
+-- * Attribute Layout Definition
+, vertexAttribute
+, setVertexAttribute
+, vertexAttribPointerI
+, vertexAttribPointer
+-- * Layout Annotation
+, UnAnnotated(..), LayoutAnnotation(..)
+, HasLayoutAnnotation(..)
+, AsType(..)
+) where
 
 import Control.Monad.IO.Class
 import Data.Data

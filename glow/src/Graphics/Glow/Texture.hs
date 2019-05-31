@@ -11,36 +11,36 @@
 -- Portability: non-portable
 --
 module Graphics.Glow.Texture
-  ( Texture(..)
-  , TextureWrapping
-  , TextureMinificationFilter
-  , TextureMagnificationFilter
-  , MipmapLevel
-  , TextureLayer
-  , TextureUnit
-  -- * Texture Binding
-  , boundTexture
-  -- * Texture Targets
-  , TextureTarget, TextureBinding
-  -- * Texture Parameter
-  , TextureParameter
-  -- ** Bound Based
-  -- $texParameter
-  , texParameterf
-  , texParameteri
-  , texParameterfv
-  , texParameter2f
-  , texParameter3f
-  , texParameter4f
-  , texParameteriv
-  , texParameter2i
-  , texParameter3i
-  , texParameter4i
-  , texParameterIiv
-  , texParameterIuiv
-  -- * Texture Unit
-  , activeTexture
-  ) where
+( Texture(..)
+, TextureWrapping
+, TextureMinificationFilter
+, TextureMagnificationFilter
+, MipmapLevel
+, TextureLayer
+, TextureUnit
+-- * Texture Binding
+, boundTexture
+-- * Texture Targets
+, TextureTarget, TextureBinding
+-- * Texture Parameter
+, TextureParameter
+-- ** Bound Based
+-- $texParameter
+, texParameterf
+, texParameteri
+, texParameterfv
+, texParameter2f
+, texParameter3f
+, texParameter4f
+, texParameteriv
+, texParameter2i
+, texParameter3i
+, texParameter4i
+, texParameterIiv
+, texParameterIuiv
+-- * Texture Unit
+, activeTexture
+) where
 
 import Control.Monad
 import Control.Monad.IO.Class

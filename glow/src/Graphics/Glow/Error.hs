@@ -9,21 +9,21 @@
 -- Portability: non-portable
 --
 module Graphics.Glow.Error
-  ( Error(..)
-  , pattern NoError
-  , pattern InvalidEnum
-  , pattern InvalidValue
-  , pattern InvalidOperation
-  , pattern InvalidFramebufferOperation
-  , pattern OutOfMemory
-  , pattern StackOverflow
-  , pattern StackUnderflow
-  , pattern TableTooLarge
-  , showError
-  , errors
-  , throwErrors
-  , Errors(..)
-  ) where
+( Error(..)
+, pattern NoError
+, pattern InvalidEnum
+, pattern InvalidValue
+, pattern InvalidOperation
+, pattern InvalidFramebufferOperation
+, pattern OutOfMemory
+, pattern StackOverflow
+, pattern StackUnderflow
+, pattern TableTooLarge
+, showError
+, errors
+, throwErrors
+, Errors(..)
+) where
 
 import Control.Exception hiding (StackOverflow)
 import Control.Monad

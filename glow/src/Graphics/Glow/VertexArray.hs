@@ -8,9 +8,9 @@
 -- Portability: non-portable
 --
 module Graphics.Glow.VertexArray
-  ( VertexArray(..)
-  , boundVertexArray
-  ) where
+( VertexArray(..)
+, boundVertexArray
+) where
 
 import Control.Applicative
 import Control.Monad.IO.Class

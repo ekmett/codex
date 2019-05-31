@@ -7,6 +7,14 @@
 {-# language DeriveAnyClass #-}
 {-# language ViewPatterns #-}
 {-# options_haddock not-home #-}
+-- |
+-- Copyright :  (c) 2019 Edward Kmett
+-- License   :  BSD-2-Clause OR Apache-2.0
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+--
+-- As an internal module I do not consider this module subject to the PVP. Be warned.
 module Graphics.Fontconfig.Private
 ( anti
 , withSelfMaybe

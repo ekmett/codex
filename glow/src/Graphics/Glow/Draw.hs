@@ -3,7 +3,6 @@
 {-# language DeriveGeneric      #-}
 {-# language RecordWildCards    #-}
 {-# language PatternSynonyms    #-}
---------------------------------------------------------------------
 -- |
 -- Copyright :  (c) 2014-2019 Edward Kmett
 -- License   :  BSD-2-Clause OR Apache 2.0
@@ -12,17 +11,16 @@
 -- Portability: non-portable
 --
 -- Tell OpenGL to draw something
---------------------------------------------------------------------
 module Graphics.Glow.Draw
-  ( PrimitiveMode
-  -- * Draw Calls
-  -- ** Indirect Arrays
-  , DrawArraysIndirectCommand(..)
-  , drawArrayIndirect
-  -- ** Indirect Elements
-  , DrawElementsIndirectCommand(..)
-  , drawElementsIndirect
-  ) where
+( PrimitiveMode
+-- * Draw Calls
+-- ** Indirect Arrays
+, DrawArraysIndirectCommand(..)
+, drawArrayIndirect
+-- ** Indirect Elements
+, DrawElementsIndirectCommand(..)
+, drawElementsIndirect
+) where
 
 
 import Control.Monad.IO.Class

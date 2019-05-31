@@ -6,23 +6,23 @@
 -- Portability: non-portable
 --
 module Graphics.Glow.Types
-  ( 
-  -- * Vectors
-    Vec2, Vec3, Vec4
-  , BVec2, BVec3, BVec4
-  , DVec2, DVec3, DVec4
-  , IVec2, IVec3, IVec4
-  , UVec2, UVec3, UVec4
-  -- * Matrices
-  , Mat2, Mat3, Mat4
-  , DMat2, DMat3, DMat4
-  , DMat2x3, DMat2x4, DMat3x2
-  , DMat3x4, DMat4x2, DMat4x3
-  , Mat2x3, Mat2x4, Mat3x2
-  , Mat3x4, Mat4x2, Mat4x3
-  -- * Type Mapping
-  , HasGLType(..)
-  ) where
+( 
+-- * Vectors
+  Vec2, Vec3, Vec4
+, BVec2, BVec3, BVec4
+, DVec2, DVec3, DVec4
+, IVec2, IVec3, IVec4
+, UVec2, UVec3, UVec4
+-- * Matrices
+, Mat2, Mat3, Mat4
+, DMat2, DMat3, DMat4
+, DMat2x3, DMat2x4, DMat3x2
+, DMat3x4, DMat4x2, DMat4x3
+, Mat2x3, Mat2x4, Mat3x2
+, Mat3x4, Mat4x2, Mat4x3
+-- * Type Mapping
+, HasGLType(..)
+) where
 
 import Data.Int
 import Data.Word

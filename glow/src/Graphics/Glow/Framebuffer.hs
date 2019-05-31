@@ -14,36 +14,36 @@
 -- Memory to render into, usable as a texture or to read
 -- otherwise from it. 
 module Graphics.Glow.Framebuffer
-  ( Framebuffer
-  -- * Binding
-  , boundFramebuffer
-  -- * Attaching
-  , FramebufferAttachment(attach)
-  , framebufferTexture
-  , framebufferRenderbuffer
-  , framebufferTextureLayer
-  -- * Completeness Check
-  , checkFramebufferStatus
-  -- * Framebuffer Targets
-  , FramebufferTarget
-    ( FramebufferTarget
-    , DrawFramebuffer
-    , ReadFramebuffer
-    , RWFramebuffer
-    )
-  , FramebufferError
-    ( FramebufferError
-    , FramebufferComplete
-    , FramebufferUndefined
-    , FramebufferIncompleteAttachment
-    , FramebufferIncompleteMissingAttachment
-    , FramebufferIncompleteDrawBuffer
-    , FramebufferIncompleteReadBuffer
-    , FramebufferUnsupported
-    , FramebufferIncompleteMultisample
-    , FramebufferIncompleteLayerTargets
+( Framebuffer
+-- * Binding
+, boundFramebuffer
+-- * Attaching
+, FramebufferAttachment(attach)
+, framebufferTexture
+, framebufferRenderbuffer
+, framebufferTextureLayer
+-- * Completeness Check
+, checkFramebufferStatus
+-- * Framebuffer Targets
+, FramebufferTarget
+  ( FramebufferTarget
+  , DrawFramebuffer
+  , ReadFramebuffer
+  , RWFramebuffer
   )
-  ) where
+, FramebufferError
+  ( FramebufferError
+  , FramebufferComplete
+  , FramebufferUndefined
+  , FramebufferIncompleteAttachment
+  , FramebufferIncompleteMissingAttachment
+  , FramebufferIncompleteDrawBuffer
+  , FramebufferIncompleteReadBuffer
+  , FramebufferUnsupported
+  , FramebufferIncompleteMultisample
+  , FramebufferIncompleteLayerTargets
+)
+) where
 
 import Control.Monad
 import Control.Monad.IO.Class

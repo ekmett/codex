@@ -1,6 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
---------------------------------------------------------------------
 -- |
 -- Copyright :  (c) 2014-2019 Edward Kmett
 -- License   :  BSD-2-Clause OR Apache 2.0
@@ -11,27 +10,26 @@
 -- A Sampler stores sampling parameters for texture access in shaders
 -- Requires: OpenGL 3.3+
 -- OpenGL Wiki: <https://www.opengl.org/wiki/Sampler_Object>
---------------------------------------------------------------------
 module Graphics.Glow.Sampler
-  ( Sampler
-  -- * Binding
-  , boundSampler
-  -- * Sampler Parameter
-  -- $samplerParameter
-  , SamplerParameter
-  , samplerParameterf
-  , samplerParameter2f
-  , samplerParameter3f
-  , samplerParameter4f
-  , samplerParameterfv
-  , samplerParameteri
-  , samplerParameter2i
-  , samplerParameter3i
-  , samplerParameter4i
-  , samplerParameteriv
-  , samplerParameterIiv
-  , samplerParameterIuiv
-  ) where
+( Sampler
+-- * Binding
+, boundSampler
+-- * Sampler Parameter
+-- $samplerParameter
+, SamplerParameter
+, samplerParameterf
+, samplerParameter2f
+, samplerParameter3f
+, samplerParameter4f
+, samplerParameterfv
+, samplerParameteri
+, samplerParameter2i
+, samplerParameter3i
+, samplerParameter4i
+, samplerParameteriv
+, samplerParameterIiv
+, samplerParameterIuiv
+) where
 
 import Control.Applicative
 import Control.Monad.IO.Class

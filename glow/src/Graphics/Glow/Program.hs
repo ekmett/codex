@@ -7,38 +7,38 @@
 -- Portability: non-portable
 --
 module Graphics.Glow.Program
-  ( Program(..)
-  , buildProgram
-  -- * Attachment
-  , attachShader
-  , detachShader
-  , numAttachedShaders
-  , attachedShaders
-  -- * Linking
-  , linkProgram
-  , linkStatus
-  -- * Status
-  , programInfoLog
-  , programIsDeleted
-  , numActiveAttributes
-  , activeAttributeMaxLength
-  , numActiveUniforms
-  , activeUniformMaxLength
-  , activeAtomicCounterBuffers
-  , programBinaryLength
-  , programComputeWorkGroupSize
-  , transformFeedbackVaryingsMaxLength
-  , transformFeedbackBufferMode
-  , numTransformFeedbackVaryings
-  , geometryVerticesOut
-  , geometryInputType
-  , geometryOutputType
-  , currentProgram
-  , createShaderProgramInclude
-  -- * Validation
-  , validateStatus
-  , validateProgram
-  ) where
+( Program(..)
+, buildProgram
+-- * Attachment
+, attachShader
+, detachShader
+, numAttachedShaders
+, attachedShaders
+-- * Linking
+, linkProgram
+, linkStatus
+-- * Status
+, programInfoLog
+, programIsDeleted
+, numActiveAttributes
+, activeAttributeMaxLength
+, numActiveUniforms
+, activeUniformMaxLength
+, activeAtomicCounterBuffers
+, programBinaryLength
+, programComputeWorkGroupSize
+, transformFeedbackVaryingsMaxLength
+, transformFeedbackBufferMode
+, numTransformFeedbackVaryings
+, geometryVerticesOut
+, geometryInputType
+, geometryOutputType
+, currentProgram
+, createShaderProgramInclude
+-- * Validation
+, validateStatus
+, validateProgram
+) where
 
 import           Control.Applicative      (liftA2)
 import           Control.Monad.IO.Class   (MonadIO, liftIO)

@@ -21,40 +21,40 @@
 -- Also usable for bindless rendering:
 -- <https://www.opengl.org/discussion_boards/showthread.php/170388-Bindless-Stuff?p=1199088&viewfull=1#post1199088>
 module Graphics.Glow.Buffer
-  ( Buffer(..)
-  , boundBufferAt
-  , Alloca(..)
-  -- * Buffer Data
-  , BufferData(..)
-  , bufferData
-  , bufferDataDirect
-  -- * Buffer Targets
-  , BufferTarget
-    ( BufferTarget
-    , ArrayBuffer
-    , AtomicCounterBuffer
-    , CopyReadBuffer
-    , CopyWriteBuffer
-    , DispatchIndirectBuffer
-    , DrawIndirectBuffer
-    , ElementArrayBuffer
-    , PixelPackBuffer
-    , PixelUnpackBuffer
-    , QueryBuffer
-    , ShaderStorageBuffer
-    , TextureBuffer
-    , TransformFeedbackBuffer
-    , UniformBuffer
-    )
-  -- * Buffer Usage
-  -- $usage
-  , BufferUsage
-    ( BufferUsage
-    , StreamDraw, StreamRead, StreamCopy
-    , StaticDraw, StaticRead, StaticCopy
-    , DynamicDraw, DynamicRead, DynamicCopy
-    )
-  ) where
+( Buffer(..)
+, boundBufferAt
+, Alloca(..)
+-- * Buffer Data
+, BufferData(..)
+, bufferData
+, bufferDataDirect
+-- * Buffer Targets
+, BufferTarget
+  ( BufferTarget
+  , ArrayBuffer
+  , AtomicCounterBuffer
+  , CopyReadBuffer
+  , CopyWriteBuffer
+  , DispatchIndirectBuffer
+  , DrawIndirectBuffer
+  , ElementArrayBuffer
+  , PixelPackBuffer
+  , PixelUnpackBuffer
+  , QueryBuffer
+  , ShaderStorageBuffer
+  , TextureBuffer
+  , TransformFeedbackBuffer
+  , UniformBuffer
+  )
+-- * Buffer Usage
+-- $usage
+, BufferUsage
+  ( BufferUsage
+  , StreamDraw, StreamRead, StreamCopy
+  , StaticDraw, StaticRead, StaticCopy
+  , DynamicDraw, DynamicRead, DynamicCopy
+  )
+) where
 
 import Control.Exception
 import Control.Monad

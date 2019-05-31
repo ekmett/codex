@@ -10,31 +10,31 @@
 -- Portability: non-portable
 --
 module Graphics.Glow.Shader
-  ( Shader (..)
-  , ShaderType
-    ( ShaderType
-    , getShaderType
-    , FragmentShader
-    , VertexShader
-    , GeometryShader
-    , TessControlShader
-    , TessEvaluationShader
-    , ComputeShader
-    )
-  , showShaderType
-  , getShader
-  , shaderInfoLog
-  , buildShaderFrom
-  , releaseShaderCompiler
-  , shaderSource
-  , shaderSourceLength
-  , createShader
-  , compileStatus
-  , shaderIsDeleted
-  , compileShader
-  , compileShaderInclude
-  , buildNamedStrings
-  ) where
+( Shader (..)
+, ShaderType
+  ( ShaderType
+  , getShaderType
+  , FragmentShader
+  , VertexShader
+  , GeometryShader
+  , TessControlShader
+  , TessEvaluationShader
+  , ComputeShader
+  )
+, showShaderType
+, getShader
+, shaderInfoLog
+, buildShaderFrom
+, releaseShaderCompiler
+, shaderSource
+, shaderSourceLength
+, createShader
+, compileStatus
+, shaderIsDeleted
+, compileShader
+, compileShaderInclude
+, buildNamedStrings
+) where
 
 import           Control.Monad            (when)
 import           Control.Monad.IO.Class   (MonadIO, liftIO)
