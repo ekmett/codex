@@ -39,6 +39,7 @@ library
     linear,
     mtl,
     primitive,
+    ptrdiff,
     StateVar,
     transformers,
     vector
