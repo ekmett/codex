@@ -140,16 +140,16 @@ import qualified Language.C.Types as C
 
 import Graphics.Fontconfig.Private
 
-newtype Config = Config { getConfig :: Maybe (ForeignPtr Config) } deriving (Eq, Ord, Show, Data)
-newtype ObjectSet = ObjectSet { getObjectSet :: ForeignPtr ObjectSet } deriving (Eq, Ord, Show, Data)
-newtype Pattern = Pattern { getPattern :: ForeignPtr Pattern } deriving (Eq, Ord, Show, Data)
-newtype FontSet = FontSet { getFontSet :: ForeignPtr FontSet } deriving (Eq, Ord, Show, Data)
-newtype Stat = Stat { getStat :: ForeignPtr Stat } deriving (Eq, Ord, Show, Data)
-newtype Cache = Cache { getCache :: ForeignPtr Cache } deriving (Eq, Ord, Show, Data)
-newtype Range = Range { getRange :: ForeignPtr Range } deriving (Eq, Ord, Show, Data)
-newtype CharSet = CharSet { getCharSet :: ForeignPtr CharSet } deriving (Eq, Ord, Show, Data)
-newtype LangSet = LangSet { getLangSet :: ForeignPtr LangSet } deriving (Eq, Ord, Show, Data)
-newtype StrSet = StrSet { getStrSet :: ForeignPtr StrSet } deriving (Eq, Ord, Show, Data)
+newtype Config = Config (Maybe (ForeignPtr Config)) deriving (Eq, Ord, Show, Data)
+newtype ObjectSet = ObjectSet (ForeignPtr ObjectSet) deriving (Eq, Ord, Show, Data)
+newtype Pattern = Pattern (ForeignPtr Pattern) deriving (Eq, Ord, Show, Data)
+newtype FontSet = FontSet (ForeignPtr FontSet) deriving (Eq, Ord, Show, Data)
+newtype Stat = Stat (ForeignPtr Stat) deriving (Eq, Ord, Show, Data)
+newtype Cache = Cache (ForeignPtr Cache) deriving (Eq, Ord, Show, Data)
+newtype Range = Range (ForeignPtr Range) deriving (Eq, Ord, Show, Data)
+newtype CharSet = CharSet (ForeignPtr CharSet) deriving (Eq, Ord, Show, Data)
+newtype LangSet = LangSet (ForeignPtr LangSet) deriving (Eq, Ord, Show, Data)
+newtype StrSet = StrSet (ForeignPtr StrSet) deriving (Eq, Ord, Show, Data)
 
 data Matrix = Matrix
   { matrix_xx
@@ -219,8 +219,6 @@ pattern TypeRange = (#const FcTypeRange) :: Type (ConstPtr Range)
 
 data StrList
 data Value
-
--- newtype Value = Value { getValue :: ForeignPtr Value } deriving (Eq, Ord, Show, Data)
 
 -- bootstrapping Storable Value
 C.context $ C.baseCtx <> mempty
