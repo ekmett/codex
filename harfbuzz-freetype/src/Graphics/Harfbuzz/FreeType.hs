@@ -26,6 +26,7 @@ import qualified Language.C.Types as C
 C.context $ C.baseCtx <> C.fptrCtx <> HB.harfbuzzCtx <> mempty
   { C.ctxTypesTable = Map.fromList
     [ (C.TypeName "FT_Face", [t|Ptr FT.FaceRec|])
+    , (C.TypeName "FT_Error", [t|FT.Error|])
     ]
   }
 
@@ -47,7 +48,7 @@ hb_ft_font_get_face font = liftIO $ do
     return face;
   }|]
   if p == nullPtr then return Nothing
-  else Just . FT.Face <$> Concurrent.newForeignPtr p [C.block|void { FT_Done_Face($(FT_Face p)); }|] -- TODO: FT.foreignFace
+  else Just . FT.Face <$> Concurrent.newForeignPtr p ([C.exp|FT_Error { FT_Done_Face($(FT_Face p)) }|] >>= FT.ok)
 
 hb_ft_font_load_flags :: HB.Font -> StateVar Int
 hb_ft_font_load_flags font = StateVar g s where

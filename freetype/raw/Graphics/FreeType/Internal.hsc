@@ -25,6 +25,7 @@ module Graphics.FreeType.Internal
 #err_exports
 #endif
   ) 
+, ok
 , Face(..)
 , FaceRec
 , Library(..)
@@ -65,6 +66,11 @@ foreign import ccall unsafe "ft.h" get_error_string :: Error -> CString
 
 instance Exception Error where
   displayException = unsafeLocalState . peekCString . get_error_string
+
+-- | Ensure that the 'Error' is ok, otherwise throw it.
+ok :: Error -> IO ()
+ok Err_Ok = return ()
+ok e = throwIO e
 
 data FaceRec
 newtype Face = Face (ForeignPtr FaceRec) deriving (Eq,Ord,Show)

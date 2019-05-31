@@ -30,11 +30,12 @@ import qualified Language.C.Types as C
 
 import Graphics.Fontconfig
 import Graphics.Fontconfig.Internal
-import Graphics.FreeType.Internal (Face(..),FaceRec)
+import Graphics.FreeType.Internal (Face(..), Error(Error), ok, FaceRec)
 
 C.context $ C.baseCtx <> C.fptrCtx <> fontconfigCtx <> mempty 
   { C.ctxTypesTable = Map.fromList
     [ (C.TypeName (fromString "FT_Face"), [t| Ptr FaceRec |])
+    , (C.TypeName (fromString "FT_Error"), [t| Error |])
     ]
   }
 C.include "<fontconfig/fontconfig.h>"
@@ -53,7 +54,7 @@ pattern TypeFace :: Type (Ptr FaceRec)
 pattern TypeFace = #const FcTypeFTFace
 
 foreignFace :: Ptr FaceRec -> IO Face
-foreignFace p = Face <$> Concurrent.newForeignPtr p [C.block|void { FT_Done_Face($(FT_Face p)); }|]
+foreignFace p = Face <$> Concurrent.newForeignPtr p ([C.exp|FT_Error { FT_Done_Face($(FT_Face p)) }|] >>= ok)
 
 withFaceValue :: Face -> (Ptr Value -> IO r) -> IO r
 withFaceValue (Face face) f = withForeignPtr face $ \p -> withValue TypeFace p f
