@@ -83,3 +83,4 @@ property_get :: MonadIO m => Library -> ByteString -> ByteString -> Ptr a -> m (
 property_get library module_name property_name (castPtr -> value) = liftIO $ do
   [C.exp|FT_Error { FT_Property_Get($fptr-ptr:(FT_Library library),$bs-cstr:module_name,$bs-cstr:property_name,$(void * value))}|] >>= ok
   
+

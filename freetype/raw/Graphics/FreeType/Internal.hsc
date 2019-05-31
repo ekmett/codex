@@ -149,6 +149,7 @@ freeTypeCtx = mempty
   { C.ctxTypesTable = Map.fromList
     [ (C.TypeName "FT_Error", [t|Error|])
     , (C.TypeName "FT_Face", [t|Ptr FaceRec|])
+    , (C.TypeName "FT_Long", [t|CLong|])
     , (C.TypeName "FT_FaceRec_", [t|FaceRec|])
     , (C.TypeName "FT_Int", [t|CInt|])
     , (C.TypeName "FT_Library", [t|Ptr LibraryRec|])
