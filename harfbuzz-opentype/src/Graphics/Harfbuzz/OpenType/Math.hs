@@ -28,7 +28,7 @@ module Graphics.Harfbuzz.OpenType.Math
 , pattern MATH_SCRIPT
 ) where
 
-import Control.Monad.IO.Class
+import Control.Monad.Primitive
 import Data.Functor ((<&>))
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
@@ -46,38 +46,38 @@ C.include "<hb-ot.h>"
 
 -- * Math
 
-math_has_data :: MonadIO m => Face -> m Bool
-math_has_data face = liftIO $ [C.exp|hb_bool_t { hb_ot_math_has_data($face:face) }|] <&> cbool
+math_has_data :: PrimMonad m => Face (PrimState m) -> m Bool
+math_has_data face = unsafeIOToPrim $ [C.exp|hb_bool_t { hb_ot_math_has_data($face:face) }|] <&> cbool
 
-math_get_constant :: MonadIO m => Font -> MathConstant -> m Position
-math_get_constant font k = liftIO
+math_get_constant :: PrimMonad m => Font (PrimState m) -> MathConstant -> m Position
+math_get_constant font k = unsafeIOToPrim
   [C.exp|hb_position_t { hb_ot_math_get_constant($font:font,$(hb_ot_math_constant_t k)) }|]
 
-math_get_glyph_italics_correction :: MonadIO m => Font -> Codepoint -> m Position
-math_get_glyph_italics_correction font glyph = liftIO
+math_get_glyph_italics_correction :: PrimMonad m => Font (PrimState m) -> Codepoint -> m Position
+math_get_glyph_italics_correction font glyph = unsafeIOToPrim
   [C.exp|hb_position_t { hb_ot_math_get_glyph_italics_correction($font:font,$(hb_codepoint_t glyph)) }|]
 
-math_get_glyph_top_accent_attachment :: MonadIO m => Font -> Codepoint -> m Position
-math_get_glyph_top_accent_attachment font glyph = liftIO
+math_get_glyph_top_accent_attachment :: PrimMonad m => Font (PrimState m) -> Codepoint -> m Position
+math_get_glyph_top_accent_attachment font glyph = unsafeIOToPrim
   [C.exp|hb_position_t { hb_ot_math_get_glyph_top_accent_attachment($font:font,$(hb_codepoint_t glyph)) }|]
 
-math_is_glyph_extended_shape :: MonadIO m => Face -> Codepoint -> m Bool
-math_is_glyph_extended_shape face glyph = liftIO $
+math_is_glyph_extended_shape :: PrimMonad m => Face (PrimState m) -> Codepoint -> m Bool
+math_is_glyph_extended_shape face glyph = unsafeIOToPrim $
   [C.exp|hb_bool_t { hb_ot_math_is_glyph_extended_shape($face:face,$(hb_codepoint_t glyph)) }|] <&> cbool
 
-math_get_glyph_kerning :: MonadIO m => Font -> Codepoint -> MathKern -> Position -> m Position
-math_get_glyph_kerning font glyph kern correction_height = liftIO
+math_get_glyph_kerning :: PrimMonad m => Font (PrimState m) -> Codepoint -> MathKern -> Position -> m Position
+math_get_glyph_kerning font glyph kern correction_height = unsafeIOToPrim
   [C.exp|hb_position_t { hb_ot_math_get_glyph_kerning($font:font,$(hb_codepoint_t glyph),$(hb_ot_math_kern_t kern),$(hb_position_t correction_height)) }|]
 
-math_get_min_connector_overlap :: MonadIO m => Font -> Direction -> m Position
-math_get_min_connector_overlap font dir = liftIO [C.exp|hb_position_t { hb_ot_math_get_min_connector_overlap($font:font,$(hb_direction_t dir)) }|]
+math_get_min_connector_overlap :: PrimMonad m => Font (PrimState m) -> Direction -> m Position
+math_get_min_connector_overlap font dir = unsafeIOToPrim [C.exp|hb_position_t { hb_ot_math_get_min_connector_overlap($font:font,$(hb_direction_t dir)) }|]
 
 -- | Fetches the glyph assembly for the specified font, glyph index, and direction.
 --
 -- Returned are a list of glyph parts that can be used to draw the glyph and an italics-correction value
 -- (if one is defined in the font).
-math_get_glyph_assembly :: MonadIO m => Font -> Codepoint -> Direction -> m ([MathGlyphPart],Position)
-math_get_glyph_assembly font glyph dir = liftIO $ do
+math_get_glyph_assembly :: PrimMonad m => Font (PrimState m) -> Codepoint -> Direction -> m ([MathGlyphPart],Position)
+math_get_glyph_assembly font glyph dir = unsafeIOToPrim $ do
     (total, retrieved, parts, italics_correction) <- go 0 8
     if total == retrieved then return (parts, italics_correction) else go 8 (total - 8) <&> \(_,_,parts2,_) -> (parts ++ parts2, italics_correction)
   where
@@ -104,7 +104,7 @@ math_get_glyph_assembly font glyph dir = liftIO $ do
 -- Fetches the MathGlyphConstruction for the specified font, glyph index, and
 -- direction. The corresponding list of size variants is returned as a list of
 -- @hb_ot_math_glyph_variant_t@ structs.
-math_get_glyph_variants :: MonadIO m => Font -> Codepoint -> Direction -> m [MathGlyphVariant]
+math_get_glyph_variants :: PrimMonad m => Font (PrimState m) -> Codepoint -> Direction -> m [MathGlyphVariant]
 math_get_glyph_variants font glyph dir = pump 8 $ \start_offset requested_variants_count ->
   with requested_variants_count $ \pvariants_count ->
     allocaArray (fromIntegral requested_variants_count) $ \pvariants -> do
