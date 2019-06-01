@@ -26,6 +26,7 @@ common base
     base >= 4.11 && < 5,
     const,
     data-default,
+    primitive-statevar
   ghc-options:
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
     -Wredundant-constraints -Widentities -Wmissing-export-lists
@@ -41,7 +42,6 @@ common lib
     hashable,
     inline-c,
     primitive,
-    primitive-statevar,
     template-haskell,
     text,
     transformers
@@ -81,6 +81,5 @@ test-suite spec
   build-depends:
     harfbuzz,
     hspec,
-    StateVar,
     tasty,
     tasty-hspec
