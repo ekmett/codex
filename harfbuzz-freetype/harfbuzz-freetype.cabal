@@ -33,9 +33,10 @@ library
     base >= 4.11 && < 5,
     containers >= 0.6,
     freetype,
+    ghc-prim,
     harfbuzz,
     inline-c,
-    StateVar,
+    primitive-statevar,
     template-haskell,
     transformers
   exposed-modules:
