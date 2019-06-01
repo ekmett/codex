@@ -46,5 +46,5 @@ test-suite spec
   import: base
   type: exitcode-stdio-1.0
   hs-source-dirs: test
-  build-depends: bidirectional, hspec, tasty, tasty-hspec
+  build-depends: bidi-icu, ghc-prim, hspec, tasty, tasty-hspec
   main-is: Spec.hs
