@@ -4,7 +4,7 @@ import Data.Char
 import Data.Const.ByteString
 import Data.Default
 import Data.Functor
-import Data.StateVar
+import Data.Primitive.StateVar
 import Graphics.Harfbuzz
 import System.Mem
 import Test.Hspec as Hspec
