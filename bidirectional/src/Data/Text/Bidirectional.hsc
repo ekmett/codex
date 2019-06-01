@@ -24,6 +24,7 @@ module Data.Text.Bidirectional
 , getBaseDirection
 , getDirection
 , getLevelAt
+, getLevels
 , getLogicalIndex
 , getLogicalMap
 , getLogicalRun
@@ -513,3 +514,14 @@ getResultLength bidi = unsafeIOToPrim [C.exp|int32_t { ubidi_getProcessedLength(
 
 getProcessedLength :: PrimMonad m => Bidi (PrimState m) -> m Int32
 getProcessedLength bidi = unsafeIOToPrim [C.exp|int32_t { ubidi_getProcessedLength($bidi:bidi) }|]
+
+getLevels :: PrimMonad m => Bidi (PrimState m) -> m (PrimArray Level)
+getLevels bidi = stToPrim $ do
+  len <- fromIntegral <$> getProcessedLength bidi
+  unsafeIOToPrim $
+    alloca $ \pErrorCode -> do
+       levels <- [C.exp|const UBiDiLevel * { ubidi_getLevels($bidi:bidi, $(UErrorCode * pErrorCode)) }|]
+       peek pErrorCode >>= ok
+       mpa <- newPrimArray len
+       copyPtrToMutablePrimArray mpa 0 levels len
+       unsafeFreezePrimArray mpa
