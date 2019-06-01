@@ -145,6 +145,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Data.Primitive.ByteArray
 import Data.Primitive.PrimArray
+import Data.Primitive.Ptr as Prim
 import Data.Primitive.Types
 import Data.Text as Text
 import Data.Text.Foreign as Text
@@ -163,7 +164,6 @@ import Foreign.Ptr
 import Foreign.Storable
 import GHC.Arr (Ix)
 import GHC.Generics (Generic)
-import GHC.Prim
 import GHC.Types
 import qualified Language.C.Inline as C
 import qualified Language.C.Inline.Context as C
@@ -175,12 +175,6 @@ import System.IO.Unsafe (unsafePerformIO)
 --------------------------------------------------------------------------------
 -- PrimArray utilities
 --------------------------------------------------------------------------------
-
--- fun with name mangling
-copyPtrToMutablePrimArray :: forall m a. (PrimMonad m, Prim a) => MutablePrimArray (PrimState m) a -> Int -> Ptr a -> Int -> m ()
-copyPtrToMutablePrimArray (MutablePrimArray mba) (I## ofs) (Ptr addr) (I## n) =
-  primitive_ $ \s -> case sizeOf## @a undefined of
-    sz -> copyAddrToByteArray## addr mba (ofs *## sz) (n *## sz) s
 
 withPrimArrayLen :: forall a r. Prim a => PrimArray a -> (Int -> Ptr a -> IO r) -> IO r
 withPrimArrayLen pa k = allocaBytes (n * I## (sizeOf## @a undefined)) $ \p -> copyPrimArrayToPtr p pa 0 n *> k n p where
@@ -533,7 +527,7 @@ getParagraph bidi charIndex = unsafeIOToPrim $
         peek pErrorCode >>= ok
         (,,,) result
           <$> peek pParaStart
-          <*> peek (advancePtr pParaStart 1) -- pParaLimit
+          <*> peek (Prim.advancePtr pParaStart 1) -- pParaLimit
           <*> peek pParaLevel
 
 getParagraphByIndex :: PrimMonad m => Bidi (PrimState m) -> Int32 -> m (Int32, Int32, Level)
@@ -554,7 +548,7 @@ getParagraphByIndex bidi paragraphIndex = unsafeIOToPrim $
           return error_code;
         }|] >>= ok
         (,,) <$> peek pParaStart
-             <*> peek (advancePtr pParaStart 1) -- pParaLimit
+             <*> peek (Prim.advancePtr pParaStart 1) -- pParaLimit
              <*> peek pParaLevel
 
 
@@ -599,7 +593,7 @@ getVisualRun bidi runIndex = unsafeIOToPrim $
       );
     }|] <&> toEnum . fromIntegral
     logical_start <- peek pLogicalStart
-    len <- peek (advancePtr pLogicalStart 1) -- pLength
+    len <- peek (Prim.advancePtr pLogicalStart 1) -- pLength
     pure (logical_start, len, dir)
 
 invertMap :: PrimArray Int32 -> PrimArray Int32
@@ -614,7 +608,7 @@ invertMap pa = unsafePerformIO $ do -- use a full heavy weight dup check as this
       int32_t len = $(int32_t len);
       ubidi_invertMap(srcMap,srcMap+len,len);
     }|]
-    peekPrimArray m (advancePtr srcMap n) -- dstMap
+    peekPrimArray m (Prim.advancePtr srcMap n) -- dstMap
 
 getVisualIndex :: PrimMonad m => Bidi (PrimState m) -> Int32 -> m Int32
 getVisualIndex bidi logicalIndex = unsafeIOToPrim $
