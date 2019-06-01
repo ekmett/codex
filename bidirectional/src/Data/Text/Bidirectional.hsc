@@ -29,19 +29,27 @@ module Data.Text.Bidirectional
 , setLine
 , setReorderingOptions
 , getReorderingOptions
+, getDirection
+, getBaseDirection
+, getParaLevel
+, countParagraphs
+, getParagraph
+, getParagraphByIndex
 
 --
-, Level(..)
+, Level
+  ( Level
+  , DEFAULT_LTR
+  , DEFAULT_RTL
+  , MAX_EXPLICIT_LEVEL
+  , LEVEL_OVERRIDE
+  )
 , isRTL, isLTR
 
 , Direction(..)
 , ReorderingMode(..)
 , UBiDi
 
-, pattern DEFAULT_LTR
-, pattern DEFAULT_RTL
-, pattern MAX_EXPLICIT_LEVEL
-, pattern LEVEL_OVERRIDE
 , pattern MAP_NOWHERE
 , pattern KEEP_BASE_COMBINING
 , pattern DO_MIRRORING
@@ -74,6 +82,7 @@ import Foreign.C.Types
 import qualified Foreign.Concurrent as Concurrent
 import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
+import Foreign.Marshal.Array
 import Foreign.Marshal.Unsafe (unsafeLocalState)
 import Foreign.Ptr
 import Foreign.Storable
@@ -85,32 +94,39 @@ import qualified Language.C.Inline.HaskellIdentifier as C
 import qualified Language.C.Types as C
 import qualified Language.Haskell.TH as TH
 
+#ifndef HLINT
 #include "unicode/utypes.h"
 #include "unicode/uchar.h"
 #include "unicode/localpointer.h"
 #include "unicode/ubidi.h"
-
-pattern MAP_NOWHERE = (#const UBIDI_MAP_NOWHERE) :: Int
-pattern KEEP_BASE_COMBINING = (#const UBIDI_KEEP_BASE_COMBINING) :: Int
-pattern DO_MIRRORING = (#const UBIDI_DO_MIRRORING) :: Int
-pattern INSERT_LRM_FOR_NUMERIC = (#const UBIDI_INSERT_LRM_FOR_NUMERIC) :: Int
-pattern REMOVE_BIDI_CONTROLS  = (#const UBIDI_REMOVE_BIDI_CONTROLS ) :: Int
-pattern OUTPUT_REVERSE = (#const UBIDI_OUTPUT_REVERSE) :: Int
-pattern BIDI_CLASS_DEFAULT = (#const U_BIDI_CLASS_DEFAULT) :: Int
+#endif
 
 newtype Level = Level Word8
   deriving (Eq,Ord,Show,Storable,Prim)
-
-pattern DEFAULT_LTR = Level (#const UBIDI_DEFAULT_LTR) :: Level
-pattern DEFAULT_RTL = Level (#const UBIDI_DEFAULT_RTL) :: Level
-pattern LEVEL_OVERRIDE = Level (#const UBIDI_LEVEL_OVERRIDE) :: Level
-pattern MAX_EXPLICIT_LEVEL = Level (#const UBIDI_MAX_EXPLICIT_LEVEL) -- not tied to level
 
 isRTL :: Level -> Bool
 isRTL = coerce (odd @Word8)
 
 isLTR :: Level -> Bool
 isLTR = coerce (even @Word8)
+
+#ifndef HLINT
+pattern DEFAULT_LTR = Level (#const UBIDI_DEFAULT_LTR) :: Level
+pattern DEFAULT_RTL = Level (#const UBIDI_DEFAULT_RTL) :: Level
+pattern LEVEL_OVERRIDE = Level (#const UBIDI_LEVEL_OVERRIDE) :: Level
+pattern MAX_EXPLICIT_LEVEL = Level (#const UBIDI_MAX_EXPLICIT_LEVEL) :: Level
+
+-- | Special value which can be returned by the mapping functions when a logical index has no corresponding visual index or vice-versa.
+-- Returned by 'getVisualIndex', 'getVisualMap', 'getLogicalIndex', 'getLogicalMap'
+pattern MAP_NOWHERE = (#const UBIDI_MAP_NOWHERE) :: Int
+
+pattern KEEP_BASE_COMBINING = (#const UBIDI_KEEP_BASE_COMBINING) :: Int
+pattern DO_MIRRORING = (#const UBIDI_DO_MIRRORING) :: Int
+pattern INSERT_LRM_FOR_NUMERIC = (#const UBIDI_INSERT_LRM_FOR_NUMERIC) :: Int
+pattern REMOVE_BIDI_CONTROLS  = (#const UBIDI_REMOVE_BIDI_CONTROLS ) :: Int
+pattern OUTPUT_REVERSE = (#const UBIDI_OUTPUT_REVERSE) :: Int
+pattern BIDI_CLASS_DEFAULT = (#const U_BIDI_CLASS_DEFAULT) :: Int
+#endif
 
 newtype UErrorCode = UErrorCode Int32
   deriving (Eq,Ord,Show,Num,Enum,Real,Integral,Storable)
@@ -150,7 +166,7 @@ data Bidi s = Bidi
 withBidi :: Bidi s -> (Ptr UBiDi -> IO r) -> IO r
 withBidi = withForeignPtr . getBidi
 
-let 
+let
   anti cTy hsTyQ w = C.SomeAntiQuoter C.AntiQuoter
     { C.aqParser = C.parseIdentifier <&> \hId -> (C.mangleHaskellIdentifier hId, cTy, hId)
     , C.aqMarshaller = \_ _ _ cId -> (,) <$> hsTyQ <*> [|$w (coerce $(getHsVariable "bidirectionalCtx" cId))|]
@@ -161,10 +177,10 @@ let
  in C.context $ C.baseCtx <> C.fptrCtx <> mempty
       { C.ctxTypesTable = Map.fromList
         [ (C.TypeName "UBiDi", [t|UBiDi|])
+        , (C.TypeName "UBiDiDirection", [t|Int32|])
+        , (C.TypeName "UBiDiLevel", [t|Level|])
         , (C.TypeName "UBiDiReorderingMode", [t|Int32|])
         , (C.TypeName "UBiDiReorderingOption", [t|Int32|])
-        , (C.TypeName "UBiDiLevel", [t|Level|])
-        , (C.TypeName "int32_t", [t|Int32|])
         , (C.TypeName "UErrorCode", [t|UErrorCode|])
         , (C.TypeName "UChar", [t|Word16|])
         , (C.TypeName "UBool", [t|Int8|])
@@ -172,7 +188,7 @@ let
       , C.ctxAntiQuoters = Map.fromList
         [ ("bidi", anti (C.Ptr [] $ C.TypeSpecifier mempty $ C.TypeName "UBiDi") [t|Ptr UBiDi|] [|withBidi|])
         ]
-      } 
+      }
 
 C.include "unicode/utypes.h"
 C.include "unicode/uchar.h"
@@ -295,10 +311,71 @@ setLine para start limit line = unsafeIOToPrim $ do
   }|] >>= ok
   writeIORef (parentLink line) $ Just para -- prevents deallocation of the paragraph bidi before we at least repurpose the line
 
--- getDirection :: PrimMonad m => Bidi (PrimState m) -> m Direction
--- getBaseDirection :: PrimMonad m => Text -> Direction
--- getParaLevel :: PrimMonad m => Bidi (PrimState m) -> m Level
--- countParagraphs :: PrimMonad m => Bidi -> Int32
+getDirection :: PrimMonad m => Bidi (PrimState m) -> m Direction
+getDirection bidi = unsafeIOToPrim $ [C.exp|UBiDiDirection { ubidi_getDirection($bidi:bidi) }|] <&> toEnum . fromIntegral
+
+getBaseDirection :: Text -> Direction
+getBaseDirection text = unsafeLocalState $
+  useAsPtr text $ \t (fromIntegral -> len) ->
+    [C.exp|UBiDiDirection { ubidi_getBaseDirection($(const UChar * t),$(int32_t len)) }|] <&> toEnum . fromIntegral
+
+getParaLevel :: PrimMonad m => Bidi (PrimState m) -> m Level
+getParaLevel bidi = unsafeIOToPrim [C.exp|UBiDiLevel { ubidi_getParaLevel($bidi:bidi) }|]
+
+countParagraphs :: PrimMonad m => Bidi (PrimState m) -> m Int32
+countParagraphs bidi = unsafeIOToPrim [C.exp|int32_t { ubidi_countParagraphs($bidi:bidi) }|]
+
+-- | Given a paragraph or line bidirectional object @bidi@, and a @charIndex@ into the text
+-- in the range @0@ to @'getProcessedLength' bidi -1@, this will return
+-- the index of the paragraph, the index of the first character in the text,
+-- the index of the end of the paragraph, and the level of the paragraph.
+--
+-- If the paragraph index is known, it can be more efficient to use 'getParagraphByIndex'
+getParagraph :: PrimMonad m => Bidi (PrimState m) -> Int32 -> m (Int32, Int32, Int32, Level)
+getParagraph bidi charIndex = unsafeIOToPrim $
+  allocaArray 2 $ \pParaStart ->
+    alloca $ \pParaLevel ->
+      alloca $ \pErrorCode -> do
+        result <- [C.block|int32_t {
+          int32_t * pPara = $(int32_t * pParaStart);
+          return ubidi_getParagraph(
+            $bidi:bidi,
+            $(int32_t charIndex),
+            pPara,
+            pPara+1,
+            $(UBiDiLevel * pParaLevel),
+            $(UErrorCode * pErrorCode)
+          );
+        }|]
+        peek pErrorCode >>= ok
+        (,,,) result
+          <$> peek pParaStart
+          <*> peek (advancePtr pParaStart 1) -- pParaLimit
+          <*> peek pParaLevel
+
+getParagraphByIndex :: PrimMonad m => Bidi (PrimState m) -> Int32 -> m (Int32, Int32, Level)
+getParagraphByIndex bidi paragraphIndex = unsafeIOToPrim $
+  allocaArray 2 $ \pParaStart ->
+    alloca $ \pParaLevel -> do
+        [C.block|UErrorCode {
+          int32_t * pPara = $(int32_t * pParaStart);
+          UErrorCode error_code;
+          ubidi_getParagraph(
+            $bidi:bidi,
+            $(int32_t paragraphIndex),
+            pPara,
+            pPara+1,
+            $(UBiDiLevel * pParaLevel),
+            &error_code
+          );
+          return error_code;
+        }|] >>= ok
+        (,,) <$> peek pParaStart
+             <*> peek (advancePtr pParaStart 1) -- pParaLimit
+             <*> peek pParaLevel
+
+
+
 -- getLevelAt :: Bidi -> Int32 -> m Level
 -- getLogicalRun
 -- getVisualRun
