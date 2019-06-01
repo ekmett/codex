@@ -22,6 +22,7 @@ module Data.Text.Bidirectional
 , countParagraphs
 , countRuns
 , getBaseDirection
+, getCustomizedClass
 , getDirection
 , getLevelAt
 , getLevels
@@ -36,12 +37,15 @@ module Data.Text.Bidirectional
 , getReorderingOptions
 , getResultLength
 , getText
-, getVisualRun
 , getVisualIndex
+, getVisualMap
+, getVisualRun
 , invertMap
 , isInverse
 , isOrderParagraphsLTR
 , orderParagraphsLTR
+, reorderLogical
+, reorderVisual
 , setContext
 , setInverse
 , setLine
@@ -69,7 +73,32 @@ module Data.Text.Bidirectional
   , OPTION_REMOVE_CONTROLS
   , OPTION_STREAMING
   )
-
+, CharDirection
+  ( CharDirection
+  , LEFT_TO_RIGHT
+  , RIGHT_TO_LEFT
+  , EUROPEAN_NUMBER
+  , EUROPEAN_NUMBER_SEPARATOR
+  , EUROPEAN_NUMBER_TERMINATOR
+  , ARABIC_NUMBER
+  , COMMON_NUMBER_SEPARATOR
+  , BLOCK_SEPARATOR
+  , SEGMENT_SEPARATOR
+  , WHITE_SPACE_NEUTRAL
+  , OTHER_NEUTRAL
+  , LEFT_TO_RIGHT_EMBEDDING
+  , LEFT_TO_RIGHT_OVERRIDE
+  , RIGHT_TO_LEFT_ARABIC
+  , RIGHT_TO_LEFT_EMBEDDING
+  , RIGHT_TO_LEFT_OVERRIDE
+  , POP_DIRECTIONAL_FORMAT
+  , DIR_NON_SPACING_MARK
+  , BOUNDARY_NEUTRAL
+  , FIRST_STRONG_ISOLATE
+  , LEFT_TO_RIGHT_ISOLATE
+  , RIGHT_TO_LEFT_ISOLATE
+  , POP_DIRECTIONAL_ISOLATE
+  )
 , UBiDi
 
 , pattern MAP_NOWHERE
@@ -121,6 +150,27 @@ import qualified Language.C.Types as C
 import qualified Language.Haskell.TH as TH
 import System.IO.Unsafe (unsafePerformIO)
 
+--------------------------------------------------------------------------------
+-- PrimArray utilities
+--------------------------------------------------------------------------------
+
+-- fun with name mangling
+copyPtrToMutablePrimArray :: forall m a. (PrimMonad m, Prim a) => MutablePrimArray (PrimState m) a -> Int -> Ptr a -> Int -> m ()
+copyPtrToMutablePrimArray (MutablePrimArray mba) (I## ofs) (Ptr addr) (I## n) =
+  primitive_ $ \s -> case sizeOf## @a undefined of
+    sz -> copyAddrToByteArray## addr mba (ofs *## sz) (n *## sz) s
+
+withPrimArrayLen :: forall a r. Prim a => PrimArray a -> (Int -> Ptr a -> IO r) -> IO r
+withPrimArrayLen pa k = allocaBytes (n * I## (sizeOf## @a undefined)) $ \p -> copyPrimArrayToPtr p pa 0 n *> k n p where
+  n = sizeofPrimArray pa
+
+peekPrimArray :: Prim a => Int -> Ptr a -> IO (PrimArray a)
+peekPrimArray len ptr = do
+  mpa <- newPrimArray len
+  copyPtrToMutablePrimArray mpa 0 ptr len
+  unsafeFreezePrimArray mpa
+
+
 #ifndef HLINT
 #include "unicode/utypes.h"
 #include "unicode/uchar.h"
@@ -158,16 +208,54 @@ pattern BIDI_CLASS_DEFAULT = (#const U_BIDI_CLASS_DEFAULT) :: Int
 newtype UErrorCode = UErrorCode Int32
   deriving (Eq,Ord,Show,Num,Enum,Real,Integral,Storable)
 
+-- * Reordering Options
+
 newtype ReorderingOption = ReorderingOption Int32
   deriving (Eq,Ord,Show,Bits)
 
+#ifndef HLINT
 pattern OPTION_DEFAULT = ReorderingOption (#const UBIDI_OPTION_DEFAULT)
 pattern OPTION_INSERT_MARKS = ReorderingOption (#const UBIDI_OPTION_INSERT_MARKS)
 pattern OPTION_REMOVE_CONTROLS = ReorderingOption (#const UBIDI_OPTION_REMOVE_CONTROLS)
 pattern OPTION_STREAMING = ReorderingOption (#const UBIDI_OPTION_STREAMING)
+#endif
 
 instance Default ReorderingOption where
   def = OPTION_DEFAULT
+
+-- * Character Directions
+
+-- This is morally the same as text-icu's Direction type, but that one is missing a few definitions =(
+-- See bos/text-icu#44
+
+newtype CharDirection = CharDirection Int32 deriving
+  (Eq,Ord,Show,Storable,Prim)
+
+#ifndef HLINT
+pattern LEFT_TO_RIGHT = CharDirection (#const U_LEFT_TO_RIGHT)
+pattern RIGHT_TO_LEFT = CharDirection (#const U_RIGHT_TO_LEFT)
+pattern EUROPEAN_NUMBER = CharDirection (#const U_EUROPEAN_NUMBER)
+pattern EUROPEAN_NUMBER_SEPARATOR = CharDirection (#const U_EUROPEAN_NUMBER_SEPARATOR)
+pattern EUROPEAN_NUMBER_TERMINATOR = CharDirection (#const U_EUROPEAN_NUMBER_TERMINATOR)
+pattern ARABIC_NUMBER = CharDirection (#const U_ARABIC_NUMBER)
+pattern COMMON_NUMBER_SEPARATOR = CharDirection (#const U_COMMON_NUMBER_SEPARATOR)
+pattern BLOCK_SEPARATOR = CharDirection (#const U_BLOCK_SEPARATOR)
+pattern SEGMENT_SEPARATOR = CharDirection (#const U_SEGMENT_SEPARATOR)
+pattern WHITE_SPACE_NEUTRAL = CharDirection (#const U_WHITE_SPACE_NEUTRAL)
+pattern OTHER_NEUTRAL = CharDirection (#const U_OTHER_NEUTRAL)
+pattern LEFT_TO_RIGHT_EMBEDDING = CharDirection (#const U_LEFT_TO_RIGHT_EMBEDDING)
+pattern LEFT_TO_RIGHT_OVERRIDE = CharDirection (#const U_LEFT_TO_RIGHT_OVERRIDE)
+pattern RIGHT_TO_LEFT_ARABIC = CharDirection (#const U_RIGHT_TO_LEFT_ARABIC)
+pattern RIGHT_TO_LEFT_EMBEDDING = CharDirection (#const U_RIGHT_TO_LEFT_EMBEDDING)
+pattern RIGHT_TO_LEFT_OVERRIDE = CharDirection (#const U_RIGHT_TO_LEFT_OVERRIDE)
+pattern POP_DIRECTIONAL_FORMAT = CharDirection (#const U_POP_DIRECTIONAL_FORMAT)
+pattern DIR_NON_SPACING_MARK = CharDirection (#const U_DIR_NON_SPACING_MARK)
+pattern BOUNDARY_NEUTRAL = CharDirection (#const U_BOUNDARY_NEUTRAL)
+pattern FIRST_STRONG_ISOLATE = CharDirection (#const U_FIRST_STRONG_ISOLATE)
+pattern LEFT_TO_RIGHT_ISOLATE = CharDirection (#const U_LEFT_TO_RIGHT_ISOLATE)
+pattern RIGHT_TO_LEFT_ISOLATE = CharDirection (#const U_RIGHT_TO_LEFT_ISOLATE)
+pattern POP_DIRECTIONAL_ISOLATE = CharDirection (#const U_POP_DIRECTIONAL_ISOLATE)
+#endif
 
 ubool :: Int8 -> Bool
 ubool = (0/=)
@@ -219,15 +307,18 @@ let
         , (C.TypeName "UBiDiLevel", [t|Level|])
         , (C.TypeName "UBiDiReorderingMode", [t|Int32|])
         , (C.TypeName "UBiDiReorderingOption", [t|ReorderingOption|])
-        , (C.TypeName "UErrorCode", [t|UErrorCode|])
-        , (C.TypeName "UChar", [t|Word16|])
         , (C.TypeName "UBool", [t|Int8|])
+        , (C.TypeName "UChar", [t|Word16|])
+        , (C.TypeName "UChar32", [t|Int32|])
+        , (C.TypeName "UCharDirection", [t|CharDirection|])
+        , (C.TypeName "UErrorCode", [t|UErrorCode|])
         ]
       , C.ctxAntiQuoters = Map.fromList
         [ ("bidi", anti (C.Ptr [] $ C.TypeSpecifier mempty $ C.TypeName "UBiDi") [t|Ptr UBiDi|] [|withBidi|])
         ]
       }
 
+C.include "HsFFI.h"
 C.include "unicode/utypes.h"
 C.include "unicode/uchar.h"
 C.include "unicode/localpointer.h"
@@ -457,39 +548,35 @@ getVisualRun bidi runIndex = unsafeIOToPrim $
     len <- peek (advancePtr pLogicalStart 1) -- pLength
     pure (logical_start, len, dir)
 
--- fun with name mangling
-copyPtrToMutablePrimArray :: forall m a. (PrimMonad m, Prim a) => MutablePrimArray (PrimState m) a -> Int -> Ptr a -> Int -> m ()
-copyPtrToMutablePrimArray (MutablePrimArray mba) (I## ofs) (Ptr addr) (I## n) =
-  primitive_ $ \s -> case sizeOf## @a undefined of
-    sz -> copyAddrToByteArray## addr mba (ofs *## sz) (n *## sz) s
 
 invertMap :: PrimArray Int32 -> PrimArray Int32
 invertMap pa = unsafePerformIO $ do -- use a full heavy weight dup check as this can be slow for large maps
   let !n = sizeofPrimArray pa
   let !m = fromIntegral (foldlPrimArray' max (-1) pa + 1)
   allocaArray (n+m) $ \srcMap -> do
-    let dstMap = advancePtr srcMap n
     copyPrimArrayToPtr srcMap pa 0 n
     let len = fromIntegral n
-    [C.block|void { ubidi_invertMap($(int32_t * srcMap),$(int32_t * dstMap),$(int32_t len)); }|]
-    dst <- newPrimArray m
-    copyPtrToMutablePrimArray dst 0 dstMap m
-    unsafeFreezePrimArray dst
+    [C.block|void {
+      int32_t * srcMap = $(int32_t * srcMap);
+      int32_t len = $(int32_t len);
+      ubidi_invertMap(srcMap,srcMap+len,len);
+    }|]
+    peekPrimArray m (advancePtr srcMap n) -- dstMap
 
 getVisualIndex :: PrimMonad m => Bidi (PrimState m) -> Int32 -> m Int32
 getVisualIndex bidi logicalIndex = unsafeIOToPrim $
   alloca $ \pErrorCode ->
-    [C.exp|int32_t { 
+    [C.exp|int32_t {
       ubidi_getVisualIndex($bidi:bidi,$(int32_t logicalIndex),$(UErrorCode * pErrorCode))
     }|] <* (peek pErrorCode >>= ok)
-  
+
 getLogicalIndex :: PrimMonad m => Bidi (PrimState m) -> Int32 -> m Int32
 getLogicalIndex bidi visualIndex = unsafeIOToPrim $
   alloca $ \pErrorCode ->
     [C.exp|int32_t {
       ubidi_getLogicalIndex($bidi:bidi,$(int32_t visualIndex),$(UErrorCode * pErrorCode))
     }|] <* (peek pErrorCode >>= ok)
-  
+
 getLogicalMap :: PrimMonad m => Bidi (PrimState m) -> m (PrimArray Int32)
 getLogicalMap bidi = stToPrim $ do
   len <- fromIntegral <$> do
@@ -498,16 +585,31 @@ getLogicalMap bidi = stToPrim $ do
     if opts .&. OPTION_INSERT_MARKS /= OPTION_DEFAULT
     then max processed_len <$> getResultLength bidi
     else pure processed_len
-  unsafeIOToPrim $ 
+  unsafeIOToPrim $
     allocaArray len $ \ indexMap -> do
       [C.block|UErrorCode {
         UErrorCode error_code;
         ubidi_getLogicalMap($bidi:bidi,$(int32_t * indexMap),&error_code);
         return error_code;
       }|] >>= ok
-      mpa <- newPrimArray len
-      copyPtrToMutablePrimArray mpa 0 indexMap len
-      unsafeFreezePrimArray mpa
+      peekPrimArray len indexMap
+
+getVisualMap :: PrimMonad m => Bidi (PrimState m) -> m (PrimArray Int32)
+getVisualMap bidi = stToPrim $ do
+  len <- fromIntegral <$> do
+    opts <- getReorderingOptions bidi
+    result_len <- getResultLength bidi
+    if opts .&. OPTION_INSERT_MARKS /= OPTION_DEFAULT
+    then max result_len <$> getProcessedLength bidi
+    else pure result_len
+  unsafeIOToPrim $
+    allocaArray len $ \ indexMap -> do
+      [C.block|UErrorCode {
+        UErrorCode error_code;
+        ubidi_getVisualMap($bidi:bidi,$(int32_t * indexMap),&error_code);
+        return error_code;
+      }|] >>= ok
+      peekPrimArray len indexMap
 
 getResultLength :: PrimMonad m => Bidi (PrimState m) -> m Int32
 getResultLength bidi = unsafeIOToPrim [C.exp|int32_t { ubidi_getProcessedLength($bidi:bidi) }|]
@@ -522,6 +624,23 @@ getLevels bidi = stToPrim $ do
     alloca $ \pErrorCode -> do
        levels <- [C.exp|const UBiDiLevel * { ubidi_getLevels($bidi:bidi, $(UErrorCode * pErrorCode)) }|]
        peek pErrorCode >>= ok
-       mpa <- newPrimArray len
-       copyPtrToMutablePrimArray mpa 0 levels len
-       unsafeFreezePrimArray mpa
+       peekPrimArray len levels
+
+reorderLogical :: PrimArray Level -> PrimArray Int32
+reorderLogical pa = unsafePerformIO $
+  withPrimArrayLen pa $ \n@(fromIntegral -> len) levels ->
+    allocaArray n $ \indexMap ->
+      [C.block|void {
+        ubidi_reorderLogical($(const UBiDiLevel * levels),$(int32_t len),$(int32_t * indexMap));
+      }|] *> peekPrimArray n indexMap
+
+reorderVisual :: PrimArray Level -> PrimArray Int32
+reorderVisual pa = unsafePerformIO $
+  withPrimArrayLen pa $ \n@(fromIntegral -> len) levels ->
+    allocaArray n $ \indexMap ->
+      [C.block|void {
+        ubidi_reorderVisual($(const UBiDiLevel * levels),$(int32_t len),$(int32_t * indexMap));
+      }|] *> peekPrimArray n indexMap
+
+getCustomizedClass :: PrimMonad m => Bidi (PrimState m) -> Char -> m CharDirection
+getCustomizedClass bidi (fromIntegral . fromEnum -> c) = unsafeIOToPrim [C.exp|UCharDirection { ubidi_getCustomizedClass($bidi:bidi, $(UChar32 c)) }|]
