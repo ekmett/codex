@@ -5,22 +5,24 @@ harfbuzz-icu
 
 This package lets ICU supply the unicode tables needed by harfbuzz.
 
-In addition to installing icu4c and harfbuzz, 
+On a mac:
 
 ```
 $ brew install icu4c harfbuzz
 ```
 
-to get this to run on a mac you may need to supply some additional help. In my case this consisted of
-the statement:
+The cabal file uses `pkg-config` to find these on all platforms except for a Mac.
+
+Because Apple ships a crippled subset of ICU, the install for `icu4c` is keg-only. This means that `pkg-config`
+can't find it without assistance.
+
+We try to be clever and find it ourselves, but in the event that we screw up, you can tell `pkg-config` about
+icu4c yourself and then tell us to trust `pkg-config`.
 
 ```
 $ export PKG_CONFIG_PATH="/usr/local/opt/icu4c/lib/pkgconfig:$PKG_CONFIG_PATH"
+$ cabal new-install harfbuzz-icu -ftrust-darwin-pkg-config
 ```
-
-before `pkg-config` could locate everything needed to link against the `harfbuzz-icu` library.
-
-This statement is actually suggested by the output of `brew info icu4c`.
 
 Contact Information
 -------------------

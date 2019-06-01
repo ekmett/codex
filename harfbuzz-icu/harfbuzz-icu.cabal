@@ -20,12 +20,24 @@ source-repository head
   type: git
   location: https://github.com/ekmett/codex
 
+flag trust-darwin-pkg-config
+  description:
+    On OSX, trust pkg-config to find harfbuzz-icu's icu4c dependency rather than try to find it ourselves. You will probably something like
+    .
+    @
+    $ export PKG_CONFIG_PATH=/usr/local/opt/icu4c/lib/pkgconfig
+    @
+    .
+    to build. On other platforms this flag has no effect.
+  default: False
+  manual: True
+
 library
   default-language: Haskell2010
   ghc-options:
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
     -Wredundant-constraints -Widentities -Wmissing-export-lists
-  if os(darwin)
+  if os(darwin) && !flag(trust-darwin-pkg-config)
     -- icu4c doesn't get installed in pkgconfig on a mac by default
     -- manually add the path, like text-icu does.
     extra-lib-dirs: /usr/local/opt/icu4c/lib
