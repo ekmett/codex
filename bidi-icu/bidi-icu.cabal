@@ -1,5 +1,5 @@
 cabal-version: 2.2
-name: bidi
+name: bidi-icu
 version: 0
 synopsis: The unicode bidirectional algorithm via ICU
 description: The unicode bidirectional algorithm via ICU
@@ -40,7 +40,7 @@ library
   else
     pkgconfig-depends: icu-uc
   build-depends: containers >= 0.6, ghc-prim, inline-c, template-haskell, transformers
-  exposed-modules: Data.Text.Bidi
+  exposed-modules: Data.Text.ICU.Bidi
 
 test-suite spec
   import: base
