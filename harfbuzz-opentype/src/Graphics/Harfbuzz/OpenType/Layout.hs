@@ -60,7 +60,7 @@ module Graphics.Harfbuzz.OpenType.Layout
 , pattern LAYOUT_NO_VARIATIONS_INDEX
 ) where
 
-import Control.Monad.IO.Class
+import Control.Monad.Primitive
 import Data.Functor ((<&>))
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
@@ -107,19 +107,19 @@ tags_to_script_and_language script_tag language_tag = unsafeLocalState $
 -- | Fetches a list of all feature-lookup indexes in the specified face's GSUB table or GPOS table, underneath the specified scripts,
 -- languages, and features. If no list of scripts is provided, all scripts will be queried. If no list of languages is provided, all
 -- languages will be queried. If no list of features is provided, all features will be queried.
-layout_collect_lookups :: MonadIO m => Face -> Tag -> Maybe [Tag] -> Maybe [Tag] -> Maybe [Tag] -> Set -> m ()
-layout_collect_lookups face table_tag scripts languages features lookup_indices = liftIO
+layout_collect_lookups :: PrimMonad m => Face (PrimState m) -> Tag -> Maybe [Tag] -> Maybe [Tag] -> Maybe [Tag] -> Set (PrimState m) -> m ()
+layout_collect_lookups face table_tag scripts languages features lookup_indices = unsafeIOToPrim
   [C.block|void { hb_ot_layout_collect_lookups( $face:face, $(hb_tag_t table_tag), $maybe-tags:scripts, $maybe-tags:languages, $maybe-tags:features, $set:lookup_indices);}|]
 
 -- | Fetches a list of all feature indexes in the specified face's GSUB table or GPOS table, underneath the specified scripts,
 -- languages, and features. If no list of scripts is provided, all scripts will be queried. If no list of languages is provided,
 -- all languages will be queried. If no list of features is provided, all features will be queried.
-layout_collect_features :: MonadIO m => Face -> Tag -> Maybe [Tag] -> Maybe [Tag] -> Maybe [Tag] -> Set -> m ()
-layout_collect_features face table_tag scripts languages features feature_indices = liftIO
+layout_collect_features :: PrimMonad m => Face (PrimState m) -> Tag -> Maybe [Tag] -> Maybe [Tag] -> Maybe [Tag] -> Set (PrimState m) -> m ()
+layout_collect_features face table_tag scripts languages features feature_indices = unsafeIOToPrim
   [C.block|void { hb_ot_layout_collect_features( $face:face, $(hb_tag_t table_tag), $maybe-tags:scripts, $maybe-tags:languages, $maybe-tags:features, $set:feature_indices);}|]
 
 -- | Fetches a list of the characters defined as having a variant under the specified "Character Variant" ("cvXX") feature tag.
-layout_feature_get_characters :: MonadIO m => Face -> Tag -> Int -> m [Codepoint]
+layout_feature_get_characters :: PrimMonad m => Face (PrimState m) -> Tag -> Int -> m [Codepoint]
 layout_feature_get_characters face table_tag (fromIntegral -> feature_index) = pump 1024 $ \ start_offset char_count ->
   allocaArray (fromIntegral char_count) $ \ pcharacters ->
     with char_count $ \pchar_count -> do
@@ -129,7 +129,7 @@ layout_feature_get_characters face table_tag (fromIntegral -> feature_index) = p
       pure (n, actual_char_count, cs)
 
 -- | Fetches a list of all lookups enumerated for the specified feature, in the specified face's GSUB table or GPOS table.
-layout_feature_get_lookups :: MonadIO m => Face -> Tag -> Int -> m [Int]
+layout_feature_get_lookups :: PrimMonad m => Face (PrimState m) -> Tag -> Int -> m [Int]
 layout_feature_get_lookups face table_tag (fromIntegral -> feature_index) = pump 256 $ \start_offset lookup_count ->
   allocaArray (fromIntegral lookup_count) $ \plookup_indices ->
     with lookup_count $ \plookup_count -> do
@@ -139,8 +139,8 @@ layout_feature_get_lookups face table_tag (fromIntegral -> feature_index) = pump
       pure (n, actual_lookup_count, fromIntegral <$> is)
 
 -- | Tag = TAG_GSUB or TAG_POS
-layout_feature_get_name_ids :: MonadIO m => Face -> Tag -> Int -> m (Maybe (Name, Name, Name, Int, Name))
-layout_feature_get_name_ids face table_tag (fromIntegral -> feature_index) = liftIO $
+layout_feature_get_name_ids :: PrimMonad m => Face (PrimState m) -> Tag -> Int -> m (Maybe (Name, Name, Name, Int, Name))
+layout_feature_get_name_ids face table_tag (fromIntegral -> feature_index) = unsafeIOToPrim $
   allocaArray 4 $ \ pids ->
     alloca $ \pnum_named_parameters -> do
       b <- [C.block|hb_bool_t {
@@ -150,7 +150,7 @@ layout_feature_get_name_ids face table_tag (fromIntegral -> feature_index) = lif
       if cbool b then fmap Just $ (,,,,) <$> peek pids <*> peek (advancePtr pids 1) <*> peek (advancePtr pids 2) <*> (fromIntegral <$> peek pnum_named_parameters) <*> peek (advancePtr pids 3)
       else pure Nothing
 
-layout_feature_with_variations_get_lookups :: MonadIO m => Face -> Tag -> Int -> Int -> m [Int]
+layout_feature_with_variations_get_lookups :: PrimMonad m => Face (PrimState m) -> Tag -> Int -> Int -> m [Int]
 layout_feature_with_variations_get_lookups face table_tag (fromIntegral -> feature_index) (fromIntegral -> variations_index) = pump 256 $ \start_offset lookup_count ->
   allocaArray (fromIntegral lookup_count) $ \ plookup_indices ->
     with lookup_count $ \plookup_count -> do
@@ -159,7 +159,7 @@ layout_feature_with_variations_get_lookups face table_tag (fromIntegral -> featu
       cs <- peekArray (fromIntegral actual_lookup_count) plookup_indices
       pure (n, actual_lookup_count, fromIntegral <$> cs)
 
-layout_get_attach_points :: MonadIO m => Face -> Codepoint -> m [Int]
+layout_get_attach_points :: PrimMonad m => Face (PrimState m) -> Codepoint -> m [Int]
 layout_get_attach_points face glyph = pump 8 $ \ start_offset point_count ->
   allocaArray (fromIntegral point_count) $ \ ppoint_array ->
     with point_count $ \ppoint_count -> do
@@ -168,13 +168,13 @@ layout_get_attach_points face glyph = pump 8 $ \ start_offset point_count ->
       cs <- peekArray (fromIntegral actual_point_count) ppoint_array
       pure (n, actual_point_count, fromIntegral <$> cs)
 
-layout_get_glyph_class :: MonadIO m => Face -> Codepoint -> m LayoutGlyphClass
-layout_get_glyph_class face glyph = liftIO [C.exp|hb_ot_layout_glyph_class_t { hb_ot_layout_get_glyph_class($face:face,$(hb_codepoint_t glyph))}|]
+layout_get_glyph_class :: PrimMonad m => Face (PrimState m) -> Codepoint -> m LayoutGlyphClass
+layout_get_glyph_class face glyph = unsafeIOToPrim [C.exp|hb_ot_layout_glyph_class_t { hb_ot_layout_get_glyph_class($face:face,$(hb_codepoint_t glyph))}|]
 
-layout_get_glyphs_in_class :: MonadIO m => Face -> LayoutGlyphClass -> Set -> m ()
-layout_get_glyphs_in_class face glyph_class set = liftIO [C.block|void { hb_ot_layout_get_glyphs_in_class($face:face,$(hb_ot_layout_glyph_class_t glyph_class),$set:set);}|]
+layout_get_glyphs_in_class :: PrimMonad m => Face (PrimState m) -> LayoutGlyphClass -> Set (PrimState m) -> m ()
+layout_get_glyphs_in_class face glyph_class set = unsafeIOToPrim [C.block|void { hb_ot_layout_get_glyphs_in_class($face:face,$(hb_ot_layout_glyph_class_t glyph_class),$set:set);}|]
 
-layout_get_ligature_carets :: Font -> Direction -> Codepoint -> IO [Position]
+layout_get_ligature_carets :: PrimMonad m => Font (PrimState m) -> Direction -> Codepoint -> m [Position]
 layout_get_ligature_carets font direction glyph = pump 4 $ \start_offset count ->
   allocaArray (fromIntegral count) $ \ parray ->
     with count $ \pcount -> do
@@ -191,8 +191,8 @@ data LayoutSizeParams = LayoutSizeParams
   , layout_size_params_range_end         :: {-# unpack #-} !Int
   } deriving (Eq,Ord,Show)
 
-layout_get_size_params :: MonadIO m => Face -> m (Maybe LayoutSizeParams) -- packaged for convenience
-layout_get_size_params face = liftIO $
+layout_get_size_params :: PrimMonad m => Face (PrimState m) -> m (Maybe LayoutSizeParams) -- packaged for convenience
+layout_get_size_params face = unsafeIOToPrim $
   allocaArray 4 $ \ ss ->
     alloca $ \ psubfamily_name_id -> do
       b <- [C.block|hb_bool_t {
@@ -208,22 +208,22 @@ layout_get_size_params face = liftIO $
         pure $ Just $ LayoutSizeParams design_size subfamily_id subfamily_name_id range_start range_end
       else pure Nothing
 
-layout_has_glyph_classes :: MonadIO m => Face -> m Bool
-layout_has_glyph_classes face = liftIO $ [C.exp|hb_bool_t { hb_ot_layout_has_glyph_classes($face:face)}|] <&> cbool
+layout_has_glyph_classes :: PrimMonad m => Face (PrimState m) -> m Bool
+layout_has_glyph_classes face = unsafeIOToPrim $ [C.exp|hb_bool_t { hb_ot_layout_has_glyph_classes($face:face)}|] <&> cbool
 
-layout_has_positioning :: MonadIO m => Face -> m Bool
-layout_has_positioning face = liftIO $ [C.exp|hb_bool_t { hb_ot_layout_has_positioning($face:face)}|] <&> cbool
+layout_has_positioning :: PrimMonad m => Face (PrimState m) -> m Bool
+layout_has_positioning face = unsafeIOToPrim $ [C.exp|hb_bool_t { hb_ot_layout_has_positioning($face:face)}|] <&> cbool
 
-layout_has_substitution :: MonadIO m => Face -> m Bool
-layout_has_substitution face = liftIO $ [C.exp|hb_bool_t { hb_ot_layout_has_substitution($face:face)}|] <&> cbool
+layout_has_substitution :: PrimMonad m => Face (PrimState m) -> m Bool
+layout_has_substitution face = unsafeIOToPrim $ [C.exp|hb_bool_t { hb_ot_layout_has_substitution($face:face)}|] <&> cbool
 
-layout_language_find_feature :: MonadIO m => Face -> Tag -> Int -> Int -> Tag -> m (Maybe Int)
-layout_language_find_feature face table_tag (fromIntegral -> script_index) (fromIntegral -> language_index) feature = liftIO $
+layout_language_find_feature :: PrimMonad m => Face (PrimState m) -> Tag -> Int -> Int -> Tag -> m (Maybe Int)
+layout_language_find_feature face table_tag (fromIntegral -> script_index) (fromIntegral -> language_index) feature = unsafeIOToPrim $
   alloca $ \pfeature_index -> do
     b <- [C.exp|hb_bool_t { hb_ot_layout_language_find_feature($face:face,$(hb_tag_t table_tag),$(unsigned int script_index),$(unsigned int language_index),$(hb_tag_t feature),$(unsigned int * pfeature_index))}|]
     if cbool b then Just . fromIntegral <$> peek pfeature_index else pure Nothing
 
-layout_language_get_feature_indexes :: MonadIO m => Face -> Tag -> Int -> Int -> m [Int]
+layout_language_get_feature_indexes :: PrimMonad m => Face (PrimState m) -> Tag -> Int -> Int -> m [Int]
 layout_language_get_feature_indexes face table_tag (fromIntegral -> script_index) (fromIntegral -> language_index) = pump 10 $ \ start_offset count ->
   allocaArray (fromIntegral count) $ \ parray ->
     with count $ \pcount -> do
@@ -232,7 +232,7 @@ layout_language_get_feature_indexes face table_tag (fromIntegral -> script_index
       cs <- peekArray (fromIntegral actual_count) parray
       pure (n, actual_count, fromIntegral <$> cs)
 
-layout_language_get_feature_tags :: MonadIO m => Face -> Tag -> Int -> Int -> m [Tag]
+layout_language_get_feature_tags :: PrimMonad m => Face (PrimState m) -> Tag -> Int -> Int -> m [Tag]
 layout_language_get_feature_tags face table_tag (fromIntegral -> script_index) (fromIntegral -> language_index) = pump 10 $ \ start_offset count ->
   allocaArray (fromIntegral count) $ \ parray ->
     with count $ \pcount -> do
@@ -241,8 +241,8 @@ layout_language_get_feature_tags face table_tag (fromIntegral -> script_index) (
       cs <- peekArray (fromIntegral actual_count) parray
       pure (n, actual_count, cs)
 
-layout_table_select_script :: MonadIO m => Face -> Tag -> [Tag] -> m (Maybe (Int, Tag))
-layout_table_select_script face table_tag scripts = liftIO $
+layout_table_select_script :: PrimMonad m => Face (PrimState m) -> Tag -> [Tag] -> m (Maybe (Int, Tag))
+layout_table_select_script face table_tag scripts = unsafeIOToPrim $
   withArrayLen scripts $ \(fromIntegral -> script_count) pscripts ->
     alloca $ \pscript_index -> alloca $ \pchosen_script -> do
       b <- [C.exp|hb_bool_t { hb_ot_layout_table_select_script($face:face,$(hb_tag_t table_tag),$(unsigned int script_count),$(const hb_tag_t * pscripts),$(unsigned int * pscript_index),$(hb_tag_t * pchosen_script))}|]
@@ -250,28 +250,28 @@ layout_table_select_script face table_tag scripts = liftIO $
       then Just <$> do (,) . fromIntegral <$> peek pscript_index <*> peek pchosen_script
       else pure Nothing
 
-layout_language_get_required_feature :: MonadIO m => Face -> Tag -> Int -> Int -> m (Maybe (Int, Tag))
-layout_language_get_required_feature face table_tag (fromIntegral -> script_index) (fromIntegral -> language_index) = liftIO $
+layout_language_get_required_feature :: PrimMonad m => Face (PrimState m) -> Tag -> Int -> Int -> m (Maybe (Int, Tag))
+layout_language_get_required_feature face table_tag (fromIntegral -> script_index) (fromIntegral -> language_index) = unsafeIOToPrim $
   alloca $ \pfeature_index -> alloca $ \pfeature_tag -> do
     b <- [C.exp|hb_bool_t { hb_ot_layout_language_get_required_feature($face:face,$(hb_tag_t table_tag),$(unsigned int script_index),$(unsigned int language_index),$(unsigned int * pfeature_index),$(hb_tag_t * pfeature_tag))}|]
     if cbool b
     then Just <$> do (,) . fromIntegral <$> peek pfeature_index <*> peek pfeature_tag
     else pure Nothing
 
-layout_language_get_required_feature_index :: MonadIO m => Face -> Tag -> Int -> Int -> m (Maybe Int)
-layout_language_get_required_feature_index face table_tag (fromIntegral -> script_index) (fromIntegral -> language_index) = liftIO $
+layout_language_get_required_feature_index :: PrimMonad m => Face (PrimState m) -> Tag -> Int -> Int -> m (Maybe Int)
+layout_language_get_required_feature_index face table_tag (fromIntegral -> script_index) (fromIntegral -> language_index) = unsafeIOToPrim $
   alloca $ \pfeature_index -> do
     b <- [C.exp|hb_bool_t { hb_ot_layout_language_get_required_feature_index($face:face,$(hb_tag_t table_tag),$(unsigned int script_index),$(unsigned int language_index),$(unsigned int * pfeature_index))}|]
     if cbool b
     then Just . fromIntegral <$> peek pfeature_index
     else pure Nothing
 
-layout_lookup_collect_glyphs :: MonadIO m => Face -> Tag -> Int -> Maybe Set -> Maybe Set -> Maybe Set -> Maybe Set -> m ()
-layout_lookup_collect_glyphs face table_tag (fromIntegral -> lookup_index) glyphs_before glyphs_input glyphs_after glyphs_output = liftIO
+layout_lookup_collect_glyphs :: PrimMonad m => Face (PrimState m) -> Tag -> Int -> Maybe (Set (PrimState m)) -> Maybe (Set (PrimState m)) -> Maybe (Set (PrimState m)) -> Maybe (Set (PrimState m)) -> m ()
+layout_lookup_collect_glyphs face table_tag (fromIntegral -> lookup_index) glyphs_before glyphs_input glyphs_after glyphs_output = unsafeIOToPrim
   [C.block|void{hb_ot_layout_lookup_collect_glyphs($face:face,$(hb_tag_t table_tag),$(unsigned int lookup_index),$maybe-set:glyphs_before,$maybe-set:glyphs_input,$maybe-set:glyphs_after,$maybe-set:glyphs_output);}|]
 
-layout_table_find_feature_variations :: MonadIO m => Face -> Tag -> [Int] -> m (Maybe Int)
-layout_table_find_feature_variations face table_tag coords = liftIO $
+layout_table_find_feature_variations :: PrimMonad m => Face (PrimState m) -> Tag -> [Int] -> m (Maybe Int)
+layout_table_find_feature_variations face table_tag coords = unsafeIOToPrim $
   withArrayLen (fromIntegral <$> coords) $ \(fromIntegral -> len) pcoords ->
     alloca $ \pvariations_index -> do
       b <- [C.exp|hb_bool_t { hb_ot_layout_table_find_feature_variations($face:face,$(hb_tag_t table_tag),$(const int * pcoords),$(unsigned int len),$(unsigned int * pvariations_index))}|]
@@ -279,19 +279,19 @@ layout_table_find_feature_variations face table_tag coords = liftIO $
       then Just . fromIntegral <$> peek pvariations_index
       else pure Nothing
 
-layout_lookup_would_substitute :: MonadIO m => Face -> Int -> [Codepoint] -> Bool -> m Bool
-layout_lookup_would_substitute face (fromIntegral -> lookup_index) glyphs (boolc -> zero_context) = liftIO $
+layout_lookup_would_substitute :: PrimMonad m => Face (PrimState m) -> Int -> [Codepoint] -> Bool -> m Bool
+layout_lookup_would_substitute face (fromIntegral -> lookup_index) glyphs (boolc -> zero_context) = unsafeIOToPrim $
   withArrayLen glyphs $ \(fromIntegral -> len) pglyphs ->
     [C.exp|hb_bool_t { hb_ot_layout_lookup_would_substitute($face:face,$(unsigned int lookup_index),$(const hb_codepoint_t * pglyphs),$(unsigned int len),$(hb_bool_t zero_context))}|] <&> cbool
 
-layout_lookup_substitute_closure :: MonadIO m => Face -> Int -> Set -> m ()
-layout_lookup_substitute_closure face (fromIntegral -> lookup_index) glyphs = liftIO [C.block|void { hb_ot_layout_lookup_substitute_closure($face:face,$(unsigned int lookup_index),$set:glyphs);}|]
+layout_lookup_substitute_closure :: PrimMonad m => Face (PrimState m) -> Int -> Set (PrimState m) -> m ()
+layout_lookup_substitute_closure face (fromIntegral -> lookup_index) glyphs = unsafeIOToPrim [C.block|void { hb_ot_layout_lookup_substitute_closure($face:face,$(unsigned int lookup_index),$set:glyphs);}|]
 
 
-layout_lookups_substitute_closure :: MonadIO m => Face -> Set -> Set -> m ()
-layout_lookups_substitute_closure face lookups glyphs = liftIO [C.block|void { hb_ot_layout_lookups_substitute_closure($face:face,$set:lookups,$set:glyphs);}|]
+layout_lookups_substitute_closure :: PrimMonad m => Face (PrimState m) -> Set (PrimState m) -> Set (PrimState m) -> m ()
+layout_lookups_substitute_closure face lookups glyphs = unsafeIOToPrim [C.block|void { hb_ot_layout_lookups_substitute_closure($face:face,$set:lookups,$set:glyphs);}|]
 
-layout_script_get_language_tags :: MonadIO m => Face -> Tag -> Int -> m [Tag]
+layout_script_get_language_tags :: PrimMonad m => Face (PrimState m) -> Tag -> Int -> m [Tag]
 layout_script_get_language_tags face table_tag (fromIntegral -> script_index) = pump MAX_TAGS_PER_SCRIPT $ \start_offset count ->
   allocaArray (fromIntegral count) $ \ parray ->
     with count $ \pcount -> do
@@ -300,19 +300,19 @@ layout_script_get_language_tags face table_tag (fromIntegral -> script_index) = 
       cs <- peekArray (fromIntegral actual_count) parray
       pure (n, actual_count, cs)
 
-layout_script_select_language :: MonadIO m => Face -> Tag -> Int -> [Tag] -> m (Maybe Int)
-layout_script_select_language face table_tag (fromIntegral -> script_index) language_tags = liftIO $
+layout_script_select_language :: PrimMonad m => Face (PrimState m) -> Tag -> Int -> [Tag] -> m (Maybe Int)
+layout_script_select_language face table_tag (fromIntegral -> script_index) language_tags = unsafeIOToPrim $
   alloca $ \planguage_index ->
     withArrayLen language_tags $ \(fromIntegral -> len) planguage_tags ->  do
       b <- [C.exp|hb_bool_t { hb_ot_layout_script_select_language($face:face,$(hb_tag_t table_tag),$(unsigned int script_index),$(unsigned int len),$(const hb_tag_t * planguage_tags),$(unsigned int * planguage_index)) }|]
       if cbool b then Just . fromIntegral <$> peek planguage_index
       else pure Nothing
 
-layout_table_get_lookup_count :: MonadIO m => Face -> Tag -> m Int
-layout_table_get_lookup_count face table_tag = liftIO $
+layout_table_get_lookup_count :: PrimMonad m => Face (PrimState m) -> Tag -> m Int
+layout_table_get_lookup_count face table_tag = unsafeIOToPrim $
   [C.exp|unsigned int { hb_ot_layout_table_get_lookup_count($face:face,$(hb_tag_t table_tag))}|] <&> fromIntegral
 
-layout_table_get_script_tags :: MonadIO m => Face -> Tag -> m [Tag]
+layout_table_get_script_tags :: PrimMonad m => Face (PrimState m) -> Tag -> m [Tag]
 layout_table_get_script_tags face table_tag = pump MAX_TAGS_PER_SCRIPT $ \start_offset count ->
   allocaArray (fromIntegral count) $ \ parray ->
     with count $ \pcount -> do
@@ -321,7 +321,7 @@ layout_table_get_script_tags face table_tag = pump MAX_TAGS_PER_SCRIPT $ \start_
       cs <- peekArray (fromIntegral actual_count) parray
       pure (n, actual_count, cs)
 
-layout_table_get_feature_tags :: MonadIO m => Face -> Tag -> m [Tag]
+layout_table_get_feature_tags :: PrimMonad m => Face (PrimState m) -> Tag -> m [Tag]
 layout_table_get_feature_tags face table_tag = pump 8 $ \start_offset count ->
   allocaArray (fromIntegral count) $ \ parray ->
     with count $ \pcount -> do

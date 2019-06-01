@@ -5,15 +5,15 @@ module Graphics.Harfbuzz.OpenType.Private
 , withSelf
 ) where
 
-import Control.Monad.IO.Class
+import Control.Monad.Primitive
 import Data.Coerce
 import Data.Functor ((<&>))
 import Foreign.C.Types
 import Foreign.ForeignPtr
 import Foreign.Ptr
 
-pump :: MonadIO m => CUInt -> (CUInt -> CUInt -> IO (CUInt,CUInt,[a])) -> m [a]
-pump n f = liftIO $ do
+pump :: PrimMonad m => CUInt -> (CUInt -> CUInt -> IO (CUInt,CUInt,[a])) -> m [a]
+pump n f = unsafeIOToPrim $ do
   (tot,ret,cs) <- f 0 n
   if tot == ret then pure cs else f n (tot - n) <&> \(_,_,ds) -> cs ++ ds
 
