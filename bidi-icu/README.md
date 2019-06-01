@@ -1,7 +1,7 @@
-bidirectional
+bidi-icu
 =============
 
-[![Hackage](https://img.shields.io/hackage/v/bidirectional.svg)](https://hackage.haskell.org/package/bidirectional)
+[![Hackage](https://img.shields.io/hackage/v/bidi-icu.svg)](https://hackage.haskell.org/package/bidi-icu)
 
 This package provides an implementation of the Unicode bidirectional algorithm by leaning on the ICU library.
 
