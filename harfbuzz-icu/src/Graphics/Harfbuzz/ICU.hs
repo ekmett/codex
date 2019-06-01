@@ -20,7 +20,7 @@ module Graphics.Harfbuzz.ICU
 , harfbuzzIcuCtx
 ) where
 
-import Control.Monad.IO.Class (MonadIO(liftIO))
+import Control.Monad.Primitive
 import qualified Data.Map as Map
 import Foreign.C.Types (CInt)
 import Foreign.Storable
@@ -41,8 +41,8 @@ C.context $ C.baseCtx <> harfbuzzCtx <> mempty
 C.include "<hb.h>"
 C.include "<hb-icu.h>"
 
-icu_get_unicode_funcs :: MonadIO m => m UnicodeFuncs
-icu_get_unicode_funcs = liftIO $ do
+icu_get_unicode_funcs :: PrimMonad m => m (UnicodeFuncs (PrimState m))
+icu_get_unicode_funcs = unsafeIOToPrim $ do
   [C.exp|hb_unicode_funcs_t * { hb_unicode_funcs_reference(hb_icu_get_unicode_funcs()) }|] >>= foreignUnicodeFuncs
 
 icu_script_from_script :: Script -> IcuScript
