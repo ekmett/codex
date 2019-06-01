@@ -20,12 +20,17 @@ source-repository head
   type: git
   location: https://github.com/ekmett/codex
 
-library
+common base
   default-language: Haskell2010
-  build-tool-depends: hsc2hs:hsc2hs
   ghc-options:
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
     -Wredundant-constraints -Widentities -Wmissing-export-lists
+  build-depends: base >= 4.11 && < 5, data-default, primitive, text, vector
+
+library
+  import: base
+  hs-source-dirs: src
+  build-tool-depends: hsc2hs:hsc2hs
   if os(darwin)
     -- brew does not add icu-uc to pkg-config, because Apple
     -- ships a subset of ICU itself.
@@ -34,16 +39,12 @@ library
     extra-libraries: icuuc
   else
     pkgconfig-depends: icu-uc
-  build-depends:
-    base >= 4.11 && < 5,
-    containers >= 0.6,
-    data-default,
-    ghc-prim,
-    inline-c,
-    primitive,
-    template-haskell,
-    text,
-    transformers,
-    vector
-  hs-source-dirs: src
+  build-depends: containers >= 0.6, ghc-prim, inline-c, template-haskell, transformers
   exposed-modules: Data.Text.Bidirectional
+
+test-suite spec
+  import: base
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is: Spec.hs
+  build-depends: bidirectional, hspec, tasty, tasty-hspec

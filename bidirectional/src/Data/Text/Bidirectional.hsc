@@ -128,6 +128,7 @@ module Data.Text.Bidirectional
 
 -- * Internal
 , UBiDi
+, UErrorCode(..)
 ) where
 
 import Control.Exception
@@ -157,6 +158,7 @@ import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
 import Foreign.Marshal.Unsafe (unsafeLocalState)
+import Foreign.Marshal.Utils
 import Foreign.Ptr
 import Foreign.Storable
 import GHC.Arr (Ix)
@@ -242,6 +244,9 @@ instance Default WriteOptions where
 
 newtype UErrorCode = UErrorCode Int32
   deriving (Eq,Ord,Show,Num,Enum,Real,Integral,Storable)
+
+instance Default UErrorCode where
+  def = UErrorCode 0
 
 -- * Reordering Options
 
@@ -394,7 +399,7 @@ open = unsafeIOToPrim $ [C.exp|UBiDi * { ubidi_open() }|] >>= foreignBidi
 
 openSized :: PrimMonad m => Int32 -> Int32 -> m (Bidi (PrimState m))
 openSized maxLength maxRunCount = unsafeIOToPrim $
-  alloca $ \pErrorCode -> do
+  with def $ \pErrorCode -> do
     bidi <- [C.exp|UBiDi * { ubidi_openSized($(int32_t maxLength),$(int32_t maxRunCount),$(UErrorCode * pErrorCode)) }|]
     peek pErrorCode >>= ok
     foreignBidi bidi
@@ -438,7 +443,7 @@ setContext bidi prologue_text epilogue_text = unsafeIOToPrim $ do
   useAsPtr prologue_text $ \prologue (fromIntegral -> prologue_len) ->
     useAsPtr epilogue_text $ \epilogue (fromIntegral -> epilogue_len) ->
       [C.block|UErrorCode {
-        UErrorCode error_code;
+        UErrorCode error_code = 0;
         ubidi_setContext(
           $bidi:bidi,
           $(const UChar * prologue),
@@ -460,7 +465,7 @@ setPara bidi text paraLevel els = unsafeIOToPrim $
       u <$ copyPrimArrayToPtr u (PrimArray vba) vofs vlen -- missing from Data.Vector
     let n = fromIntegral i16
     [C.block|UErrorCode {
-      UErrorCode error_code;
+      UErrorCode error_code =0;
       ubidi_setPara(
         $bidi:bidi,
         $(const UChar * t),
@@ -477,7 +482,7 @@ setPara bidi text paraLevel els = unsafeIOToPrim $
 setLine :: PrimMonad m => Bidi (PrimState m) -> Int32 -> Int32 -> Bidi (PrimState m) -> m ()
 setLine para start limit line = unsafeIOToPrim $ do
   [C.block|UErrorCode {
-    UErrorCode error_code;
+    UErrorCode error_code = 0;
     ubidi_setLine(
       $bidi:para,
       $(int32_t start),
@@ -513,7 +518,7 @@ getParagraph :: PrimMonad m => Bidi (PrimState m) -> Int32 -> m (Int32, Int32, I
 getParagraph bidi charIndex = unsafeIOToPrim $
   allocaArray 2 $ \pParaStart ->
     alloca $ \pParaLevel ->
-      alloca $ \pErrorCode -> do
+      with def $ \pErrorCode -> do
         result <- [C.block|int32_t {
           int32_t * pPara = $(int32_t * pParaStart);
           return ubidi_getParagraph(
@@ -537,7 +542,7 @@ getParagraphByIndex bidi paragraphIndex = unsafeIOToPrim $
     alloca $ \pParaLevel -> do
         [C.block|UErrorCode {
           int32_t * pPara = $(int32_t * pParaStart);
-          UErrorCode error_code;
+          UErrorCode error_code = 0;
           ubidi_getParagraph(
             $bidi:bidi,
             $(int32_t paragraphIndex),
@@ -573,7 +578,7 @@ getLogicalRun bidi logicalPosition = unsafeIOToPrim $
 
 countRuns :: PrimMonad m => Bidi (PrimState m) -> m Int32
 countRuns bidi = unsafeIOToPrim $
-  alloca $ \pErrorCode ->
+  with def $ \pErrorCode -> do
     [C.exp|int32_t {
       ubidi_countRuns($bidi:bidi, $(UErrorCode * pErrorCode))
     }|] <* (peek pErrorCode >>= ok)
@@ -613,14 +618,14 @@ invertMap pa = unsafePerformIO $ do -- use a full heavy weight dup check as this
 
 getVisualIndex :: PrimMonad m => Bidi (PrimState m) -> Int32 -> m Int32
 getVisualIndex bidi logicalIndex = unsafeIOToPrim $
-  alloca $ \pErrorCode ->
+  with def $ \pErrorCode ->
     [C.exp|int32_t {
       ubidi_getVisualIndex($bidi:bidi,$(int32_t logicalIndex),$(UErrorCode * pErrorCode))
     }|] <* (peek pErrorCode >>= ok)
 
 getLogicalIndex :: PrimMonad m => Bidi (PrimState m) -> Int32 -> m Int32
 getLogicalIndex bidi visualIndex = unsafeIOToPrim $
-  alloca $ \pErrorCode ->
+  with def $ \pErrorCode ->
     [C.exp|int32_t {
       ubidi_getLogicalIndex($bidi:bidi,$(int32_t visualIndex),$(UErrorCode * pErrorCode))
     }|] <* (peek pErrorCode >>= ok)
@@ -636,7 +641,7 @@ getLogicalMap bidi = stToPrim $ do
   unsafeIOToPrim $
     allocaArray len $ \ indexMap -> do
       [C.block|UErrorCode {
-        UErrorCode error_code;
+        UErrorCode error_code = 0;
         ubidi_getLogicalMap($bidi:bidi,$(int32_t * indexMap),&error_code);
         return error_code;
       }|] >>= ok
@@ -653,7 +658,7 @@ getVisualMap bidi = stToPrim $ do
   unsafeIOToPrim $
     allocaArray len $ \ indexMap -> do
       [C.block|UErrorCode {
-        UErrorCode error_code;
+        UErrorCode error_code = 0;
         ubidi_getVisualMap($bidi:bidi,$(int32_t * indexMap),&error_code);
         return error_code;
       }|] >>= ok
@@ -669,7 +674,7 @@ getLevels :: PrimMonad m => Bidi (PrimState m) -> m (PrimArray Level)
 getLevels bidi = stToPrim $ do
   len <- fromIntegral <$> getProcessedLength bidi
   unsafeIOToPrim $
-    alloca $ \pErrorCode -> do
+    with def $ \pErrorCode -> do
        levels <- [C.exp|const UBiDiLevel * { ubidi_getLevels($bidi:bidi, $(UErrorCode * pErrorCode)) }|]
        peek pErrorCode >>= ok
        peekPrimArray len levels
@@ -699,7 +704,7 @@ setClassCallback bidi newFn newCtx = unsafeIOToPrim $
   alloca $ \oldFn ->
     alloca $ \oldCtx -> do
       [C.block|UErrorCode {
-        UErrorCode error_code;
+        UErrorCode error_code = 0;
         ubidi_setClassCallback(
           $bidi:bidi,
           $(UBiDiClassCallbackPtr newFn),
@@ -730,7 +735,7 @@ writeReordered bidi options = stToPrim $ do
          else getProcessedLength bidi
   unsafeIOToPrim $
     allocaArray len $ \ dest ->
-      alloca $ \pErrorCode -> do
+      with def $ \pErrorCode -> do
         actual_len <- [C.exp|int32_t {
           ubidi_writeReordered($bidi:bidi,$(UChar * dest),$(int32_t destSize),$(WriteOptions options),$(UErrorCode * pErrorCode))
         }|]
@@ -741,7 +746,7 @@ writeReverse :: Text -> WriteOptions -> Text
 writeReverse t options = unsafePerformIO $ do
   useAsPtr t $ \src i16@(fromIntegral -> n) ->
     allocaArray (fromIntegral i16) $ \ dest ->
-      alloca $ \pErrorCode -> do
+      with def $ \pErrorCode -> do
         actual_len <- [C.block|int32_t {
           int32_t len = $(int32_t n);
           return ubidi_writeReverse($(const UChar * src),len,$(UChar * dest),len,$(WriteOptions options),$(UErrorCode * pErrorCode));
