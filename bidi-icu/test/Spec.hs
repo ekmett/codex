@@ -5,7 +5,7 @@ module Main
 ) where
 
 -- import Data.Default
-import Data.Text.Bidirectional
+import Data.Text.ICU.Bidi
 import System.Mem
 import Test.Hspec as Hspec
 import Test.Tasty

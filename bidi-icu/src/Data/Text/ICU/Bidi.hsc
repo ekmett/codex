@@ -16,7 +16,7 @@
 {-# language UnboxedTuples #-}
 {-# options_ghc -Wno-missing-pattern-synonym-signatures #-}
 
-module Data.Text.Bidi
+module Data.Text.ICU.Bidi
 ( Bidi(..)
 , pattern MAP_NOWHERE
 
