@@ -9,6 +9,8 @@
 {-# language ScopedTypeVariables #-}
 {-# language GeneralizedNewtypeDeriving #-}
 {-# language TypeApplications #-}
+{-# language BangPatterns #-}
+{-# language MagicHash #-} -- has fun interactions with hsc2hs!
 {-# language PolyKinds #-}
 {-# language DataKinds #-}
 {-# language UnboxedTuples #-}
@@ -35,6 +37,11 @@ module Data.Text.Bidirectional
 , countParagraphs
 , getParagraph
 , getParagraphByIndex
+, getLevelAt
+, getLogicalRun
+, countRuns
+, getVisualRun
+, invertMap
 
 --
 , Level
@@ -88,11 +95,14 @@ import Foreign.Ptr
 import Foreign.Storable
 import GHC.Arr (Ix)
 import GHC.Generics (Generic)
+import GHC.Prim
+import GHC.Types
 import qualified Language.C.Inline as C
 import qualified Language.C.Inline.Context as C
 import qualified Language.C.Inline.HaskellIdentifier as C
 import qualified Language.C.Types as C
 import qualified Language.Haskell.TH as TH
+import System.IO.Unsafe (unsafePerformIO)
 
 #ifndef HLINT
 #include "unicode/utypes.h"
@@ -375,8 +385,65 @@ getParagraphByIndex bidi paragraphIndex = unsafeIOToPrim $
              <*> peek pParaLevel
 
 
+getLevelAt :: PrimMonad m => Bidi (PrimState m) -> Int32 -> m Level
+getLevelAt bidi charIndex = unsafeIOToPrim [C.exp|UBiDiLevel { ubidi_getLevelAt($bidi:bidi,$(int32_t charIndex)) }|]
 
--- getLevelAt :: Bidi -> Int32 -> m Level
--- getLogicalRun
--- getVisualRun
--- getVisualIndex
+getLogicalRun :: PrimMonad m => Bidi (PrimState m) -> Int32 -> m (Int32, Level)
+getLogicalRun bidi logicalPosition = unsafeIOToPrim $
+  alloca $ \pLevel ->
+    (,) <$> [C.block|int32_t {
+              int32_t logicalLimit;
+              ubidi_getLogicalRun(
+                $bidi:bidi,
+                $(int32_t logicalPosition),
+                &logicalLimit,
+                $(UBiDiLevel * pLevel)
+              );
+              return logicalLimit;
+            }|]
+        <*> peek pLevel
+
+countRuns :: PrimMonad m => Bidi (PrimState m) -> m Int32
+countRuns bidi = unsafeIOToPrim $
+  alloca $ \pErrorCode -> do
+    result <- [C.exp|int32_t { ubidi_countRuns($bidi:bidi, $(UErrorCode * pErrorCode)) }|]
+    peek pErrorCode >>= ok
+    pure result
+
+-- | Get one run's logical start, length, and directionality which will be LTR or RTL.
+--
+-- 'countRuns' should be called before the runs are retrieved
+getVisualRun :: PrimMonad m => Bidi (PrimState m) -> Int32 -> m (Int32, Int32, Direction)
+getVisualRun bidi runIndex = unsafeIOToPrim $
+  allocaArray 2 $ \pLogicalStart -> do
+    dir <- [C.block|UBiDiDirection {
+      int32_t * pLogicalStart = $(int32_t * pLogicalStart);
+      return ubidi_getVisualRun(
+        $bidi:bidi,
+        $(int32_t runIndex),
+        pLogicalStart,
+        pLogicalStart+1 /* pLength */
+			);
+    }|] <&> toEnum . fromIntegral
+    logical_start <- peek pLogicalStart
+    len <- peek (advancePtr pLogicalStart 1) -- pLength
+    pure (logical_start, len, dir)
+
+-- fun with name mangling
+copyPtrToMutablePrimArray :: forall m a. (PrimMonad m, Prim a) => MutablePrimArray (PrimState m) a -> Int -> Ptr a -> Int -> m ()
+copyPtrToMutablePrimArray (MutablePrimArray mba) (I## ofs) (Ptr addr) (I## n) =
+  primitive_ $ \s -> case sizeOf## @a undefined of
+    sz -> copyAddrToByteArray## addr mba (ofs *## sz) (n *## sz) s
+
+invertMap :: PrimArray Int32 -> PrimArray Int32
+invertMap pa = unsafePerformIO $ do -- use a full heavy weight dup check as this can be slow for large maps
+  let !n = sizeofPrimArray pa
+  let !m = fromIntegral (foldlPrimArray' max (-1) pa + 1)
+  allocaArray (n+m) $ \srcMap -> do
+    let dstMap = advancePtr srcMap n
+    copyPrimArrayToPtr srcMap pa 0 n
+    let len = fromIntegral n
+    [C.block|void { ubidi_invertMap($(int32_t * srcMap),$(int32_t * dstMap),$(int32_t len)); }|]
+    dst <- newPrimArray m
+    copyPtrToMutablePrimArray dst 0 dstMap m
+    unsafeFreezePrimArray dst
