@@ -16,7 +16,7 @@
 {-# language UnboxedTuples #-}
 {-# options_ghc -Wno-missing-pattern-synonym-signatures #-}
 
-module Data.Text.Bidirectional
+module Data.Text.Bidi
 ( Bidi(..)
 , pattern MAP_NOWHERE
 
@@ -596,7 +596,7 @@ getVisualRun bidi runIndex = unsafeIOToPrim $
         $(int32_t runIndex),
         pLogicalStart,
         pLogicalStart+1 /* pLength */
-			);
+      );
     }|] <&> toEnum . fromIntegral
     logical_start <- peek pLogicalStart
     len <- peek (advancePtr pLogicalStart 1) -- pLength
