@@ -19,6 +19,7 @@ module Graphics.FreeType.Face
 , done_face
 
 -- * Using the face
+, get_font_format
 , attach_file
 , get_char_index
 , get_first_char
@@ -26,10 +27,11 @@ module Graphics.FreeType.Face
 , get_name_index
 , set_pixel_sizes
 , load_char
+, has_multiple_masters
 ) where
 
-import Data.ByteString
--- import Data.Functor ((<&>))
+import Data.ByteString as ByteString
+import Data.Functor ((<&>))
 import Data.Int
 import Data.Word
 import Control.Monad.IO.Class
@@ -43,6 +45,7 @@ C.include "<ft2build.h>"
 C.verbatim "#include FT_FREETYPE_H"
 C.verbatim "#include FT_MODULE_H"
 C.verbatim "#include FT_TYPES_H"
+C.verbatim "#include FT_FONT_FORMATS_H"
 C.include "ft.h"
 
 -- this will use fixed memory allocation functions, but allows us to avoid the FT_Init_FreeType and FT_Done_FreeType global mess.
@@ -104,3 +107,14 @@ get_name_index face name = liftIO [C.exp|FT_UInt { FT_Get_Name_Index($fptr-ptr:(
 
 load_char :: MonadIO m => Face -> Word32 -> Int32 -> m ()
 load_char face char_code load_flags = liftIO $ [C.exp|FT_Error { FT_Load_Char($fptr-ptr:(FT_Face face),$(FT_ULong char_code),$(FT_Int32 load_flags)) }|] >>= ok
+
+-- | This is a suitable form for use as an X11 @FONT_PROPERTY@.
+--
+-- Possible values are @"TrueType"@, @"Type 1"@, @"BDF"@, @"PCF"@, @"Type 42"@, @"CID Type 1"@, @"CFF"@, @"PFR"@, and @"Windows FNT"@.
+get_font_format :: MonadIO m => Face -> m ByteString
+get_font_format face = liftIO $
+  [C.exp|const char * { FT_Get_Font_Format($fptr-ptr:(FT_Face face)) }|] >>= ByteString.packCString
+
+has_multiple_masters :: MonadIO m => Face -> m Bool
+has_multiple_masters face = liftIO $
+  [C.exp|int { FT_HAS_MULTIPLE_MASTERS($fptr-ptr:(FT_Face face)) }|] <&> (/=0)
