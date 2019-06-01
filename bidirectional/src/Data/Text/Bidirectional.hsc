@@ -19,29 +19,29 @@ module Data.Text.Bidirectional
 ( Bidi(..)
 , open
 , openSized
-, getText
-, setInverse
-, isInverse
-, orderParagraphsLTR
-, isOrderParagraphsLTR
-, setReorderingMode
-, getReorderingMode
-, setContext
-, setPara
-, setLine
-, setReorderingOptions
-, getReorderingOptions
-, getDirection
-, getBaseDirection
-, getParaLevel
 , countParagraphs
-, getParagraph
-, getParagraphByIndex
+, countRuns
+, getBaseDirection
+, getDirection
 , getLevelAt
 , getLogicalRun
-, countRuns
+, getParaLevel
+, getParagraph
+, getParagraphByIndex
+, getReorderingMode
+, getReorderingOptions
+, getText
 , getVisualRun
 , invertMap
+, isInverse
+, isOrderParagraphsLTR
+, orderParagraphsLTR
+, setContext
+, setInverse
+, setLine
+, setPara
+, setReorderingMode
+, setReorderingOptions
 
 --
 , Level
@@ -447,3 +447,4 @@ invertMap pa = unsafePerformIO $ do -- use a full heavy weight dup check as this
     dst <- newPrimArray m
     copyPtrToMutablePrimArray dst 0 dstMap m
     unsafeFreezePrimArray dst
+
