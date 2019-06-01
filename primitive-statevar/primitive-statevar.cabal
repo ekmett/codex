@@ -1,0 +1,40 @@
+cabal-version: 2.2
+name: primitive-statevar
+version: 0
+synopsis: Generalized StateVars
+homepage: https://github.com/ekmett/codex/tree/master/primitive-statevar#readme
+license: BSD-2-Clause OR Apache-2.0
+license-file: LICENSE.md
+author: Edward Kmett
+maintainer: Edward Kmett <ekmett@gmail.com>
+copyright: Copyright (c) 2019 Edward Kmett
+stability: experimental
+category: FFI
+build-type: Simple
+description:
+  Generalizes Data.StateVar to an arbitrary PrimMonad.
+
+  The combinators supplied here are compatible with the types from
+  Data.StateVar.
+extra-doc-files:
+  README.md,
+  CHANGELOG.md
+
+source-repository head
+  type: git
+  location: https://github.com/ekmett/codex
+
+library
+  hs-source-dirs: src
+  default-language: Haskell2010
+  ghc-options:
+    -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+    -Wredundant-constraints -Widentities -Wmissing-export-lists
+  build-depends:
+    base >= 4.12 && < 5,
+    const,
+    primitive,
+    StateVar,
+    stm
+  exposed-modules:
+    Data.Primitive.StateVar

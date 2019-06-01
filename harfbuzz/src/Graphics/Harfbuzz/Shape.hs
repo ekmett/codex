@@ -27,7 +27,7 @@ module Graphics.Harfbuzz.Shape
 , shaper_from_string, shaper_to_string
 ) where
 
-import Control.Monad.IO.Class
+import Control.Monad.Primitive
 import Data.Functor ((<&>))
 import Foreign.C.Types
 import Foreign.Marshal.Array
@@ -40,39 +40,39 @@ import Graphics.Harfbuzz.Private
 C.context $ C.baseCtx <> harfbuzzCtx
 C.include "<hb.h>"
 
-shape :: MonadIO m => Font -> Buffer -> [Feature] -> m ()
-shape font buffer features = liftIO $
+shape :: PrimMonad m => Font (PrimState m) -> Buffer (PrimState m) -> [Feature] -> m ()
+shape font buffer features = unsafeIOToPrim $
   withArrayLen features $ \ (fromIntegral -> len) pfeatures ->
     [C.block|void{
       hb_shape($font:font,$buffer:buffer,$(const hb_feature_t * pfeatures),$(unsigned int len));
     }|]
 
-shape_full :: MonadIO m => Font -> Buffer -> [Feature] -> [Shaper] -> m ()
-shape_full font buffer features shapers = liftIO $
+shape_full :: PrimMonad m => Font (PrimState m) -> Buffer (PrimState m) -> [Feature] -> [Shaper] -> m ()
+shape_full font buffer features shapers = unsafeIOToPrim $
   withArrayLen features $ \ (fromIntegral -> len) pfeatures ->
     withArray0 SHAPER_INVALID shapers $ \ (castPtr -> pshapers) ->
       [C.block|void{
          hb_shape_full($font:font,$buffer:buffer,$(const hb_feature_t * pfeatures),$(unsigned int len),$(const char * const * pshapers));
       }|]
 
-shape_plan_create :: MonadIO m => Face -> SegmentProperties -> [Feature] -> [Shaper] -> m ShapePlan
-shape_plan_create face props features shapers = liftIO $
+shape_plan_create :: PrimMonad m => Face (PrimState m) -> SegmentProperties -> [Feature] -> [Shaper] -> m (ShapePlan (PrimState m))
+shape_plan_create face props features shapers = unsafeIOToPrim $
   withArrayLen features $ \ (fromIntegral -> len) pfeatures ->
     withArray0 SHAPER_INVALID shapers $ \ (castPtr -> pshapers) ->
       [C.exp|hb_shape_plan_t * {
          hb_shape_plan_create($face:face,$segment-properties:props,$(const hb_feature_t * pfeatures),$(unsigned int len),$(const char * const * pshapers))
       }|] >>= foreignShapePlan
 
-shape_plan_create_cached :: MonadIO m => Face -> SegmentProperties -> [Feature] -> [Shaper] -> m ShapePlan
-shape_plan_create_cached face props features shapers = liftIO $
+shape_plan_create_cached :: PrimMonad m => Face (PrimState m) -> SegmentProperties -> [Feature] -> [Shaper] -> m (ShapePlan (PrimState m))
+shape_plan_create_cached face props features shapers = unsafeIOToPrim $
   withArrayLen features $ \ (fromIntegral -> len) pfeatures ->
     withArray0 SHAPER_INVALID shapers $ \ (castPtr -> pshapers) ->
       [C.exp|hb_shape_plan_t * {
          hb_shape_plan_create_cached($face:face,$segment-properties:props,$(const hb_feature_t * pfeatures),$(unsigned int len),$(const char * const * pshapers))
       }|] >>= foreignShapePlan
 
-shape_plan_create2 :: MonadIO m => Face -> SegmentProperties -> [Feature] -> [Int] -> [Shaper] -> m ShapePlan
-shape_plan_create2 face props features coords shapers = liftIO $
+shape_plan_create2 :: PrimMonad m => Face (PrimState m) -> SegmentProperties -> [Feature] -> [Int] -> [Shaper] -> m (ShapePlan (PrimState m))
+shape_plan_create2 face props features coords shapers = unsafeIOToPrim $
   withArrayLen features $ \ (fromIntegral -> len) pfeatures ->
     withArrayLen (fromIntegral <$> coords) $ \ (fromIntegral -> num_coords) pcoords ->
       withArray0 SHAPER_INVALID shapers $ \ (castPtr -> pshapers) ->
@@ -85,8 +85,8 @@ shape_plan_create2 face props features coords shapers = liftIO $
              $(const char * const * pshapers))
         }|] >>= foreignShapePlan
 
-shape_plan_create_cached2 :: MonadIO m => Face -> SegmentProperties -> [Feature] -> [Int] -> [Shaper] -> m ShapePlan
-shape_plan_create_cached2 face props features coords shapers = liftIO $
+shape_plan_create_cached2 :: PrimMonad m => Face (PrimState m) -> SegmentProperties -> [Feature] -> [Int] -> [Shaper] -> m (ShapePlan (PrimState m))
+shape_plan_create_cached2 face props features coords shapers = unsafeIOToPrim $
   withArrayLen features $ \ (fromIntegral -> len) pfeatures ->
     withArrayLen (fromIntegral <$> coords) $ \ (fromIntegral -> num_coords) pcoords ->
       withArray0 SHAPER_INVALID shapers $ \ (castPtr -> pshapers) ->
@@ -99,12 +99,12 @@ shape_plan_create_cached2 face props features coords shapers = liftIO $
              $(const char * const * pshapers))
         }|] >>= foreignShapePlan
 
-shape_plan_execute :: MonadIO m => ShapePlan -> Font -> Buffer -> [Feature] -> m Bool
-shape_plan_execute plan font buffer features = liftIO $
+shape_plan_execute :: PrimMonad m => ShapePlan (PrimState m) -> Font (PrimState m) -> Buffer (PrimState m) -> [Feature] -> m Bool
+shape_plan_execute plan font buffer features = unsafeIOToPrim $
   withArrayLen features $ \ (fromIntegral -> len) pfeatures ->
     [C.exp|hb_bool_t {
       hb_shape_plan_execute($shape-plan:plan,$font:font,$buffer:buffer,$(const hb_feature_t * pfeatures),$(unsigned int len))
     }|] <&> cbool
 
-shape_plan_get_shaper :: MonadIO m => ShapePlan -> m Shaper
-shape_plan_get_shaper plan = liftIO $ [C.exp|const char * { hb_shape_plan_get_shaper($shape-plan:plan) }|] <&> Shaper
+shape_plan_get_shaper :: PrimMonad m => ShapePlan (PrimState m) -> m Shaper
+shape_plan_get_shaper plan = unsafeIOToPrim $ [C.exp|const char * { hb_shape_plan_get_shaper($shape-plan:plan) }|] <&> Shaper

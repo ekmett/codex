@@ -29,9 +29,9 @@ module Graphics.Harfbuzz.Face
 , face_upem -- statevar
 ) where
 
-import Control.Monad.IO.Class
+import Control.Monad.Primitive
 import Data.Functor ((<&>))
-import Data.StateVar
+import Data.Primitive.StateVar
 import Foreign.C.Types
 import Foreign.Ptr
 import qualified Language.C.Inline as C
@@ -44,65 +44,66 @@ C.context $ C.baseCtx <> harfbuzzCtx
 C.include "<hb.h>"
 C.include "HsFFI.h"
 
-face_builder_create :: MonadIO m => m Face
-face_builder_create = liftIO $ [C.exp|hb_face_t * { hb_face_builder_create() }|] >>= foreignFace
+face_builder_create :: PrimMonad m => m (Face (PrimState m))
+face_builder_create = unsafeIOToPrim $ [C.exp|hb_face_t * { hb_face_builder_create() }|] >>= foreignFace
 
-face_builder_add_table :: MonadIO m => Face -> Tag -> Blob -> m Bool
-face_builder_add_table f t b = liftIO $ [C.exp|hb_bool_t { hb_face_builder_add_table($face:f,$(hb_tag_t t),$blob:b) }|] <&> cbool
+face_builder_add_table :: PrimMonad m => Face (PrimState m) -> Tag -> Blob (PrimState m) -> m Bool
+face_builder_add_table f t b = unsafeIOToPrim $ [C.exp|hb_bool_t { hb_face_builder_add_table($face:f,$(hb_tag_t t),$blob:b) }|] <&> cbool
 
-face_reference_blob :: MonadIO m => Face -> m Blob
-face_reference_blob f = liftIO $ [C.exp|hb_blob_t * { hb_face_reference_blob($face:f) }|] >>= foreignBlob
+face_reference_blob :: PrimMonad m => Face (PrimState m) -> m (Blob (PrimState m))
+face_reference_blob f = unsafeIOToPrim $ [C.exp|hb_blob_t * { hb_face_reference_blob($face:f) }|] >>= foreignBlob
 
-face_reference_table :: MonadIO m => Face -> Tag -> m Blob
-face_reference_table f t = liftIO $ [C.exp|hb_blob_t * { hb_face_reference_table($face:f,$(hb_tag_t t)) }|] >>= foreignBlob
+face_reference_table :: PrimMonad m => Face (PrimState m) -> Tag -> m (Blob (PrimState m))
+face_reference_table f t = unsafeIOToPrim $ [C.exp|hb_blob_t * { hb_face_reference_table($face:f,$(hb_tag_t t)) }|] >>= foreignBlob
 
 -- add the unicode codepoints present in the face to the given set
-face_collect_unicodes :: MonadIO m => Face -> Set -> m ()
-face_collect_unicodes f s = liftIO [C.block|void { hb_face_collect_unicodes($face:f,$set:s); }|]
+face_collect_unicodes :: PrimMonad m => Face (PrimState m) -> Set (PrimState m) -> m ()
+face_collect_unicodes f s = unsafeIOToPrim [C.block|void { hb_face_collect_unicodes($face:f,$set:s); }|]
 
-face_collect_variation_selectors :: MonadIO m => Face -> Set -> m ()
-face_collect_variation_selectors f s = liftIO [C.block|void { hb_face_collect_variation_selectors($face:f,$set:s); }|]
+face_collect_variation_selectors :: PrimMonad m => Face (PrimState m) -> Set (PrimState m) -> m ()
+face_collect_variation_selectors f s = unsafeIOToPrim [C.block|void { hb_face_collect_variation_selectors($face:f,$set:s); }|]
 
-face_collect_variation_unicodes :: MonadIO m => Face -> Codepoint -> Set -> m ()
-face_collect_variation_unicodes f variation s = liftIO [C.block|void { hb_face_collect_variation_unicodes($face:f,$(hb_codepoint_t variation),$set:s); }|]
+face_collect_variation_unicodes :: PrimMonad m => Face (PrimState m) -> Codepoint -> Set (PrimState m) -> m ()
+face_collect_variation_unicodes f variation s = unsafeIOToPrim [C.block|void { hb_face_collect_variation_unicodes($face:f,$(hb_codepoint_t variation),$set:s); }|]
 
-face_count :: MonadIO m => Blob -> m Int
-face_count b = liftIO $ [C.exp|int { hb_face_count($blob:b) }|] <&> fromIntegral
+face_count :: PrimMonad m => Blob (PrimState m) -> m Int
+face_count b = unsafeIOToPrim $ [C.exp|int { hb_face_count($blob:b) }|] <&> fromIntegral
 
-face_create :: MonadIO m => Blob -> Int -> m Face
-face_create b (fromIntegral -> i) = liftIO $
+face_create :: PrimMonad m => Blob (PrimState m) -> Int -> m (Face (PrimState m))
+face_create b (fromIntegral -> i) = unsafeIOToPrim $
   [C.exp|hb_face_t * { hb_face_create($blob:b,$(int i)) }|] >>= foreignFace
 
-face_create_for_tables :: MonadIO m => (Face -> Tag -> IO Blob) -> m Face
-face_create_for_tables fun = liftIO $ do
+face_create_for_tables :: PrimBase m => (Face (PrimState m) -> Tag -> m (Blob (PrimState m))) -> m (Face (PrimState m))
+face_create_for_tables fun = unsafeIOToPrim $ do
   (castFunPtr -> f) <- mkReferenceTableFunc $ \ pface tag _ -> do
     face <- [C.exp|hb_face_t * { hb_face_reference($(hb_face_t * pface)) }|] >>= foreignFace
-    b <- fun face tag
-    object_reference b
+    unsafePrimToIO $ do
+      b <- fun face tag
+      object_reference b
   [C.block|hb_face_t * {
     hb_reference_table_func_t f = $(hb_reference_table_func_t f);
     return hb_face_create_for_tables(f,f,(hb_destroy_func_t)hs_free_fun_ptr);
   }|] >>= foreignFace
 
 -- | Subsumes @hb_face_get_glyph_count@ and @hb_face_set_glyph_count@
-face_glyph_count :: Face -> StateVar Int
-face_glyph_count f = StateVar g s where
+face_glyph_count :: Face s -> StateVar s Int
+face_glyph_count f = unsafeStateVar g s where
   g = [C.exp|int { hb_face_get_glyph_count($face:f) }|] <&> fromIntegral
   s (fromIntegral -> v) = [C.block|void { hb_face_set_glyph_count($face:f,$(unsigned int v)); }|]
 
 -- | Subsumes @hb_face_get_index@ ancd @hb_face_set_index@
-face_index :: Face -> StateVar Int
-face_index f = StateVar g s where
+face_index :: Face s -> StateVar s Int
+face_index f = unsafeStateVar g s where
   g = [C.exp|int { hb_face_get_index($face:f) }|] <&> fromIntegral
   s (fromIntegral -> v) = [C.block|void { hb_face_set_index($face:f,$(unsigned int v)); }|]
 
-face_upem :: Face -> StateVar Int
-face_upem f = StateVar g s where
+face_upem :: Face s -> StateVar s Int
+face_upem f = unsafeStateVar g s where
   g = [C.exp|int { hb_face_get_upem($face:f) }|] <&> fromIntegral
   s (fromIntegral -> v) = [C.block|void { hb_face_set_upem($face:f,$(unsigned int v)); }|]
 
-face_is_immutable :: MonadIO m => Face -> m Bool
-face_is_immutable b = liftIO $ [C.exp|hb_bool_t { hb_face_is_immutable($face:b) }|] <&> cbool
+face_is_immutable :: PrimMonad m => Face (PrimState m) -> m Bool
+face_is_immutable b = unsafeIOToPrim $ [C.exp|hb_bool_t { hb_face_is_immutable($face:b) }|] <&> cbool
 
-face_make_immutable :: MonadIO m => Face -> m ()
-face_make_immutable b = liftIO [C.block|void { hb_face_make_immutable($face:b); }|]
+face_make_immutable :: PrimMonad m => Face (PrimState m) -> m ()
+face_make_immutable b = unsafeIOToPrim [C.block|void { hb_face_make_immutable($face:b); }|]

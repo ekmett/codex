@@ -41,7 +41,7 @@ common lib
     hashable,
     inline-c,
     primitive,
-    StateVar,
+    primitive-statevar,
     template-haskell,
     text,
     transformers
