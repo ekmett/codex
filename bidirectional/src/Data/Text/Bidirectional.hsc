@@ -15,15 +15,19 @@
 {-# language DataKinds #-}
 {-# language UnboxedTuples #-}
 {-# options_ghc -Wno-missing-pattern-synonym-signatures #-}
+
 module Data.Text.Bidirectional
 ( Bidi(..)
+, pattern MAP_NOWHERE
+
 , open
 , openSized
+
 , countParagraphs
 , countRuns
-, getBaseDirection
+
 , getCustomizedClass
-, getDirection
+, getLength
 , getLevelAt
 , getLevels
 , getLogicalIndex
@@ -33,8 +37,6 @@ module Data.Text.Bidirectional
 , getParagraph
 , getParagraphByIndex
 , getProcessedLength
-, getReorderingMode
-, getReorderingOptions
 , getResultLength
 , getText
 , getVisualIndex
@@ -50,22 +52,25 @@ module Data.Text.Bidirectional
 , setInverse
 , setLine
 , setPara
-, setReorderingMode
-, setReorderingOptions
-
---
+-- * Levels
 , Level
   ( Level
   , DEFAULT_LTR
   , DEFAULT_RTL
   , MAX_EXPLICIT_LEVEL
-  , LEVEL_OVERRIDE
   )
 , isRTL, isLTR
-
+, isOverride
+, override
+, pattern LEVEL_OVERRIDE
+-- * Direction
 , Direction(..)
+, getBaseDirection
+, getDirection
+-- * Reordering
 , ReorderingMode(..)
-
+, getReorderingMode
+, setReorderingMode
 , ReorderingOption
   ( ReorderingOption
   , OPTION_DEFAULT
@@ -73,6 +78,9 @@ module Data.Text.Bidirectional
   , OPTION_REMOVE_CONTROLS
   , OPTION_STREAMING
   )
+, getReorderingOptions
+, setReorderingOptions
+-- * Character Direction Classes
 , CharDirection
   ( CharDirection
   , LEFT_TO_RIGHT
@@ -98,16 +106,28 @@ module Data.Text.Bidirectional
   , LEFT_TO_RIGHT_ISOLATE
   , RIGHT_TO_LEFT_ISOLATE
   , POP_DIRECTIONAL_ISOLATE
+  , BIDI_CLASS_DEFAULT -- hack
   )
-, UBiDi
 
-, pattern MAP_NOWHERE
-, pattern KEEP_BASE_COMBINING
-, pattern DO_MIRRORING
-, pattern INSERT_LRM_FOR_NUMERIC
-, pattern REMOVE_BIDI_CONTROLS
-, pattern OUTPUT_REVERSE
-, pattern BIDI_CLASS_DEFAULT
+, ClassCallback
+, mkClassCallback
+, setClassCallback
+, getClassCallback
+
+-- * Writing
+, WriteOptions
+  ( WriteOptions
+  , DO_MIRRORING
+  , INSERT_LRM_FOR_NUMERIC
+  , KEEP_BASE_COMBINING
+  , REMOVE_BIDI_CONTROLS
+  , OUTPUT_REVERSE
+  )
+, writeReordered
+, writeReverse
+
+-- * Internal
+, UBiDi
 ) where
 
 import Control.Exception
@@ -170,7 +190,6 @@ peekPrimArray len ptr = do
   copyPtrToMutablePrimArray mpa 0 ptr len
   unsafeFreezePrimArray mpa
 
-
 #ifndef HLINT
 #include "unicode/utypes.h"
 #include "unicode/uchar.h"
@@ -187,23 +206,39 @@ isRTL = coerce (odd @Word8)
 isLTR :: Level -> Bool
 isLTR = coerce (even @Word8)
 
+pattern LEVEL_OVERRIDE = (#const UBIDI_LEVEL_OVERRIDE) :: Word8
+
+isOverride :: Level -> Bool
+isOverride (Level l) = l .&. LEVEL_OVERRIDE /= 0
+
+override :: Level -> Level
+override (Level l) = Level (l .|. LEVEL_OVERRIDE)
+
 #ifndef HLINT
 pattern DEFAULT_LTR = Level (#const UBIDI_DEFAULT_LTR)
 pattern DEFAULT_RTL = Level (#const UBIDI_DEFAULT_RTL)
-pattern LEVEL_OVERRIDE = Level (#const UBIDI_LEVEL_OVERRIDE)
 pattern MAX_EXPLICIT_LEVEL = Level (#const UBIDI_MAX_EXPLICIT_LEVEL)
+#endif
 
+#ifndef HLINT
 -- | Special value which can be returned by the mapping functions when a logical index has no corresponding visual index or vice-versa.
 -- Returned by 'getVisualIndex', 'getVisualMap', 'getLogicalIndex', 'getLogicalMap'
 pattern MAP_NOWHERE = (#const UBIDI_MAP_NOWHERE) :: Int
-
-pattern KEEP_BASE_COMBINING = (#const UBIDI_KEEP_BASE_COMBINING) :: Int
-pattern DO_MIRRORING = (#const UBIDI_DO_MIRRORING) :: Int
-pattern INSERT_LRM_FOR_NUMERIC = (#const UBIDI_INSERT_LRM_FOR_NUMERIC) :: Int
-pattern REMOVE_BIDI_CONTROLS  = (#const UBIDI_REMOVE_BIDI_CONTROLS ) :: Int
-pattern OUTPUT_REVERSE = (#const UBIDI_OUTPUT_REVERSE) :: Int
-pattern BIDI_CLASS_DEFAULT = (#const U_BIDI_CLASS_DEFAULT) :: Int
 #endif
+
+newtype WriteOptions = WriteOptions Int16
+  deriving (Eq,Ord,Show,Storable,Prim,Bits)
+
+#ifndef HLINT
+pattern KEEP_BASE_COMBINING = WriteOptions (#const UBIDI_KEEP_BASE_COMBINING)
+pattern DO_MIRRORING = WriteOptions (#const UBIDI_DO_MIRRORING)
+pattern INSERT_LRM_FOR_NUMERIC = WriteOptions (#const UBIDI_INSERT_LRM_FOR_NUMERIC)
+pattern REMOVE_BIDI_CONTROLS  = WriteOptions (#const UBIDI_REMOVE_BIDI_CONTROLS )
+pattern OUTPUT_REVERSE = WriteOptions (#const UBIDI_OUTPUT_REVERSE)
+#endif
+
+instance Default WriteOptions where
+  def = WriteOptions 0
 
 newtype UErrorCode = UErrorCode Int32
   deriving (Eq,Ord,Show,Num,Enum,Real,Integral,Storable)
@@ -255,7 +290,12 @@ pattern FIRST_STRONG_ISOLATE = CharDirection (#const U_FIRST_STRONG_ISOLATE)
 pattern LEFT_TO_RIGHT_ISOLATE = CharDirection (#const U_LEFT_TO_RIGHT_ISOLATE)
 pattern RIGHT_TO_LEFT_ISOLATE = CharDirection (#const U_RIGHT_TO_LEFT_ISOLATE)
 pattern POP_DIRECTIONAL_ISOLATE = CharDirection (#const U_POP_DIRECTIONAL_ISOLATE)
+pattern BIDI_CLASS_DEFAULT = CharDirection (#const U_BIDI_CLASS_DEFAULT) -- a damn lie
 #endif
+
+type ClassCallback = Ptr () -> Int32 -> IO CharDirection
+
+foreign import ccall "wrapper" mkClassCallback :: ClassCallback -> IO (FunPtr ClassCallback)
 
 ubool :: Int8 -> Bool
 ubool = (0/=)
@@ -307,11 +347,13 @@ let
         , (C.TypeName "UBiDiLevel", [t|Level|])
         , (C.TypeName "UBiDiReorderingMode", [t|Int32|])
         , (C.TypeName "UBiDiReorderingOption", [t|ReorderingOption|])
+        , (C.TypeName "UBiDiClassCallbackPtr", [t|FunPtr ClassCallback|])
         , (C.TypeName "UBool", [t|Int8|])
         , (C.TypeName "UChar", [t|Word16|])
         , (C.TypeName "UChar32", [t|Int32|])
         , (C.TypeName "UCharDirection", [t|CharDirection|])
         , (C.TypeName "UErrorCode", [t|UErrorCode|])
+        , (C.TypeName "WriteOptions", [t|WriteOptions|])
         ]
       , C.ctxAntiQuoters = Map.fromList
         [ ("bidi", anti (C.Ptr [] $ C.TypeSpecifier mempty $ C.TypeName "UBiDi") [t|Ptr UBiDi|] [|withBidi|])
@@ -323,6 +365,9 @@ C.include "unicode/utypes.h"
 C.include "unicode/uchar.h"
 C.include "unicode/localpointer.h"
 C.include "unicode/ubidi.h"
+
+C.verbatim "typedef UBiDiClassCallback * UBiDiClassCallbackPtr;"
+C.verbatim "typedef int16_t WriteOptions;"
 
 instance Exception UErrorCode where
   displayException e = unsafeLocalState $ peekCString [C.pure|const char * { u_errorName($(UErrorCode e)) }|]
@@ -338,10 +383,11 @@ foreignBidi self_ptr = do
     -- garbage collecting the parent link will allow parent to now possibly be freed if it has no references
   pure $ Bidi embeddings_ref parent_ref self_fptr
 
+bad :: UErrorCode -> Bool
+bad e = [C.pure|int { U_FAILURE($(UErrorCode e)) }|] /= 0
+
 ok :: UErrorCode -> IO ()
-ok e = do
-  b <- [C.exp|int { U_FAILURE($(UErrorCode e)) }|]
-  when (b /= 0) $ throw e
+ok e = when (bad e) $ throwIO e
 
 open :: PrimMonad m => m (Bidi (PrimState m))
 open = unsafeIOToPrim $ [C.exp|UBiDi * { ubidi_open() }|] >>= foreignBidi
@@ -359,6 +405,9 @@ getText bidi = unsafeIOToPrim $
     cwstr <- [C.exp|const UChar * { ubidi_getText($(const UBiDi * p))}|]
     len <- [C.exp|int32_t { ubidi_getLength($(const UBiDi * p))}|]
     fromPtr cwstr (fromIntegral len)
+
+getLength :: PrimMonad m => Bidi (PrimState m) -> m Int32
+getLength bidi = unsafeIOToPrim [C.exp|int32_t { ubidi_getLength($bidi:bidi) }|]
 
 setInverse :: PrimMonad m => Bidi (PrimState m) -> Bool -> m ()
 setInverse bidi (boolu -> b) = unsafeIOToPrim [C.block|void { ubidi_setInverse($bidi:bidi,$(UBool b)); }|]
@@ -548,7 +597,6 @@ getVisualRun bidi runIndex = unsafeIOToPrim $
     len <- peek (advancePtr pLogicalStart 1) -- pLength
     pure (logical_start, len, dir)
 
-
 invertMap :: PrimArray Int32 -> PrimArray Int32
 invertMap pa = unsafePerformIO $ do -- use a full heavy weight dup check as this can be slow for large maps
   let !n = sizeofPrimArray pa
@@ -643,4 +691,60 @@ reorderVisual pa = unsafePerformIO $
       }|] *> peekPrimArray n indexMap
 
 getCustomizedClass :: PrimMonad m => Bidi (PrimState m) -> Char -> m CharDirection
-getCustomizedClass bidi (fromIntegral . fromEnum -> c) = unsafeIOToPrim [C.exp|UCharDirection { ubidi_getCustomizedClass($bidi:bidi, $(UChar32 c)) }|]
+getCustomizedClass bidi (fromIntegral . fromEnum -> c) = unsafeIOToPrim
+  [C.exp|UCharDirection { ubidi_getCustomizedClass($bidi:bidi, $(UChar32 c)) }|]
+
+setClassCallback :: PrimMonad m => Bidi (PrimState m) -> FunPtr ClassCallback -> Ptr () -> m (FunPtr ClassCallback, Ptr ())
+setClassCallback bidi newFn newCtx = unsafeIOToPrim $
+  alloca $ \oldFn ->
+    alloca $ \oldCtx -> do
+      [C.block|UErrorCode {
+        UErrorCode error_code;
+        ubidi_setClassCallback(
+          $bidi:bidi,
+          $(UBiDiClassCallbackPtr newFn),
+          $(const void * newCtx),
+          $(UBiDiClassCallbackPtr * oldFn),
+          $(const void ** oldCtx),
+          &error_code
+        );
+        return error_code;
+      }|] >>= ok
+      (,) <$> peek oldFn <*> peek oldCtx
+
+getClassCallback :: PrimMonad m => Bidi (PrimState m) -> m (FunPtr ClassCallback, Ptr ())
+getClassCallback bidi = unsafeIOToPrim $
+  alloca $ \fn->
+    alloca $ \ctx ->
+      (,) <$  [C.block|void { ubidi_getClassCallback($bidi:bidi,$(UBiDiClassCallbackPtr * fn),$(const void ** ctx)); }|]
+          <*> peek fn
+          <*> peek ctx
+
+writeReordered :: PrimMonad m => Bidi (PrimState m) -> WriteOptions -> m Text
+writeReordered bidi options = stToPrim $ do
+  destSize@(fromIntegral -> len) <- if options .&. INSERT_LRM_FOR_NUMERIC /= def
+         then do
+            len <- getLength bidi
+            runs <- countRuns bidi
+            pure $ len + 2 * runs
+         else getProcessedLength bidi
+  unsafeIOToPrim $
+    allocaArray len $ \ dest ->
+      alloca $ \pErrorCode -> do
+        actual_len <- [C.exp|int32_t {
+          ubidi_writeReordered($bidi:bidi,$(UChar * dest),$(int32_t destSize),$(WriteOptions options),$(UErrorCode * pErrorCode))
+        }|]
+        peek pErrorCode >>= ok
+        fromPtr dest $ fromIntegral actual_len
+
+writeReverse :: Text -> WriteOptions -> Text
+writeReverse t options = unsafePerformIO $ do
+  useAsPtr t $ \src i16@(fromIntegral -> n) ->
+    allocaArray (fromIntegral i16) $ \ dest ->
+      alloca $ \pErrorCode -> do
+        actual_len <- [C.block|int32_t {
+          int32_t len = $(int32_t n);
+          return ubidi_writeReverse($(const UChar * src),len,$(UChar * dest),len,$(WriteOptions options),$(UErrorCode * pErrorCode));
+        }|]
+        peek pErrorCode >>= ok
+        fromPtr dest $ fromIntegral actual_len
