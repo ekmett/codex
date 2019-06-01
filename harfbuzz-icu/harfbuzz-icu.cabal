@@ -25,8 +25,17 @@ library
   ghc-options:
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
     -Wredundant-constraints -Widentities -Wmissing-export-lists
-  pkgconfig-depends: harfbuzz-icu
-  extra-libraries: harfbuzz-icu
+  if os(darwin)
+    -- icu4c doesn't get installed in pkgconfig on a mac by default
+    -- manually add the path, like text-icu does.
+    extra-lib-dirs: /usr/local/opt/icu4c/lib
+    include-dirs: /usr/local/opt/icu4c/include
+    -- harfbuzz works fine with pkg-config
+    pkgconfig-depends: harfbuzz
+    -- and this adds the library dir needed for harfbuzz-icu, so just manually add that library dependency
+    extra-libraries: harfbuzz-icu
+  else
+    pkgconfig-depends: harfbuzz-icu
   build-depends:
     base >= 4.11 && < 5,
     containers >= 0.6,
