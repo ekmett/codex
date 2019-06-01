@@ -24,14 +24,19 @@ module Data.Text.Bidirectional
 , getBaseDirection
 , getDirection
 , getLevelAt
+, getLogicalIndex
+, getLogicalMap
 , getLogicalRun
 , getParaLevel
 , getParagraph
 , getParagraphByIndex
+, getProcessedLength
 , getReorderingMode
 , getReorderingOptions
+, getResultLength
 , getText
 , getVisualRun
+, getVisualIndex
 , invertMap
 , isInverse
 , isOrderParagraphsLTR
@@ -55,6 +60,15 @@ module Data.Text.Bidirectional
 
 , Direction(..)
 , ReorderingMode(..)
+
+, ReorderingOption
+  ( ReorderingOption
+  , OPTION_DEFAULT
+  , OPTION_INSERT_MARKS
+  , OPTION_REMOVE_CONTROLS
+  , OPTION_STREAMING
+  )
+
 , UBiDi
 
 , pattern MAP_NOWHERE
@@ -69,8 +83,10 @@ module Data.Text.Bidirectional
 import Control.Exception
 import Control.Monad
 import Control.Monad.Primitive
+import Data.Bits
 import Data.Coerce
 import Data.Data (Data)
+import Data.Default
 import Data.Functor ((<&>))
 import Data.Int
 import Data.IORef
@@ -121,10 +137,10 @@ isLTR :: Level -> Bool
 isLTR = coerce (even @Word8)
 
 #ifndef HLINT
-pattern DEFAULT_LTR = Level (#const UBIDI_DEFAULT_LTR) :: Level
-pattern DEFAULT_RTL = Level (#const UBIDI_DEFAULT_RTL) :: Level
-pattern LEVEL_OVERRIDE = Level (#const UBIDI_LEVEL_OVERRIDE) :: Level
-pattern MAX_EXPLICIT_LEVEL = Level (#const UBIDI_MAX_EXPLICIT_LEVEL) :: Level
+pattern DEFAULT_LTR = Level (#const UBIDI_DEFAULT_LTR)
+pattern DEFAULT_RTL = Level (#const UBIDI_DEFAULT_RTL)
+pattern LEVEL_OVERRIDE = Level (#const UBIDI_LEVEL_OVERRIDE)
+pattern MAX_EXPLICIT_LEVEL = Level (#const UBIDI_MAX_EXPLICIT_LEVEL)
 
 -- | Special value which can be returned by the mapping functions when a logical index has no corresponding visual index or vice-versa.
 -- Returned by 'getVisualIndex', 'getVisualMap', 'getLogicalIndex', 'getLogicalMap'
@@ -140,6 +156,17 @@ pattern BIDI_CLASS_DEFAULT = (#const U_BIDI_CLASS_DEFAULT) :: Int
 
 newtype UErrorCode = UErrorCode Int32
   deriving (Eq,Ord,Show,Num,Enum,Real,Integral,Storable)
+
+newtype ReorderingOption = ReorderingOption Int32
+  deriving (Eq,Ord,Show,Bits)
+
+pattern OPTION_DEFAULT = ReorderingOption (#const UBIDI_OPTION_DEFAULT)
+pattern OPTION_INSERT_MARKS = ReorderingOption (#const UBIDI_OPTION_INSERT_MARKS)
+pattern OPTION_REMOVE_CONTROLS = ReorderingOption (#const UBIDI_OPTION_REMOVE_CONTROLS)
+pattern OPTION_STREAMING = ReorderingOption (#const UBIDI_OPTION_STREAMING)
+
+instance Default ReorderingOption where
+  def = OPTION_DEFAULT
 
 ubool :: Int8 -> Bool
 ubool = (0/=)
@@ -190,7 +217,7 @@ let
         , (C.TypeName "UBiDiDirection", [t|Int32|])
         , (C.TypeName "UBiDiLevel", [t|Level|])
         , (C.TypeName "UBiDiReorderingMode", [t|Int32|])
-        , (C.TypeName "UBiDiReorderingOption", [t|Int32|])
+        , (C.TypeName "UBiDiReorderingOption", [t|ReorderingOption|])
         , (C.TypeName "UErrorCode", [t|UErrorCode|])
         , (C.TypeName "UChar", [t|Word16|])
         , (C.TypeName "UBool", [t|Int8|])
@@ -259,10 +286,10 @@ setReorderingMode bidi (fromIntegral . fromEnum -> mode) = unsafeIOToPrim [C.blo
 getReorderingMode :: PrimMonad m => Bidi (PrimState m) -> m ReorderingMode
 getReorderingMode bidi = unsafeIOToPrim $ [C.exp|UBiDiReorderingMode{ ubidi_getReorderingMode($bidi:bidi)}|] <&> toEnum . fromIntegral
 
-setReorderingOptions :: PrimMonad m => Bidi (PrimState m) -> Int32 -> m ()
+setReorderingOptions :: PrimMonad m => Bidi (PrimState m) -> ReorderingOption -> m ()
 setReorderingOptions bidi options = unsafeIOToPrim [C.block|void { ubidi_setReorderingOptions($bidi:bidi,$(UBiDiReorderingOption options)); }|]
 
-getReorderingOptions :: PrimMonad m => Bidi (PrimState m) -> m Int32
+getReorderingOptions :: PrimMonad m => Bidi (PrimState m) -> m ReorderingOption
 getReorderingOptions bidi = unsafeIOToPrim $ [C.exp|UBiDiReorderingOption { ubidi_getReorderingOptions($bidi:bidi) }|]
 
 setContext :: PrimMonad m => Bidi (PrimState m) -> Text -> Text -> m ()
@@ -405,10 +432,10 @@ getLogicalRun bidi logicalPosition = unsafeIOToPrim $
 
 countRuns :: PrimMonad m => Bidi (PrimState m) -> m Int32
 countRuns bidi = unsafeIOToPrim $
-  alloca $ \pErrorCode -> do
-    result <- [C.exp|int32_t { ubidi_countRuns($bidi:bidi, $(UErrorCode * pErrorCode)) }|]
-    peek pErrorCode >>= ok
-    pure result
+  alloca $ \pErrorCode ->
+    [C.exp|int32_t {
+      ubidi_countRuns($bidi:bidi, $(UErrorCode * pErrorCode))
+    }|] <* (peek pErrorCode >>= ok)
 
 -- | Get one run's logical start, length, and directionality which will be LTR or RTL.
 --
@@ -448,3 +475,41 @@ invertMap pa = unsafePerformIO $ do -- use a full heavy weight dup check as this
     copyPtrToMutablePrimArray dst 0 dstMap m
     unsafeFreezePrimArray dst
 
+getVisualIndex :: PrimMonad m => Bidi (PrimState m) -> Int32 -> m Int32
+getVisualIndex bidi logicalIndex = unsafeIOToPrim $
+  alloca $ \pErrorCode ->
+    [C.exp|int32_t { 
+      ubidi_getVisualIndex($bidi:bidi,$(int32_t logicalIndex),$(UErrorCode * pErrorCode))
+    }|] <* (peek pErrorCode >>= ok)
+  
+getLogicalIndex :: PrimMonad m => Bidi (PrimState m) -> Int32 -> m Int32
+getLogicalIndex bidi visualIndex = unsafeIOToPrim $
+  alloca $ \pErrorCode ->
+    [C.exp|int32_t {
+      ubidi_getLogicalIndex($bidi:bidi,$(int32_t visualIndex),$(UErrorCode * pErrorCode))
+    }|] <* (peek pErrorCode >>= ok)
+  
+getLogicalMap :: PrimMonad m => Bidi (PrimState m) -> m (PrimArray Int32)
+getLogicalMap bidi = stToPrim $ do
+  len <- fromIntegral <$> do
+    opts <- getReorderingOptions bidi
+    processed_len <- getProcessedLength bidi
+    if opts .&. OPTION_INSERT_MARKS /= OPTION_DEFAULT
+    then max processed_len <$> getResultLength bidi
+    else pure processed_len
+  unsafeIOToPrim $ 
+    allocaArray len $ \ indexMap -> do
+      [C.block|UErrorCode {
+        UErrorCode error_code;
+        ubidi_getLogicalMap($bidi:bidi,$(int32_t * indexMap),&error_code);
+        return error_code;
+      }|] >>= ok
+      mpa <- newPrimArray len
+      copyPtrToMutablePrimArray mpa 0 indexMap len
+      unsafeFreezePrimArray mpa
+
+getResultLength :: PrimMonad m => Bidi (PrimState m) -> m Int32
+getResultLength bidi = unsafeIOToPrim [C.exp|int32_t { ubidi_getProcessedLength($bidi:bidi) }|]
+
+getProcessedLength :: PrimMonad m => Bidi (PrimState m) -> m Int32
+getProcessedLength bidi = unsafeIOToPrim [C.exp|int32_t { ubidi_getProcessedLength($bidi:bidi) }|]
