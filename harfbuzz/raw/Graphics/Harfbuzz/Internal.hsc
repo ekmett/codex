@@ -20,8 +20,8 @@
 --
 -- As an internal module, I don't consider this module as supported by the PVP. Be careful.
 module Graphics.Harfbuzz.Internal
-( Blob(..)
-, Buffer(..)
+( Blob(..), Blob_
+, Buffer(..), Buffer_
 , BufferClusterLevel
   ( BufferClusterLevel
   , BUFFER_CLUSTER_LEVEL_MONOTONE_GRAPHEMES
@@ -82,12 +82,12 @@ module Graphics.Harfbuzz.Internal
   , DIRECTION_INVALID, DIRECTION_LTR, DIRECTION_RTL, DIRECTION_BTT, DIRECTION_TTB
   )
 , direction_to_string, direction_from_string
-, Face(..)
+, Face(..), Face_
 , Feature(..)
 , feature_to_string, feature_from_string
-, Font(..)
+, Font(..), Font_
 , FontExtents(..)
-, FontFuncs(..)
+, FontFuncs(..), FontFuncs_
 , GlyphExtents(..)
 , GlyphFlags
   ( GlyphFlags
@@ -101,7 +101,7 @@ module Graphics.Harfbuzz.Internal
   , LANGUAGE_INVALID
   )
 , language_to_string, language_from_string
-, Map(..)
+, Map(..), Map_
 , pattern MAP_VALUE_INVALID
 , Mask(..)
 , MemoryMode
@@ -157,9 +157,9 @@ module Graphics.Harfbuzz.Internal
   , segment_properties_language
   , SEGMENT_PROPERTIES_DEFAULT
   )
-, Set(..)
+, Set(..), Set_
 , pattern SET_VALUE_INVALID
-, ShapePlan(..)
+, ShapePlan(..), ShapePlan_
 , Shaper
   ( Shaper
   , SHAPER_INVALID
@@ -233,7 +233,7 @@ module Graphics.Harfbuzz.Internal
 , UnicodeCombiningClassFunc
 , UnicodeComposeFunc
 , UnicodeDecomposeFunc
-, UnicodeFuncs(..)
+, UnicodeFuncs(..), UnicodeFuncs_
 , UnicodeGeneralCategory
   ( UnicodeGeneralCategory
   , UNICODE_GENERAL_CATEGORY
@@ -271,7 +271,7 @@ module Graphics.Harfbuzz.Internal
 , UnicodeGeneralCategoryFunc
 , UnicodeMirroringFunc
 , UnicodeScriptFunc
-, Key(..), OpaqueKey, withKey
+, Key(..), Key_, withKey
 , Variation(..)
 , variation_to_string, variation_from_string
 , pattern VERSION_MAJOR
@@ -341,12 +341,15 @@ import Graphics.Harfbuzz.Private
 
 -- | A 'Blob' wraps a chunk of binary data to handle lifecycle management of data while it is passed between client and HarfBuzz.
 -- Blobs are primarily used to create font faces, but also to access font face tables, as well as pass around other binary data.
-newtype Blob = Blob (ForeignPtr Blob) deriving (Eq,Ord,Show,Data)
+
+data Blob_
+newtype Blob s = Blob (ForeignPtr Blob_) deriving (Eq,Ord,Show)
 
 -- | Buffers serve dual role in HarfBuzz; they hold the input characters that are passed to hb_shape(), and after shaping they
 --
 --hold the output glyphs.
-newtype Buffer = Buffer (ForeignPtr Buffer) deriving (Eq,Ord,Show,Data)
+data Buffer_
+newtype Buffer s = Buffer (ForeignPtr Buffer_) deriving (Eq,Ord,Show)
 
 newtype BufferClusterLevel = BufferClusterLevel CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Prim)
 
@@ -367,7 +370,9 @@ newtype Direction = Direction Word32  deriving (Eq,Ord,Num,Enum,Real,Integral,St
 -- | A font 'Face' represents a single face in a font family. More exactly a font 'Face' is a single
 -- face in a binary font file. Faces are typically built from a binary blob and a face index. Faces
 -- are used to create fonts.
-newtype Face = Face (ForeignPtr Face) deriving (Eq,Ord,Show,Data)
+
+data Face_
+newtype Face s = Face (ForeignPtr Face_) deriving (Eq,Ord,Show)
 
 data Feature = Feature
   { feature_tag :: {-# unpack #-} !Tag
@@ -389,7 +394,8 @@ instance Storable Feature where
     (#poke hb_feature_t, start) p feature_start
     (#poke hb_feature_t, end) p feature_end
 
-newtype Font = Font (ForeignPtr Font) deriving (Eq,Ord,Show,Data)
+data Font_
+newtype Font s = Font (ForeignPtr Font_) deriving (Eq,Ord,Show)
 
 data FontExtents = FontExtents
   { font_extents_ascender
@@ -436,7 +442,8 @@ instance Storable FontExtents where
     (#poke hb_font_extents_t, reserved2) p font_extents_reserved2
     (#poke hb_font_extents_t, reserved1) p font_extents_reserved1
 
-newtype FontFuncs = FontFuncs (ForeignPtr FontFuncs) deriving (Eq,Ord,Show,Data)
+data FontFuncs_
+newtype FontFuncs s = FontFuncs (ForeignPtr FontFuncs_) deriving (Eq,Ord,Show)
 
 data GlyphExtents = GlyphExtents
   { glyph_extents_x_bearing
@@ -508,12 +515,13 @@ instance Storable GlyphPosition where
     (#poke hb_glyph_position_t, y_offset) p glyph_position_y_offset
     (#poke hb_glyph_position_t, var) p glyph_position_var
 
-data OpaqueKey deriving Data
-newtype Key a = Key (ForeignPtr OpaqueKey) deriving (Eq,Ord,Show,Data)
+data Key_ deriving Data
+newtype Key a = Key (ForeignPtr Key_) deriving (Eq,Ord,Show)
 
 newtype Language = Language (Ptr Language) deriving (Eq,Ord,Data,Storable,Prim) -- we never manage
 
-newtype Map = Map (ForeignPtr Map) deriving (Eq,Ord,Show,Data)
+data Map_
+newtype Map s = Map (ForeignPtr Map_) deriving (Eq,Ord,Show)
 
 newtype Mask = Mask Word32 deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Prim,Bits)
 
@@ -521,9 +529,9 @@ newtype MemoryMode = MemoryMode CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,In
 
 type Position = Word32
 
-type BufferMessageFunc a = Ptr Buffer -> Ptr Font -> CString -> Ptr a -> IO ()
+type BufferMessageFunc a = Ptr Buffer_ -> Ptr Font_ -> CString -> Ptr a -> IO ()
 
-type ReferenceTableFunc a = Ptr Face -> Tag -> Ptr a -> IO (Ptr Blob)
+type ReferenceTableFunc a = Ptr Face_ -> Tag -> Ptr a -> IO (Ptr Blob_)
 
 newtype Script = Script Word32 deriving (Eq,Ord,Num,Enum,Real,Integral,Storable,Prim)
 instance Show Script where showsPrec e (Script w) = showsPrec e (Tag w)
@@ -553,9 +561,11 @@ instance Storable SegmentProperties where
     (#poke hb_segment_properties_t, reserved1) p segment_properties_reserved1
     (#poke hb_segment_properties_t, reserved2) p segment_properties_reserved2
 
-newtype Set = Set (ForeignPtr Set) deriving (Eq,Ord,Show,Data)
+data Set_
+newtype Set s = Set (ForeignPtr Set_) deriving (Eq,Ord,Show)
 
-newtype ShapePlan = ShapePlan (ForeignPtr ShapePlan) deriving (Eq,Ord,Show,Data)
+data ShapePlan_
+newtype ShapePlan s = ShapePlan (ForeignPtr ShapePlan_) deriving (Eq,Ord,Show)
 
 newtype Shaper = Shaper CString deriving (Eq,Ord,Storable,Prim) -- we never manage
 
@@ -593,21 +603,22 @@ instance IsString Tag where
 
 newtype UnicodeCombiningClass = UnicodeCombiningClass CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Prim)
 
-type UnicodeCombiningClassFunc a = Ptr UnicodeFuncs -> Char -> Ptr a -> IO UnicodeCombiningClass
+type UnicodeCombiningClassFunc a = Ptr UnicodeFuncs_ -> Char -> Ptr a -> IO UnicodeCombiningClass
 
-type UnicodeComposeFunc a = Ptr UnicodeFuncs -> Char -> Char -> Ptr Char -> Ptr a -> IO CInt -- hb_bool_tt
+type UnicodeComposeFunc a = Ptr UnicodeFuncs_ -> Char -> Char -> Ptr Char -> Ptr a -> IO CInt -- hb_bool_tt
 
-type UnicodeDecomposeFunc a = Ptr UnicodeFuncs -> Char -> Ptr Char -> Ptr Char -> Ptr a -> IO CInt -- hb_bool_t
+type UnicodeDecomposeFunc a = Ptr UnicodeFuncs_ -> Char -> Ptr Char -> Ptr Char -> Ptr a -> IO CInt -- hb_bool_t
 
-newtype UnicodeFuncs = UnicodeFuncs (ForeignPtr UnicodeFuncs) deriving (Eq,Ord,Show,Data)
+data UnicodeFuncs_
+newtype UnicodeFuncs s = UnicodeFuncs (ForeignPtr UnicodeFuncs_) deriving (Eq,Ord,Show)
 
 newtype UnicodeGeneralCategory = UnicodeGeneralCategory CInt deriving (Eq,Ord,Show,Read,Num,Enum,Real,Integral,Storable,Prim)
 
-type UnicodeGeneralCategoryFunc a = Ptr UnicodeFuncs -> Char -> Ptr a -> IO UnicodeGeneralCategory
+type UnicodeGeneralCategoryFunc a = Ptr UnicodeFuncs_ -> Char -> Ptr a -> IO UnicodeGeneralCategory
 
-type UnicodeMirroringFunc a = Ptr UnicodeFuncs -> Char -> Ptr a -> IO Char
+type UnicodeMirroringFunc a = Ptr UnicodeFuncs_ -> Char -> Ptr a -> IO Char
 
-type UnicodeScriptFunc a = Ptr UnicodeFuncs -> Char -> Ptr a -> IO Script
+type UnicodeScriptFunc a = Ptr UnicodeFuncs_ -> Char -> Ptr a -> IO Script
 
 data Variation = Variation
   { variation_tag :: {-# unpack #-} !Tag
@@ -628,24 +639,24 @@ instance Storable Variation where
 
 C.context $ C.baseCtx <> mempty
   { C.ctxTypesTable = Map.fromList
-    [ (C.TypeName "hb_blob_t", [t|Blob|])
-    , (C.TypeName "hb_buffer_t", [t|Buffer|])
+    [ (C.TypeName "hb_blob_t", [t|Blob_|])
+    , (C.TypeName "hb_buffer_t", [t|Buffer_|])
     , (C.TypeName "hb_buffer_serialize_format_t", [t|BufferSerializeFormat|])
     , (C.TypeName "hb_direction_t", [t|Direction|])
-    , (C.TypeName "hb_face_t", [t|Face|])
+    , (C.TypeName "hb_face_t", [t|Face_|])
     , (C.TypeName "hb_feature_t", [t|Feature|])
-    , (C.TypeName "hb_font_t", [t|Font|])
-    , (C.TypeName "hb_font_funcs_t", [t|FontFuncs|])
+    , (C.TypeName "hb_font_t", [t|Font_|])
+    , (C.TypeName "hb_font_funcs_t", [t|FontFuncs_|])
     , (C.TypeName "hb_language_t", [t|Ptr Language|])
     , (C.TypeName "hb_language_impl_t", [t|Language|])
-    , (C.TypeName "hb_map_t", [t|Map|])
+    , (C.TypeName "hb_map_t", [t|Map_|])
     , (C.TypeName "hb_script_t", [t|Script|])
-    , (C.TypeName "hb_set_t", [t|Set|])
+    , (C.TypeName "hb_set_t", [t|Set_|])
     , (C.TypeName "hb_segment_properties_t", [t|SegmentProperties|])
-    , (C.TypeName "hb_shape_plan_t", [t|ShapePlan|])
+    , (C.TypeName "hb_shape_plan_t", [t|ShapePlan_|])
     , (C.TypeName "hb_tag_t", [t|Tag|])
-    , (C.TypeName "hb_unicode_funcs_t", [t|UnicodeFuncs|])
-    , (C.TypeName "hb_user_data_key_t", [t|ForeignPtr OpaqueKey|])
+    , (C.TypeName "hb_unicode_funcs_t", [t|UnicodeFuncs_|])
+    , (C.TypeName "hb_user_data_key_t", [t|ForeignPtr Key_|])
     , (C.TypeName "hb_variation_t", [t|Variation|])
     , (C.TypeName "hb_bool_t", [t|CInt|])
     ]
@@ -653,11 +664,11 @@ C.context $ C.baseCtx <> mempty
 
 C.include "<hb.h>"
 
-instance Default Blob where
+instance Default (Blob s) where
   def = unsafeLocalState $ [C.exp|hb_blob_t * { hb_blob_get_empty() }|] >>= fmap Blob . newForeignPtr_
   {-# noinline def #-}
 
-instance Default Buffer where
+instance Default (Buffer s) where
   def = unsafeLocalState $ [C.exp|hb_buffer_t * { hb_buffer_get_empty() }|] >>= fmap Buffer . newForeignPtr_
   {-# noinline def #-}
 
@@ -708,7 +719,7 @@ instance IsString Direction where fromString = direction_from_string
 instance Show Direction where showsPrec d = showsPrec d . direction_to_string
 instance Read Direction where readPrec = direction_from_string <$> step readPrec
 
-instance Default Face where
+instance Default (Face s) where
   def = unsafeLocalState $ [C.exp|hb_face_t * { hb_face_get_empty() }|] >>= fmap Face . newForeignPtr_
   {-# noinline def #-}
 
@@ -730,7 +741,7 @@ instance IsString Feature where fromString s = fromMaybe (error $ "invalid featu
 instance Show Feature where showsPrec d = showsPrec d . feature_to_string
 instance Read Feature where readPrec = step readPrec >>= maybe empty pure . feature_from_string
 
-instance Default FontFuncs where
+instance Default (FontFuncs s) where
   def = unsafeLocalState $
     [C.exp|hb_font_funcs_t * { hb_font_funcs_get_empty() }|] >>= fmap FontFuncs . newForeignPtr_
   {-# noinline def #-}
@@ -753,7 +764,7 @@ language_to_string :: Language -> String
 language_to_string (Language l) = unsafeLocalState (peekCString cstr) where
   cstr = [C.pure|const char * { hb_language_to_string($(hb_language_t l)) }|]
 
-instance Default Map where
+instance Default (Map s) where
   def = unsafeLocalState $ [C.exp|hb_map_t * { hb_map_get_empty() }|] >>= fmap Map . newForeignPtr_
   {-# noinline def #-}
 
@@ -770,12 +781,12 @@ deriving instance Ord SegmentProperties
 instance Hashable SegmentProperties where
   hashWithSalt i s = hashWithSalt i $ unsafeLocalState $ with s $ \sp -> [C.exp|unsigned int { hb_segment_properties_hash($(hb_segment_properties_t * sp)) }|] <&> (fromIntegral :: CUInt -> Int)
 
-instance Default Set where
+instance Default (Set s) where
   def = unsafeLocalState $
     [C.exp|hb_set_t * { hb_set_get_empty() }|] >>= fmap Set . newForeignPtr_
   {-# noinline def #-}
 
-instance Default ShapePlan where
+instance Default (ShapePlan s) where
   def = unsafeLocalState $
     [C.exp|hb_shape_plan_t * { hb_shape_plan_get_empty() }|] >>= fmap ShapePlan . newForeignPtr_
   {-# noinline def #-}
@@ -812,7 +823,7 @@ instance Read Shaper where
 instance Default Tag where def = TAG_NONE
 
 -- | Note: @hb_unicode_funcs_get_empty@ not @hb_unicode_funcs_get_default@!
-instance Default UnicodeFuncs where
+instance Default (UnicodeFuncs s) where
   def = unsafeLocalState $ [C.exp|hb_unicode_funcs_t * { hb_unicode_funcs_get_empty() }|] >>= fmap UnicodeFuncs . newForeignPtr_
   {-# noinline def #-}
 
@@ -1305,42 +1316,42 @@ pattern SHAPER_INVALID = Shaper NULL :: Shaper
 
 -- * Finalization
 
-foreignBlob :: Ptr Blob -> IO Blob
+foreignBlob :: Ptr Blob_ -> IO (Blob s)
 foreignBlob = fmap Blob . newForeignPtr _hb_blob_destroy
 
-foreignBuffer :: Ptr Buffer -> IO Buffer
+foreignBuffer :: Ptr Buffer_ -> IO (Buffer s)
 foreignBuffer = fmap Buffer . newForeignPtr _hb_buffer_destroy
 
-foreignFace :: Ptr Face -> IO Face
+foreignFace :: Ptr Face_ -> IO (Face s)
 foreignFace = fmap Face . newForeignPtr _hb_face_destroy
 
-foreignFont :: Ptr Font -> IO Font
+foreignFont :: Ptr Font_ -> IO (Font s)
 foreignFont = fmap Font . newForeignPtr _hb_font_destroy
 
-foreignFontFuncs :: Ptr FontFuncs -> IO FontFuncs
+foreignFontFuncs :: Ptr FontFuncs_ -> IO (FontFuncs s)
 foreignFontFuncs = fmap FontFuncs . newForeignPtr _hb_font_funcs_destroy
 
-foreignMap :: Ptr Map -> IO Map
+foreignMap :: Ptr Map_ -> IO (Map s)
 foreignMap = fmap Map . newForeignPtr _hb_map_destroy
 
-foreignSet :: Ptr Set -> IO Set
+foreignSet :: Ptr Set_ -> IO (Set s)
 foreignSet = fmap Set . newForeignPtr _hb_set_destroy
 
-foreignShapePlan :: Ptr ShapePlan -> IO ShapePlan
+foreignShapePlan :: Ptr ShapePlan_ -> IO (ShapePlan s)
 foreignShapePlan = fmap ShapePlan . newForeignPtr _hb_shape_plan_destroy
 
-foreignUnicodeFuncs :: Ptr UnicodeFuncs -> IO UnicodeFuncs
+foreignUnicodeFuncs :: Ptr UnicodeFuncs_ -> IO (UnicodeFuncs s)
 foreignUnicodeFuncs = fmap UnicodeFuncs . newForeignPtr _hb_unicode_funcs_destroy
 
-foreign import ccall "hb.h &hb_blob_destroy"          _hb_blob_destroy          :: FinalizerPtr Blob
-foreign import ccall "hb.h &hb_buffer_destroy"        _hb_buffer_destroy        :: FinalizerPtr Buffer
-foreign import ccall "hb.h &hb_face_destroy"          _hb_face_destroy          :: FinalizerPtr Face
-foreign import ccall "hb.h &hb_font_destroy"          _hb_font_destroy          :: FinalizerPtr Font
-foreign import ccall "hb.h &hb_font_funcs_destroy"    _hb_font_funcs_destroy    :: FinalizerPtr FontFuncs
-foreign import ccall "hb.h &hb_map_destroy"           _hb_map_destroy           :: FinalizerPtr Map
-foreign import ccall "hb.h &hb_set_destroy"           _hb_set_destroy           :: FinalizerPtr Set
-foreign import ccall "hb.h &hb_shape_plan_destroy"    _hb_shape_plan_destroy    :: FinalizerPtr ShapePlan
-foreign import ccall "hb.h &hb_unicode_funcs_destroy" _hb_unicode_funcs_destroy :: FinalizerPtr UnicodeFuncs
+foreign import ccall "hb.h &hb_blob_destroy"          _hb_blob_destroy          :: FinalizerPtr Blob_
+foreign import ccall "hb.h &hb_buffer_destroy"        _hb_buffer_destroy        :: FinalizerPtr Buffer_
+foreign import ccall "hb.h &hb_face_destroy"          _hb_face_destroy          :: FinalizerPtr Face_
+foreign import ccall "hb.h &hb_font_destroy"          _hb_font_destroy          :: FinalizerPtr Font_
+foreign import ccall "hb.h &hb_font_funcs_destroy"    _hb_font_funcs_destroy    :: FinalizerPtr FontFuncs_
+foreign import ccall "hb.h &hb_map_destroy"           _hb_map_destroy           :: FinalizerPtr Map_
+foreign import ccall "hb.h &hb_set_destroy"           _hb_set_destroy           :: FinalizerPtr Set_
+foreign import ccall "hb.h &hb_shape_plan_destroy"    _hb_shape_plan_destroy    :: FinalizerPtr ShapePlan_
+foreign import ccall "hb.h &hb_unicode_funcs_destroy" _hb_unicode_funcs_destroy :: FinalizerPtr UnicodeFuncs_
 
 foreign import ccall "wrapper" mkReferenceTableFunc :: ReferenceTableFunc a -> IO (FunPtr (ReferenceTableFunc a))
 foreign import ccall "wrapper" mkBufferMessageFunc :: BufferMessageFunc a -> IO (FunPtr (BufferMessageFunc a))
@@ -1351,7 +1362,7 @@ foreign import ccall "wrapper" mkUnicodeGeneralCategoryFunc :: UnicodeGeneralCat
 foreign import ccall "wrapper" mkUnicodeMirroringFunc :: UnicodeMirroringFunc a -> IO (FunPtr (UnicodeMirroringFunc a))
 foreign import ccall "wrapper" mkUnicodeScriptFunc :: UnicodeScriptFunc a -> IO (FunPtr (UnicodeScriptFunc a))
 
-withKey :: Key a -> (Ptr OpaqueKey -> IO r) -> IO r
+withKey :: Key a -> (Ptr Key_ -> IO r) -> IO r
 withKey (Key k) = withForeignPtr k
 
 -- * Inline C context
@@ -1362,8 +1373,8 @@ ptr = C.Ptr [] . C.TypeSpecifier mempty
 harfbuzzCtx :: C.Context
 harfbuzzCtx = mempty
   { C.ctxTypesTable = Map.fromList
-    [ (C.TypeName "hb_blob_t", [t|Blob|])
-    , (C.TypeName "hb_buffer_t", [t|Buffer|])
+    [ (C.TypeName "hb_blob_t", [t|Blob_|])
+    , (C.TypeName "hb_buffer_t", [t|Buffer_|])
     , (C.TypeName "hb_buffer_cluster_level_t", [t|BufferClusterLevel|])
     , (C.TypeName "hb_buffer_content_type_t", [t|BufferContentType|])
     , (C.TypeName "hb_buffer_diff_flags_t", [t|BufferDiffFlags|])
@@ -1375,11 +1386,11 @@ harfbuzzCtx = mempty
     , (C.TypeName "hb_codepoint_t", [t|Codepoint|])
     , (C.TypeName "hb_destroy_func_t", [t|FinalizerPtr ()|])
     , (C.TypeName "hb_direction_t", [t|Direction|])
-    , (C.TypeName "hb_face_t", [t|Face|])
+    , (C.TypeName "hb_face_t", [t|Face_|])
     , (C.TypeName "hb_feature_t", [t|Feature|])
-    , (C.TypeName "hb_font_t", [t|Font|])
+    , (C.TypeName "hb_font_t", [t|Font_|])
     , (C.TypeName "hb_font_extents_t", [t|FontExtents|])
-    , (C.TypeName "hb_font_funcs_t", [t|FontFuncs|])
+    , (C.TypeName "hb_font_funcs_t", [t|FontFuncs_|])
     , (C.TypeName "hb_glyph_extents_t", [t|GlyphExtents|])
     , (C.TypeName "hb_glyph_flags_t", [t|GlyphFlags|])
     , (C.TypeName "hb_glyph_info_t", [t|GlyphInfo|])
@@ -1387,48 +1398,48 @@ harfbuzzCtx = mempty
     , (C.TypeName "hb_language_t", [t|Ptr Language|])
     , (C.TypeName "hb_language_impl_t", [t|Language|])
     , (C.TypeName "hb_mask_t", [t|Mask|])
-    , (C.TypeName "hb_map_t", [t|Map|])
+    , (C.TypeName "hb_map_t", [t|Map_|])
     , (C.TypeName "hb_memory_mode_t", [t|MemoryMode|])
     , (C.TypeName "hb_position_t", [t|Position|])
     , (C.TypeName "hb_reference_table_func_t", [t|FunPtr (ReferenceTableFunc ())|])
     , (C.TypeName "hb_script_t", [t|Script|])
     , (C.TypeName "hb_segment_properties_t", [t|SegmentProperties|])
-    , (C.TypeName "hb_set_t", [t|Set|])
-    , (C.TypeName "hb_shape_plan_t", [t|ShapePlan|])
+    , (C.TypeName "hb_set_t", [t|Set_|])
+    , (C.TypeName "hb_shape_plan_t", [t|ShapePlan_|])
     , (C.TypeName "hb_tag_t", [t|Tag|])
     , (C.TypeName "hb_unicode_combining_class_t", [t|UnicodeCombiningClass|])
     , (C.TypeName "hb_unicode_combining_class_func_t", [t|FunPtr (UnicodeCombiningClassFunc ())|])
     , (C.TypeName "hb_unicode_compose_func_t", [t|FunPtr (UnicodeComposeFunc ())|])
     , (C.TypeName "hb_unicode_decompose_func_t", [t|FunPtr (UnicodeDecomposeFunc ())|])
-    , (C.TypeName "hb_unicode_funcs_t", [t|UnicodeFuncs|])
+    , (C.TypeName "hb_unicode_funcs_t", [t|UnicodeFuncs_|])
     , (C.TypeName "hb_unicode_general_category_t", [t|UnicodeGeneralCategory|])
     , (C.TypeName "hb_unicode_general_category_func_t", [t|FunPtr (UnicodeGeneralCategoryFunc ())|])
     , (C.TypeName "hb_unicode_mirroring_func_t", [t|FunPtr (UnicodeMirroringFunc ())|])
     , (C.TypeName "hb_unicode_script_func_t", [t|FunPtr (UnicodeScriptFunc ())|])
-    , (C.TypeName "hb_user_data_key_t", [t|OpaqueKey|])
+    , (C.TypeName "hb_user_data_key_t", [t|Key_|])
     , (C.TypeName "hb_variation_t", [t|Variation|])
     ]
   , C.ctxAntiQuoters = Map.fromList
     [ ("ustr", anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char (Just C.Unsigned))) [t|Ptr CUChar|] [|withCUString|])
     , ("str", anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char Nothing)) [t|Ptr CChar|] [|withCString|])
-    , ("blob", anti (ptr $ C.TypeName "hb_blob_t") [t|Ptr Blob|] [|withForeignPtr|])
-    , ("buffer", anti (ptr $ C.TypeName "hb_buffer_t") [t|Ptr Buffer|] [|withForeignPtr|])
-    , ("face", anti (ptr $ C.TypeName "hb_face_t") [t|Ptr Face|] [|withForeignPtr|])
+    , ("blob", anti (ptr $ C.TypeName "hb_blob_t") [t|Ptr Blob_|] [|withForeignPtr|])
+    , ("buffer", anti (ptr $ C.TypeName "hb_buffer_t") [t|Ptr Buffer_|] [|withForeignPtr|])
+    , ("face", anti (ptr $ C.TypeName "hb_face_t") [t|Ptr Face_|] [|withForeignPtr|])
     , ("feature", anti (ptr $ C.TypeName "hb_feature_t") [t|Ptr Feature|] [|with|])
-    , ("font", anti (ptr $ C.TypeName "hb_font_t") [t|Ptr Font|] [|withForeignPtr|])
+    , ("font", anti (ptr $ C.TypeName "hb_font_t") [t|Ptr Font_|] [|withForeignPtr|])
     , ("font-extents", anti (ptr $ C.TypeName "hb_font_extents_t") [t|Ptr FontExtents|] [|with|])
-    , ("font-funcs", anti (ptr $ C.TypeName "hb_font_funcs_t") [t|Ptr FontFuncs|] [|withForeignPtr|])
+    , ("font-funcs", anti (ptr $ C.TypeName "hb_font_funcs_t") [t|Ptr FontFuncs_|] [|withForeignPtr|])
     , ("glyph-extents", anti (ptr $ C.TypeName "hb_glyph_extents_t") [t|Ptr GlyphExtents|] [|with|])
     , ("glyph-info", anti (ptr $ C.TypeName "hb_glyph_info_t") [t|Ptr GlyphInfo|] [|with|])
-    , ("key", anti (ptr $ C.TypeName "hb_user_data_key_t") [t|Ptr OpaqueKey|] [|withForeignPtr|])
+    , ("key", anti (ptr $ C.TypeName "hb_user_data_key_t") [t|Ptr Key_|] [|withForeignPtr|])
     , ("language", anti (C.TypeSpecifier mempty $ C.TypeName "hb_language_t") [t|Ptr Language|] [|(&)|])
-    , ("map", anti (ptr $ C.TypeName "hb_map_t") [t|Ptr Map|] [|withForeignPtr|])
-    , ("maybe-set", anti (ptr $ C.TypeName "hb_set_t") [t|Ptr Set|] [|maybeWith withForeignPtr|])
+    , ("map", anti (ptr $ C.TypeName "hb_map_t") [t|Ptr Map_|] [|withForeignPtr|])
+    , ("maybe-set", anti (ptr $ C.TypeName "hb_set_t") [t|Ptr Set_|] [|maybeWith withForeignPtr|])
     , ("maybe-tags", anti (ptr $ C.TypeName "hb_tag_t") [t|Ptr Tag|] [|maybeWith (withArray0 TAG_NONE) |])
     , ("segment-properties", anti (ptr $ C.TypeName "hb_segment_properties_t") [t|Ptr SegmentProperties|] [|with|])
-    , ("set", anti (ptr $ C.TypeName "hb_set_t") [t|Ptr Set|] [|withForeignPtr|])
-    , ("shape-plan", anti (ptr $ C.TypeName "hb_shape_plan_t") [t|Ptr ShapePlan|] [|withForeignPtr|])
-    , ("unicode-funcs", anti (ptr $ C.TypeName "hb_unicode_funcs_t") [t|Ptr UnicodeFuncs|] [|withForeignPtr|])
+    , ("set", anti (ptr $ C.TypeName "hb_set_t") [t|Ptr Set_|] [|withForeignPtr|])
+    , ("shape-plan", anti (ptr $ C.TypeName "hb_shape_plan_t") [t|Ptr ShapePlan_|] [|withForeignPtr|])
+    , ("unicode-funcs", anti (ptr $ C.TypeName "hb_unicode_funcs_t") [t|Ptr UnicodeFuncs_|] [|withForeignPtr|])
     ]
   } where
   anti cTy hsTyQ w = C.SomeAntiQuoter C.AntiQuoter

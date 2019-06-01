@@ -5,10 +5,13 @@ module Graphics.Harfbuzz.Private
 , hs_free_stable_ptr
 , cbool, boolc, w2c, c2w
 , newByteStringCStringLen
+, unsafeStateVar
 ) where
 
+import Control.Monad.ST.Unsafe
 import qualified Data.ByteString as Strict
 import qualified Data.ByteString.Internal as Strict
+import Data.Primitive.StateVar
 import Data.Word
 import Foreign.C.Types
 import Foreign.C.String
@@ -48,3 +51,5 @@ newByteStringCStringLen (Strict.PS fp o l) = do
     pokeByteOff buf l (0::Word8)
     return (castPtr buf, l)
 
+unsafeStateVar :: IO a -> (a -> IO ()) -> StateVar s a
+unsafeStateVar g s = StateVar (unsafeIOToST g) (unsafeIOToST . s)
