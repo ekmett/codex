@@ -27,6 +27,8 @@ library
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
     -Wredundant-constraints -Widentities -Wmissing-export-lists
   if os(darwin)
+    -- brew does not add icu-uc to pkg-config, because Apple
+    -- ships a subset of ICU itself.
     extra-lib-dirs: /usr/local/opt/icu4c/lib
     include-dirs: /usr/local/opt/icu4c/include
     extra-libraries: icuuc
@@ -39,6 +41,7 @@ library
     primitive,
     template-haskell,
     text,
-    transformers
+    transformers,
+    vector
   hs-source-dirs: src
   exposed-modules: Data.Text.Bidirectional

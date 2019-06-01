@@ -5,8 +5,13 @@
 {-# language DeriveDataTypeable #-}
 {-# language DeriveGeneric #-}
 {-# language PatternSynonyms #-}
+{-# language LambdaCase #-}
 {-# language ScopedTypeVariables #-}
 {-# language GeneralizedNewtypeDeriving #-}
+{-# language TypeApplications #-}
+{-# language PolyKinds #-}
+{-# language DataKinds #-}
+{-# language UnboxedTuples #-}
 {-# options_ghc -Wno-missing-pattern-synonym-signatures #-}
 module Data.Text.Bidirectional
 ( Bidi(..)
@@ -22,7 +27,13 @@ module Data.Text.Bidirectional
 , setContext
 , setPara
 , setLine
+, setReorderingOptions
+, getReorderingOptions
+
 --
+, Level(..)
+, isRTL, isLTR
+
 , Direction(..)
 , ReorderingMode(..)
 , UBiDi
@@ -43,16 +54,24 @@ module Data.Text.Bidirectional
 import Control.Exception
 import Control.Monad
 import Control.Monad.Primitive
+import Data.Coerce
 import Data.Data (Data)
 import Data.Functor ((<&>))
 import Data.Int
+import Data.IORef
 import qualified Data.Map as Map
+import Data.Maybe (fromMaybe)
+import Data.Primitive.ByteArray
+import Data.Primitive.PrimArray
+import Data.Primitive.Types
 import Data.Text as Text
 import Data.Text.Foreign as Text
-import Data.Vector.Primitive as Prim
+import Data.Traversable (for)
+import qualified Data.Vector.Primitive as Prim
 import Data.Word
 import Foreign.C.String
 import Foreign.C.Types
+import qualified Foreign.Concurrent as Concurrent
 import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Unsafe (unsafeLocalState)
@@ -71,7 +90,6 @@ import qualified Language.Haskell.TH as TH
 #include "unicode/localpointer.h"
 #include "unicode/ubidi.h"
 
-
 pattern MAP_NOWHERE = (#const UBIDI_MAP_NOWHERE) :: Int
 pattern KEEP_BASE_COMBINING = (#const UBIDI_KEEP_BASE_COMBINING) :: Int
 pattern DO_MIRRORING = (#const UBIDI_DO_MIRRORING) :: Int
@@ -81,18 +99,18 @@ pattern OUTPUT_REVERSE = (#const UBIDI_OUTPUT_REVERSE) :: Int
 pattern BIDI_CLASS_DEFAULT = (#const U_BIDI_CLASS_DEFAULT) :: Int
 
 newtype Level = Level Word8
-  deriving (Eq,Ord,Show,Num,Enum,Real,Integral,Storable)
+  deriving (Eq,Ord,Show,Storable,Prim)
 
-pattern DEFAULT_LTR = (#const UBIDI_DEFAULT_LTR) :: Level
-pattern DEFAULT_RTL = (#const UBIDI_DEFAULT_RTL) :: Level
-pattern LEVEL_OVERRIDE = (#const UBIDI_LEVEL_OVERRIDE) :: Level
-pattern MAX_EXPLICIT_LEVEL = (#const UBIDI_MAX_EXPLICIT_LEVEL) -- not tied to level
+pattern DEFAULT_LTR = Level (#const UBIDI_DEFAULT_LTR) :: Level
+pattern DEFAULT_RTL = Level (#const UBIDI_DEFAULT_RTL) :: Level
+pattern LEVEL_OVERRIDE = Level (#const UBIDI_LEVEL_OVERRIDE) :: Level
+pattern MAX_EXPLICIT_LEVEL = Level (#const UBIDI_MAX_EXPLICIT_LEVEL) -- not tied to level
 
 isRTL :: Level -> Bool
-isRTL = odd
+isRTL = coerce (odd @Word8)
 
 isLTR :: Level -> Bool
-isLTR = even
+isLTR = coerce (even @Word8)
 
 newtype UErrorCode = UErrorCode Int32
   deriving (Eq,Ord,Show,Num,Enum,Real,Integral,Storable)
@@ -125,23 +143,14 @@ data UBiDi
 
 data Bidi s = Bidi
   { embeddingLevels :: IORef (Ptr Level)  -- used to deal with ubidi_setPara shared content issues
-  , parentLink :: IORef (Bidi s)          -- used to deal with ubidi_setLine shared content issues
+  , parentLink :: IORef (Maybe (Bidi s))  -- used to deal with ubidi_setLine shared content issues
   , getBidi :: ForeignPtr UBiDi
   }
 
-C.context $ C.baseCtx <> C.fptrCtx <> mempty
-  { C.ctxTypesTable = Map.fromList
-    [ (C.TypeName "UBiDi", [t|UBiDi|])
-    , (C.TypeName "UBiDiReorderingMode", [t|CInt|])
-    , (C.TypeName "UBiDiLevel", [t|Level|])
-    , (C.TypeName "int32_t", [t|Int32|])
-    , (C.TypeName "UErrorCode", [t|UErrorCode|])
-    , (C.TypeName "UChar", [t|Word16|])
-    , (C.TypeName "UBool", [t|Int8|])
-    ]
-  , C.ctxAntiQuoters = Map.fromList
-    [ ("bidi", anti (C.Ptr [] $ C.TypeSpecifier mempty $ C.TypeName "UBiDi") [t|Ptr UBiDi|] [|withForeignPtr . getBidi|]
-  } where
+withBidi :: Bidi s -> (Ptr UBiDi -> IO r) -> IO r
+withBidi = withForeignPtr . getBidi
+
+let 
   anti cTy hsTyQ w = C.SomeAntiQuoter C.AntiQuoter
     { C.aqParser = C.parseIdentifier <&> \hId -> (C.mangleHaskellIdentifier hId, cTy, hId)
     , C.aqMarshaller = \_ _ _ cId -> (,) <$> hsTyQ <*> [|$w (coerce $(getHsVariable "bidirectionalCtx" cId))|]
@@ -149,23 +158,40 @@ C.context $ C.baseCtx <> C.fptrCtx <> mempty
   getHsVariable err s = TH.lookupValueName (C.unHaskellIdentifier s) >>= \ case
     Nothing -> fail $ "Cannot capture Haskell variable " ++ C.unHaskellIdentifier s ++ ", because it's not in scope. (" ++ err ++ ")"
     Just hsName -> TH.varE hsName
+ in C.context $ C.baseCtx <> C.fptrCtx <> mempty
+      { C.ctxTypesTable = Map.fromList
+        [ (C.TypeName "UBiDi", [t|UBiDi|])
+        , (C.TypeName "UBiDiReorderingMode", [t|Int32|])
+        , (C.TypeName "UBiDiReorderingOption", [t|Int32|])
+        , (C.TypeName "UBiDiLevel", [t|Level|])
+        , (C.TypeName "int32_t", [t|Int32|])
+        , (C.TypeName "UErrorCode", [t|UErrorCode|])
+        , (C.TypeName "UChar", [t|Word16|])
+        , (C.TypeName "UBool", [t|Int8|])
+        ]
+      , C.ctxAntiQuoters = Map.fromList
+        [ ("bidi", anti (C.Ptr [] $ C.TypeSpecifier mempty $ C.TypeName "UBiDi") [t|Ptr UBiDi|] [|withBidi|])
+        ]
+      } 
 
 C.include "unicode/utypes.h"
 C.include "unicode/uchar.h"
 C.include "unicode/localpointer.h"
 C.include "unicode/ubidi.h"
 
-foreign import ccall "ubidi.h &" ubidi_close :: FunPtr (Ptr UBiDi -> IO ())
-
 instance Exception UErrorCode where
   displayException e = unsafeLocalState $ peekCString [C.pure|const char * { u_errorName($(UErrorCode e)) }|]
 
-foreignBidi :: Ptr Bidi -> IO Bidi
-foreignBidi ptr p = do
-  r <- newIORef nullPtr
-  p <- newIORef undefined
-  result <- Bidi r p <$> Concurrent.newForeignPtr (do ubidi_close p; v <- readIORef r; when (v /= nullPtr) $ free v) p
-  result <$ writeIORef p result
+foreignBidi :: Ptr UBiDi -> IO (Bidi s)
+foreignBidi self_ptr = do
+  embeddings_ref <- newIORef nullPtr -- embeddingLevels
+  parent_ref <- newIORef Nothing -- parentLink
+  self_fptr <- Concurrent.newForeignPtr self_ptr $ do
+    [C.block|void { ubidi_close($(UBiDi * self_ptr)); }|] -- delete self
+    embeddings <- readIORef embeddings_ref -- clean up embeddings
+    when (embeddings /= nullPtr) $ free embeddings
+    -- garbage collecting the parent link will allow parent to now possibly be freed if it has no references
+  pure $ Bidi embeddings_ref parent_ref self_fptr
 
 ok :: UErrorCode -> IO ()
 ok e = do
@@ -183,8 +209,8 @@ openSized maxLength maxRunCount = unsafeIOToPrim $
     foreignBidi bidi
 
 getText :: PrimMonad m => Bidi (PrimState m) -> m Text
-getText (Bidi _ fp) = unsafeIOToPrim $
-  withForeignPtr fp $ \p -> do
+getText bidi = unsafeIOToPrim $
+  withBidi bidi $ \p -> do
     cwstr <- [C.exp|const UChar * { ubidi_getText($(const UBiDi * p))}|]
     len <- [C.exp|int32_t { ubidi_getLength($(const UBiDi * p))}|]
     fromPtr cwstr (fromIntegral len)
@@ -207,16 +233,16 @@ setReorderingMode bidi (fromIntegral . fromEnum -> mode) = unsafeIOToPrim [C.blo
 getReorderingMode :: PrimMonad m => Bidi (PrimState m) -> m ReorderingMode
 getReorderingMode bidi = unsafeIOToPrim $ [C.exp|UBiDiReorderingMode{ ubidi_getReorderingMode($bidi:bidi)}|] <&> toEnum . fromIntegral
 
-setReorderingOptions :: PrimMonad m => Bidi (PrimState m) -> Word32 -> m ()
-setReorderingOptions bidi options = unsafeIOToPrim [C.block|void { ubidi_setReorderingOptions($bidi:bidi,$(uint32_t options)); }|]
+setReorderingOptions :: PrimMonad m => Bidi (PrimState m) -> Int32 -> m ()
+setReorderingOptions bidi options = unsafeIOToPrim [C.block|void { ubidi_setReorderingOptions($bidi:bidi,$(UBiDiReorderingOption options)); }|]
 
-getReorderingOptions :: PrimMonad m => Bidi (PrimState m) -> m Word32
-getReorderingOptions bidi = unsafeIOToPrim $ [C.exp|UBiDiReorderingOptions{ ubidi_getReorderingOptions($bidi:bidi)}|]
+getReorderingOptions :: PrimMonad m => Bidi (PrimState m) -> m Int32
+getReorderingOptions bidi = unsafeIOToPrim $ [C.exp|UBiDiReorderingOption { ubidi_getReorderingOptions($bidi:bidi) }|]
 
 setContext :: PrimMonad m => Bidi (PrimState m) -> Text -> Text -> m ()
 setContext bidi prologue_text epilogue_text = unsafeIOToPrim $ do
-  useAsPtr prologue_text $ \prologue (fromIntegral prologue_len) ->
-    useAsPtr epilogue_text $ \epilogue (fromIntegral epilogue_len) ->
+  useAsPtr prologue_text $ \prologue (fromIntegral -> prologue_len) ->
+    useAsPtr epilogue_text $ \epilogue (fromIntegral -> epilogue_len) ->
       [C.block|UErrorCode {
         UErrorCode error_code;
         ubidi_setContext(
@@ -225,38 +251,39 @@ setContext bidi prologue_text epilogue_text = unsafeIOToPrim $ do
           $(int32_t prologue_len),
           $(const UChar * epilogue),
           $(int32_t epilogue_len),
-          &error_code;
+          &error_code
         );
         return error_code;
       }|] >>= ok
 
 setPara :: PrimMonad m => Bidi (PrimState m) -> Text -> Level -> Maybe (Prim.Vector Level) -> m ()
 setPara bidi text paraLevel els = unsafeIOToPrim $
-  useAsPtr text $ \t (fromIntegral len) -> do
-    u <- help els
+  useAsPtr text $ \t i16@(fromIntegral -> len) -> do
+    (fromMaybe nullPtr -> u) <- for els $ \(Prim.Vector vofs vlen (ByteArray vba)) -> do
+      u <- if vlen < len
+           then callocBytes (fromIntegral i16)
+           else mallocBytes (fromIntegral i16)
+      u <$ copyPrimArrayToPtr u (PrimArray vba) vofs vlen -- missing from Data.Vector
+    let n = fromIntegral i16
     [C.block|UErrorCode {
       UErrorCode error_code;
       ubidi_setPara(
-        $bidi:bidi
+        $bidi:bidi,
         $(const UChar * t),
-        $(int32_t len),
+        $(int32_t n),
         $(UBiDiLevel paraLevel),
-        NULL,
+        $(UBiDiLevel * u),
         &error_code
       );
       return error_code;
     }|] >>= ok
     v <- atomicModifyIORef (embeddingLevels bidi) $ \v -> (u, v)
     when (v /= nullPtr) $ free v
-  where
-    help = maybe (pure nullPtr) $ \(Prim.Vector ofs vlen (PrimArray -> pa)) -> do
-      u <- if vlen < len then callocBytes n else mallocBytes n
-      u <$ copyPrimArrayToPtr u pa vofs vlen
 
 setLine :: PrimMonad m => Bidi (PrimState m) -> Int32 -> Int32 -> Bidi (PrimState m) -> m ()
-setLine para start limit line = unsafeIOToPrim $
+setLine para start limit line = unsafeIOToPrim $ do
   [C.block|UErrorCode {
-    UErrrCode error_code;
+    UErrorCode error_code;
     ubidi_setLine(
       $bidi:para,
       $(int32_t start),
@@ -266,7 +293,7 @@ setLine para start limit line = unsafeIOToPrim $
     );
     return error_code;
   }|] >>= ok
-  writeIORef (parentLink line) para -- prevents deallocation of the paragraph bidi before we at least repurpose the line
+  writeIORef (parentLink line) $ Just para -- prevents deallocation of the paragraph bidi before we at least repurpose the line
 
 -- getDirection :: PrimMonad m => Bidi (PrimState m) -> m Direction
 -- getBaseDirection :: PrimMonad m => Text -> Direction
