@@ -5,23 +5,22 @@ module Main
 ( main
 ) where
 
-import Control.Monad.IO.Class (MonadIO)
 import Control.Monad
 import Data.Functor
 import Data.Version
 import Data.Word
 import qualified Data.List.NonEmpty as NE
-import Debug.Trace (traceShowM,traceShowId)
 import Prelude hiding (init)
-import System.Directory (getCurrentDirectory, getHomeDirectory, doesDirectoryExist, doesPathExist)
+import System.Directory (getCurrentDirectory, getHomeDirectory)
 import Text.Printf
 import Test.Hspec
 import Test.QuickCheck hiding (Result)
-import qualified Test.QuickCheck.Gen as Gen
 
 import Graphics.Fontconfig
-import Graphics.Fontconfig.Internal (Result (..), FcBool (..))
 import Testing.Util
+
+import Test.Tasty
+import Test.Tasty.Hspec
 
 testDir,confDir,fontDir :: FilePath
 testDir = "test"
@@ -35,6 +34,7 @@ courierMono121314Styled = "Courier,Monospace-12,13,14:slant=100:weight=200"
 courierMonoStyled       = "Courier,Monospace:slant=100:weight=200"
 courier121314Styled     = "Courier-12,13,14:slant=100:weight=200"
 
+{-
 testConfigFile :: FilePath -> String
 testConfigFile fp = unlines
   [ "<?xml version=\"1.0\"?>"
@@ -46,6 +46,7 @@ testConfigFile fp = unlines
   , "  <include ignore_missing=\"no\">10-empty.conf</include>"
   , "</fontconfig>"
   ]
+-}
 
 main :: IO ()
 main = do
@@ -60,7 +61,7 @@ main = do
   -- Be chatty and declare what version of the library we're testing against.
   getVersion >>= printf ("Testing against Fontconfig version: %s") . showVersion
 
-  hspec $ do
+  (testSpec "spec" >=> defaultMain) $ do
     describe "Config Loading" $ do
       it "should init" $ returnsTrue init
       it "should init and bring up to date" $ returnsTrue initBringUptoDate
