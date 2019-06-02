@@ -44,7 +44,7 @@ infixr 6 .*
 
 inv :: Diff a b -> Diff b a
 inv (Diff a) = Diff (negate a)
-  
+
 next :: forall a. Storable a => Diff a a
 next = Diff (sizeOf @a undefined)
 
@@ -62,6 +62,10 @@ class DiffTorsor t where
 instance DiffTorsor Ptr where
   act = coerce plusPtr
   diff = coerce minusPtr
+
+instance DiffTorsor FunPtr where
+  act p d = castPtrToFunPtr $ act (castFunPtrToPtr p) d
+  diff p q = diff (castFunPtrToPtr p) (castFunPtrToPtr q)
 
 -- | due to finalizers this doesn't _quite_ satisfy ForeignPtr a * Diff a b <-> ForeignPtr a * ForeignPtr b
 instance DiffTorsor ForeignPtr where
