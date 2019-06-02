@@ -283,6 +283,7 @@ module Graphics.Fontconfig
 import Control.Monad
 import Control.Monad.Trans.Cont
 import Control.Monad.IO.Class
+import Data.List.NonEmpty (NonEmpty)
 import Data.Coerce
 import Data.Const.Unsafe
 import Data.Foldable
@@ -442,7 +443,7 @@ configParseAndLoad config file (marshal -> complain) = liftIO $ [C.exp|int { FcC
 --------------------------------------------------------------------------------
 
 -- | Construct a fresh object set
-objectSet :: MonadIO m => [String] -> m ObjectSet
+objectSet :: MonadIO m => NonEmpty String -> m ObjectSet
 objectSet xs = liftIO $ do
   o <- [C.exp|FcObjectSet * { FcObjectSetCreate() }|]
   for_ xs $ \x -> [C.exp|int { FcObjectSetAdd($(FcObjectSet * o),$str:x) }|] >>= check . cbool
@@ -544,6 +545,7 @@ patternAddInteger :: MonadIO m => Pattern -> String -> Int -> m Bool
 patternAddInteger p k (fromIntegral -> v) = liftIO $ [C.exp|int { FcPatternAddInteger($pattern:p,$str:k,$(int v)) }|] <&> cbool
 {-# inlinable patternAddInteger #-}
 
+-- | Returns the i'th value associated with the property object.
 patternGetInteger :: MonadIO m => Pattern -> String -> Int -> m (Result Int)
 patternGetInteger p k (fromIntegral -> i) = liftIO $
   alloca $ \t -> do
@@ -687,6 +689,14 @@ patternGetRange p k (fromIntegral -> i) = liftIO $
       [C.exp|FcRange* { FcRangeCopy($(FcRange* cs)) }|] >>= foreignRange -- making a copy is on us
 {-# inlinable patternGetRange #-}
 
+-- | Removes the value associated with the property @object@ at
+-- position @i@, returning whether the property existed and had a value
+-- at that position or not.
+--
+-- @
+-- patternRemove pat object i
+-- @
+--
 patternRemove :: MonadIO m => Pattern -> String -> Int -> m Bool
 patternRemove p k (fromIntegral -> i) = liftIO $ [C.exp|int { FcPatternRemove($pattern:p,$str:k,$(int i)) }|] <&> cbool
 {-# inlinable patternRemove #-}

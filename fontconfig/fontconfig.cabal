@@ -56,3 +56,19 @@ library
     Graphics.Fontconfig.Private
   exposed-modules:
     Graphics.Fontconfig
+
+test-suite tests
+  type: exitcode-stdio-1.0
+  default-language: Haskell2010
+  other-modules: Testing.Util
+  hs-source-dirs: test
+  main-is: Spec.hs
+  build-depends:
+    base >= 4.11 && < 5,
+    fontconfig,
+    containers >= 0.6,
+    StateVar,
+    transformers,
+    directory,
+    hspec,
+    QuickCheck
