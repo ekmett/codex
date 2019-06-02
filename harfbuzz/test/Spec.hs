@@ -16,7 +16,7 @@ gc (UNICODE_GENERAL_CATEGORY x) = x
 
 spec :: Spec
 spec = Hspec.after_ performMajorGC $ do
-  describe "hb_unicode_funcs_t" $ do
+  describe "unicode-funcs" $ do
     it "can identify general categories" $ do
       uf <- unicode_funcs_get_default
       (unicode_general_category uf 'a' <&> gc) `shouldReturn` LowercaseLetter
@@ -33,16 +33,16 @@ spec = Hspec.after_ performMajorGC $ do
     it "can compose" $ do
       uf <- unicode_funcs_get_default
       unicode_compose uf 'e' '\x0301' `shouldReturn` Just '\x00e9'
-  describe "hb_tag_t" $ do
+  describe "tag" $ do
     it "TAG matches" $ (case script_to_iso15924_tag SCRIPT_HEBREW of TAG a b c d -> (a,b,c,d); _ -> undefined) `shouldBe` ('H','e','b','r')
     it "TAG constructs" $ script_from_iso15924_tag (TAG 'H' 'e' 'b' 'r') == SCRIPT_HEBREW
-  describe "hb_script_t" $ do
+  describe "script" $ do
     it "compares" $ (SCRIPT_HEBREW == SCRIPT_TAMIL) `shouldBe` False
     it "has Hebrew" $ do script_to_string SCRIPT_HEBREW `shouldBe` "Hebr"
     it "has Tamil" $ do script_to_string SCRIPT_TAMIL `shouldBe` "Taml"
     it "has Braille" $ do script_to_string SCRIPT_BRAILLE `shouldBe` "Brai"
     it "corrects case " $ do script_from_string "HEBR" `shouldBe` SCRIPT_HEBREW
-  describe "hb_blob_t" $ do
+  describe "blob" $ do
     it "should not construct the empty blob by default" $ do
       blob_create "hello" MEMORY_MODE_READONLY `shouldNotReturn` def
     it "has length" $ do
@@ -78,7 +78,7 @@ spec = Hspec.after_ performMajorGC $ do
       object_get_user_data x kv `shouldReturn` Just v
       object_set_user_data x ku v False `shouldReturn` False
       object_get_user_data x ku `shouldReturn` Just u
-  describe "hb_direction_t" $ do
+  describe "direction" $ do
     describe "direction_from_string" $ do
       it "DIRECTION_LTR" $ do direction_from_string "l" `shouldBe` DIRECTION_LTR
       it "DIRECTION_RTL" $ do direction_from_string "rtl" `shouldBe` DIRECTION_RTL
@@ -91,7 +91,7 @@ spec = Hspec.after_ performMajorGC $ do
       it "btt" $ do direction_to_string DIRECTION_BTT `shouldBe` "btt"
       it "ttb" $ do direction_to_string DIRECTION_TTB `shouldBe` "ttb"
       it "invalid" $ do direction_to_string DIRECTION_INVALID `shouldBe` "invalid"
-  describe "hb_feature_t" $ do
+  describe "feature" $ do
     it "parses" $ do "kern[1:5]" `shouldBe` Feature "kern" 1 1 5
     it "compares" $ do "kern[1:5]" `shouldNotBe` ("kern[1:6]" :: Feature)
     it "+kern" $ do "+kern" `shouldBe` Feature "kern" 1 0 maxBound
@@ -105,9 +105,9 @@ spec = Hspec.after_ performMajorGC $ do
     it "kern[:5]" $ do "kern[:5]" `shouldBe` Feature "kern" 1 0 5
     it "kern[3]" $ do "kern[3]" `shouldBe` Feature "kern" 1 3 4
     it "aalt[3:5]=2" $ do "aalt[3:5]=2" `shouldBe` Feature "aalt" 2 3 5
-  describe "hb_variation_t" $ do
+  describe "variation" $ do
     it "parses" $ do "wght=10" `shouldBe` Variation "wght" 10
-  describe "hb_buffer_t" $ do
+  describe "buffer" $ do
     it "create produces an empty buffer" $ do
       (buffer_create >>= buffer_get_length) `shouldReturn` 0
     it "can add to a buffer" $ do
@@ -141,6 +141,19 @@ spec = Hspec.after_ performMajorGC $ do
       get (buffer_direction x) `shouldReturn` "rtl"
       default_language <- language_get_default
       get (buffer_language x) `shouldReturn` default_language -- harfbuzz does not guess language off content, takes host language
+  describe "face" $ do
+    it "can load a file" $ do
+      blob <- blob_create_from_file "test/fonts/SourceCodeVariable-Roman.otf"
+      face_count blob `shouldReturn` 1
+      face <- face_create blob 0
+      face `shouldNotBe` def -- non-empty face
+      get (face_index face) `shouldReturn` 0
+      get (face_upem face) `shouldReturn` 1000
+      face_is_immutable face `shouldReturn` False
+      get (face_glyph_count face) `shouldReturn` 1585 -- ?
+      font <- font_create face
+      font `shouldNotBe` def -- non-empty font
+      face_is_immutable face `shouldReturn` True -- creating a font freezes the face
 
 main :: IO ()
 main = do

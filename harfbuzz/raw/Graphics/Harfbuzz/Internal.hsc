@@ -737,6 +737,10 @@ feature_to_string feature = unsafeLocalState $
       [C.block|void { hb_feature_to_string($(hb_feature_t * f),$(char * buf),128); }|]
       peekCString buf
 
+instance Default (Font s) where
+  def = unsafeLocalState $ [C.exp|hb_font_t * { hb_font_get_empty() }|] >>= fmap Font . newForeignPtr_
+  {-# noinline def #-}
+
 instance IsString Feature where fromString s = fromMaybe (error $ "invalid feature: " ++ s) $ feature_from_string s
 instance Show Feature where showsPrec d = showsPrec d . feature_to_string
 instance Read Feature where readPrec = step readPrec >>= maybe empty pure . feature_from_string
