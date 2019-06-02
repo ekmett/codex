@@ -50,6 +50,7 @@ let
     harfbuzz-icu      = ./harfbuzz-icu;
     ptrdiff           = ./ptrdiff;
     weak              = ./weak;
+    ui                = ./ui;
   };
 
   c2nix = p: n: args:
@@ -79,7 +80,7 @@ let
   glow              = c2nix modHaskPkgs "glow" {};
 
   # Build the UI derivation and include our specific dependencies.
-  ui = modHaskPkgs.callPackage ./ui/ui.nix { 
+  ui = c2nix modHaskPkgs "ui" { 
     fontconfig   = fontconfig;
     harfbuzz     = harfbuzz;
     harfbuzz-icu = harfbuzz-icu;
