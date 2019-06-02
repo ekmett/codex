@@ -1,0 +1,44 @@
+cabal-version: 2.2
+name: foreign-primitive
+version: 0
+synopsis: FFI primitives for ST and MonadPrim
+homepage: https://github.com/ekmett/codex/tree/master/foreign-ref#readme
+license: BSD-2-Clause OR Apache-2.0
+license-file: LICENSE.md
+author: Edward Kmett
+maintainer: Edward Kmett <ekmett@gmail.com>
+copyright: Copyright (c) 2019 Edward Kmett
+stability: experimental
+category: FFI
+build-type: Simple
+description:
+  FFI primitives for ST and MonadPrim.
+extra-doc-files:
+  README.md,
+  CHANGELOG.md
+
+source-repository head
+  type: git
+  location: https://github.com/ekmett/codex
+
+library
+  hs-source-dirs: src
+  default-language: Haskell2010
+  ghc-options:
+    -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+    -Wredundant-constraints -Widentities -Wmissing-export-lists
+  build-depends:
+    base >= 4.11 && < 5,
+    const,
+    data-default,
+    ghc-prim,
+    primitive,
+    ptrdiff
+  exposed-modules:
+    Control.Monad.IOST
+    Control.Monad.IOST.Unsafe
+    Foreign.ForeignRef
+    Foreign.ForeignRef.Unsafe
+    Foreign.Ref
+    Foreign.Ref.Unsafe
+    Foreign.Storable.Ref
