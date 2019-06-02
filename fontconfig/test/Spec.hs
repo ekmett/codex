@@ -1,25 +1,26 @@
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE TupleSections #-}
-module Main where
+{-# language LambdaCase #-}
+{-# language TupleSections #-}
+{-# language ScopedTypeVariables #-}
+module Main 
+( main
+) where
 
-import Prelude hiding (init)
-
-import Debug.Trace (traceShowM,traceShowId)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad
 import Data.Functor
 import Data.Version
+import Data.Word
 import qualified Data.List.NonEmpty as NE
+import Debug.Trace (traceShowM,traceShowId)
+import Prelude hiding (init)
+import System.Directory (getCurrentDirectory, getHomeDirectory, doesDirectoryExist, doesPathExist)
+import Text.Printf
 import Test.Hspec
 import Test.QuickCheck hiding (Result)
 import qualified Test.QuickCheck.Gen as Gen
 
-import System.Directory (getCurrentDirectory, getHomeDirectory, doesDirectoryExist, doesPathExist)
-import Text.Printf
-
 import Graphics.Fontconfig
 import Graphics.Fontconfig.Internal (Result (..), FcBool (..))
-
 import Testing.Util
 
 testDir,confDir,fontDir :: FilePath
@@ -99,11 +100,12 @@ main = do
     describe "Range" $ do
       let compareRange l u = maybe False (== (l,u))
 
-      it "tripping integer range" $ property $ \l u -> ioProperty $
-          rangeCreateInteger l u >>= fmap ( compareRange (fromIntegral l) (fromIntegral u) ) . rangeGetDouble
+      it "tripping integer range" $ property $ \(l :: Word32) (u :: Word32) -> do
+        range <- rangeCreateInteger (fromIntegral l) (fromIntegral u)
+        rangeGetDouble range `shouldReturn` Just (fromIntegral l, fromIntegral u)
 
-      it "tripping double range" $  property $ \l u -> ioProperty $
-          rangeCreateDouble l u >>= fmap ( compareRange l u ) . rangeGetDouble
+      it "tripping double range" $ property $ \l u -> ioProperty $
+        rangeCreateDouble l u >>= fmap ( compareRange l u ) . rangeGetDouble
 
       describe "copying range" $ before (rangeCreateInteger 0 10 >>= \r -> (r,) <$> rangeCopy r) $ do
         it "won't have matching pointers" $ \(og, copy) ->
@@ -155,7 +157,12 @@ main = do
       it "filters patterns using object set" $ do
         pA <- nameParse courierMono121314Styled
         let pAFiltered = "Courier,Monospace-12,13,14"
-        shouldbeM pAFiltered $ objectSet (NE.fromList ["family","size"]) >>= patternFilter pA >>= nameUnparse
+        shouldbeM pAFiltered $ objectSet (NE.fromList ["family","size"]) >>= patternFilter pA . Just >>= nameUnparse
+
+      it "filter patterns with empty object set duplicate pattern" $ do
+        let pat = "Courier,Monospace-12,13,14:slant=100:weight=200"
+        pA <- nameParse pat
+        shouldbeM pat $ patternFilter pA Nothing >>= nameUnparse
 
       describe "Adding values to patterns" $ do
         it "adds integer to the pattern value listed in objectset" $ patternAddPropTripping
@@ -199,22 +206,6 @@ main = do
 
 --- failing tests with explanations below
   
-      -- We can either support the behaviour of duplicating the
-      -- pattern when given a NULL object set, or prevent people from
-      -- creating NULL object sets. As an object set created from `[]`
-      -- is not NULL and does not behave the same way.
-      --
-      -- it "filter patterns with empty object set duplicate pattern" $ do
-      --   let pat = "Courier,Monospace-12,13,14:slant=100:weight=200"
-      --   pA <- nameParse pat
-      --   shouldbeM pat $ objectSet [] >>= patternFilter pA >>= nameUnparse
-
-
-      -- Fails with:
-      --
-      -- munmap_chunk(): invalid pointer
-      -- fish: “cabal new-run pkg:fontconfig:te…” terminated by signal SIGABRT (Abort)
-      --
-      -- it "can read home directory" $ do
-      --   homeOn <- configEnableHome True
-      --   when homeOn $ configHome >>= (`shouldBe` userHomeDir)
+--      it "can read home directory" $ do
+--        homeOn <- configEnableHome True
+--        when homeOn $ configHome >>= (`shouldBe` userHomeDir)

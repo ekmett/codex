@@ -57,7 +57,7 @@ library
   exposed-modules:
     Graphics.Fontconfig
 
-test-suite tests
+test-suite spec
   type: exitcode-stdio-1.0
   default-language: Haskell2010
   other-modules: Testing.Util

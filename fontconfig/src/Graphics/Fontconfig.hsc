@@ -514,8 +514,8 @@ patternEqualSubset p q o = liftIO $ [C.exp|int { FcPatternEqualSubset($pattern:p
 {-# inlinable patternEqualSubset #-}
 
 -- | filter a pattern by an object set
-patternFilter :: MonadIO m => Pattern -> ObjectSet -> m Pattern
-patternFilter p o = liftIO $ [C.exp|FcPattern * { FcPatternFilter($pattern:p,$objectset:o) }|] >>= foreignPattern
+patternFilter :: MonadIO m => Pattern -> Maybe ObjectSet -> m Pattern
+patternFilter p o = liftIO $ [C.exp|FcPattern * { FcPatternFilter($pattern:p,$maybe-objectset:o) }|] >>= foreignPattern
 {-# inlinable patternFilter #-}
 
 --------------------------------------------------------------------------------
