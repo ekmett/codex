@@ -206,6 +206,6 @@ main = do
 
 --- failing tests with explanations below
   
---      it "can read home directory" $ do
---        homeOn <- configEnableHome True
---        when homeOn $ configHome >>= (`shouldBe` userHomeDir)
+      it "can read home directory" $ do
+        homeOn <- configEnableHome True
+        when homeOn $ configHome `shouldReturn` Just userHomeDir

@@ -296,6 +296,7 @@ import Foreign.Const.Marshal.Utils
 import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
+import Foreign.Marshal.Utils
 import Foreign.Ptr
 import Foreign.Storable
 import qualified Language.C.Inline as C
@@ -378,9 +379,9 @@ configCurrent = StateVar g s where
   g = [C.exp|FcConfig* { FcConfigReference(0) }|] >>= foreignConfig
   s cfg = [C.block|void { FcConfigSetCurrent(FcConfigReference($config:cfg)); }|]
 
-configHome :: MonadIO m => m FilePath
+configHome :: MonadIO m => m (Maybe FilePath)
 configHome = liftIO $
-  [C.exp|const unsigned char * { FcConfigHome() }|] >>= \cstr -> peekCUString cstr <* free cstr
+  [C.exp|const unsigned char * { FcConfigHome() }|] >>= maybePeek peekCUString
 
 configEnableHome :: MonadIO m => Bool -> m Bool
 configEnableHome (marshal -> enable) = liftIO $ [C.exp|int { FcConfigEnableHome($(int enable)) }|] <&> cbool
