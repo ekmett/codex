@@ -8,6 +8,10 @@ docs:
 	@find `pwd`/dist-newstyle -type f -name index.html -exec echo 'file://{}' \;
 
 distclean:
-	rm -rf dist-newstyle
+	rm -rf dist-newstyle tags
 
-.PHONY: all distclean
+tags:
+	rm -f tags
+	fast-tags -R . --exclude=dist-newstyle --exclude=old
+
+.PHONY: all distclean docs tags
