@@ -35,17 +35,15 @@ module Graphics.FreeType.Internal
 #ifndef HLINT
 #err_exports
 #endif
-  ) 
+  )
 , ok
-, Face(..)
-, FaceRec
-, Library(..)
-, LibraryRec
-, Memory(..)
-, MemoryRec(..)
-, AllocFunc
-, FreeFunc
-, ReallocFunc
+, Face(..), FaceRec
+, Generic(..)
+, Library(..), LibraryRec
+, Memory(..), MemoryRec(..), AllocFunc, FreeFunc, ReallocFunc
+, Fixed
+, Pos
+, SizeRec(..), SizeMetrics(..), SizeInternalRec
 , pattern FREETYPE_MAJOR
 , pattern FREETYPE_MINOR
 , pattern FREETYPE_PATCH
@@ -136,6 +134,80 @@ C.context $ C.baseCtx <> mempty
     ]
   }
 
+data Generic = Generic
+  { generic_data      :: {-# unpack #-} !(Ptr ())
+  , generic_finalizer :: {-# unpack #-} !(FinalizerPtr ())
+  } deriving (Eq,Show)
+
+instance Storable Generic where
+  sizeOf _ = #size FT_Generic
+  alignment _ = #alignment FT_Generic
+  peek p = Generic
+    <$> (#peek FT_Generic, data) p
+    <*> (#peek FT_Generic, finalizer) p
+  poke p Generic{..} = do
+    (#poke FT_Generic, data) p generic_data
+    (#poke FT_Generic, finalizer) p generic_finalizer
+
+data SizeMetrics = SizeMetrics
+  { size_metrics_x_ppem
+  , size_metrics_y_ppem :: {-# unpack #-} !Word16
+  , size_metrics_x_scale
+  , size_metrics_y_scale :: {-# unpack #-} !Fixed
+  , size_metrics_ascender
+  , size_metrics_descender
+  , size_metrics_height
+  , size_metrics_max_advance :: {-# unpack #-} !Pos
+  } deriving (Eq,Show)
+
+instance Storable SizeMetrics where
+  sizeOf _ = #size FT_Size_Metrics
+  alignment _ = #alignment FT_Size_Metrics
+  peek p = SizeMetrics
+    <$> (#peek FT_Size_Metrics, x_ppem) p
+    <*> (#peek FT_Size_Metrics, y_ppem) p
+    <*> (#peek FT_Size_Metrics, x_scale) p
+    <*> (#peek FT_Size_Metrics, y_scale) p
+    <*> (#peek FT_Size_Metrics, ascender) p
+    <*> (#peek FT_Size_Metrics, descender) p
+    <*> (#peek FT_Size_Metrics, height) p
+    <*> (#peek FT_Size_Metrics, max_advance) p
+  poke p SizeMetrics{..} = do
+    (#poke FT_Size_Metrics, x_ppem) p size_metrics_x_ppem
+    (#poke FT_Size_Metrics, y_ppem) p size_metrics_y_ppem
+    (#poke FT_Size_Metrics, x_scale) p size_metrics_x_scale
+    (#poke FT_Size_Metrics, y_scale) p size_metrics_y_scale
+    (#poke FT_Size_Metrics, ascender) p size_metrics_ascender
+    (#poke FT_Size_Metrics, descender) p size_metrics_descender
+    (#poke FT_Size_Metrics, height) p size_metrics_height
+    (#poke FT_Size_Metrics, max_advance) p size_metrics_max_advance
+
+data SizeInternalRec
+
+type Fixed = Word32
+type Pos = Int32
+
+data SizeRec = SizeRec
+  { size_face :: {-# unpack #-} !(Ptr FaceRec)
+  , size_generic :: {-# unpack #-} !Generic
+  , size_metrics :: {-# unpack #-} !SizeMetrics
+  , size_internal :: {-# unpack #-} !(Ptr SizeInternalRec)
+  } deriving (Eq,Show)
+
+instance Storable SizeRec where
+  sizeOf _ = #size FT_SizeRec
+  alignment _ = #alignment FT_SizeRec
+  peek p = SizeRec
+    <$> (#peek FT_SizeRec, face) p
+    <*> (#peek FT_SizeRec, generic) p
+    <*> (#peek FT_SizeRec, metrics) p
+    <*> (#peek FT_SizeRec, internal) p
+  poke p SizeRec{..} = do
+    (#poke FT_SizeRec, face) p size_face
+    (#poke FT_SizeRec, generic) p size_generic
+    (#poke FT_SizeRec, metrics) p size_metrics
+    (#poke FT_SizeRec, internal) p size_internal
+
 C.include "<ft2build.h>"
 C.verbatim "#include FT_FREETYPE_H"
 C.verbatim "#include FT_MODULE_H"
@@ -151,24 +223,34 @@ foreignLibrary p = Library <$> Concurrent.newForeignPtr p ([C.exp|FT_Error { FT_
 freeTypeCtx :: C.Context
 freeTypeCtx = mempty
   { C.ctxTypesTable = Map.fromList
-    [ (C.TypeName "FT_Error", [t|Error|])
-    , (C.TypeName "FT_Face", [t|Ptr FaceRec|])
-    , (C.TypeName "FT_Long", [t|Int32|])
-    , (C.TypeName "FT_ULong", [t|Word32|])
-    , (C.TypeName "FT_FaceRec_", [t|FaceRec|])
-    , (C.TypeName "FT_Int32", [t|Int32|])
-    , (C.TypeName "FT_UInt32", [t|Word32|])
-    , (C.TypeName "FT_Int", [t|Int32|])
-    , (C.TypeName "FT_UInt", [t|Word32|])
-    , (C.TypeName "FT_Library", [t|Ptr LibraryRec|])
-    , (C.TypeName "FT_LibraryRec_", [t|LibraryRec|])
-    , (C.TypeName "FT_Memory", [t|Ptr MemoryRec|])
-    , (C.TypeName "FT_MemoryRec_", [t|MemoryRec|])
+    [ (C.TypeName "FT_Error",             [t|Error|])
+    , (C.TypeName "FT_Face",              [t|Ptr FaceRec|])
+    , (C.TypeName "FT_FaceRec_",          [t|FaceRec|])
+    , (C.TypeName "FT_Generic",           [t|Generic|])
+    , (C.TypeName "FT_Int",               [t|Int32|])
+    , (C.TypeName "FT_Int32",             [t|Int32|])
+    , (C.TypeName "FT_Library",           [t|Ptr LibraryRec|])
+    , (C.TypeName "FT_LibraryRec_",       [t|LibraryRec|])
+    , (C.TypeName "FT_Long",              [t|Int32|])
+    , (C.TypeName "FT_Memory",            [t|Ptr MemoryRec|])
+    , (C.TypeName "FT_MemoryRec_",        [t|MemoryRec|])
+    , (C.TypeName "FT_Size_Internal",     [t|Ptr SizeInternalRec|])
+    , (C.Struct   "FT_Size_InternalRec_", [t|SizeInternalRec|])
+    , (C.TypeName "FT_Size_Metrics",      [t|SizeMetrics|])
+    , (C.Struct   "FT_Size_Metrics_",     [t|SizeMetrics|])
+    , (C.TypeName "FT_Size_Rec",          [t|SizeRec|])
+    , (C.Struct   "FT_Size_Rec_",         [t|SizeRec|])
+    , (C.TypeName "FT_UInt",              [t|Word32|])
+    , (C.TypeName "FT_UInt32",            [t|Word32|])
+    , (C.TypeName "FT_ULong",             [t|Word32|])
     ]
   , C.ctxAntiQuoters = Map.fromList
     [ ("ustr", anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char (Just C.Unsigned))) [t|Ptr CUChar|] [|withCUString|])
     , ("str", anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char Nothing)) [t|Ptr CChar|] [|withCString|])
-    , ("library", anti (C.TypeSpecifier mempty $ C.TypeName "FT_Library") [t|Ptr LibraryRec|] [|withForeignPtr|])
     , ("face", anti (C.TypeSpecifier mempty $ C.TypeName "FT_Face") [t|Ptr FaceRec|] [|withForeignPtr|])
+    , ("generic", anti (C.TypeSpecifier mempty $ C.TypeName "FT_Generic") [t|Ptr Generic|] [|with|])
+    , ("library", anti (C.TypeSpecifier mempty $ C.TypeName "FT_Library") [t|Ptr LibraryRec|] [|withForeignPtr|])
+    , ("sizemetrics", anti (C.TypeSpecifier mempty $ C.TypeName "FT_Size_Metrics") [t|Ptr SizeMetrics|] [|with|])
+    , ("sizerec", anti (C.TypeSpecifier mempty $ C.TypeName "FT_Size_Rec") [t|Ptr SizeRec|] [|with|])
     ]
   }
