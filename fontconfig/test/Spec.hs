@@ -24,8 +24,8 @@ import Test.Tasty.Hspec
 
 testDir,confDir,fontDir :: FilePath
 testDir = "test"
-confDir = "test-configs"
-fontDir = "test-fonts"
+confDir = "configs"
+fontDir = "fonts"
 
 times12, monoMatrix100101, courier121314Styled, courierMono121314Styled, courierMonoStyled :: String
 times12                 = "Times-12"
