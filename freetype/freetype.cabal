@@ -35,6 +35,8 @@ common base
     base > 4.11 && < 5,
     bytestring,
     containers,
+    data-default,
+    fixed,
     inline-c,
     primitive,
     template-haskell
@@ -58,6 +60,7 @@ library
   exposed-modules:
     Graphics.FreeType
     Graphics.FreeType.Face
+    Graphics.FreeType.Math
     Graphics.FreeType.Library
     Graphics.FreeType.Version
 
