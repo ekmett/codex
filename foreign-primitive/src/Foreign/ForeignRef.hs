@@ -1,12 +1,24 @@
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
+{-# language ViewPatterns #-}
+{-# language FlexibleContexts #-}
 module Foreign.ForeignRef
 ( ForeignRef
+, foreignRef
+, ConstForeignRef
+, constForeignRef
+, ForeignReference
+, ConstForeignReference
 , newForeignRef_
+, newConstForeignRef_
 , withForeignRef
+, withAForeignRef
+, withConstForeignRef
 , finalizeForeignRef
 , castForeignRef
+, castConstForeignRef
 , plusForeignRef
+, plusConstForeignRef
 , mallocForeignRef
 , mallocForeignRefBytes
 , mallocForeignRefArray
@@ -14,26 +26,41 @@ module Foreign.ForeignRef
 ) where
 
 import Control.Monad.Primitive
-import Data.Coerce
+import Foreign.Const.ForeignPtr
 import Foreign.ForeignPtr
 import Foreign.ForeignRef.Unsafe
 import Foreign.Ref.Unsafe
 import Foreign.Storable
 
-newForeignRef_ :: PrimMonad m => Ref (PrimState m) a -> m (ForeignRef (PrimState m) a)
-newForeignRef_ (Ref p) = unsafeIOToPrim $ ForeignRef <$> newForeignPtr_ p
+newForeignRef_ :: (PrimMonad m, Reference (PrimState m) r) => r a -> m (ForeignRef (PrimState m) a)
+newForeignRef_ p = unsafeIOToPrim $ ForeignRef <$> newForeignPtr_ (unsafeReferencePtr p)
 
-withForeignRef :: PrimBase m => ForeignRef (PrimState m) a -> (Ref (PrimState m) a -> m b) -> m b
-withForeignRef (ForeignRef fp) k = unsafeIOToPrim $ withForeignPtr fp (unsafePrimToIO . k . Ref)
+newConstForeignRef_ :: (PrimMonad m, ConstReference (PrimState m) r) => r a -> m (ConstForeignRef (PrimState m) a)
+newConstForeignRef_ p = unsafeIOToPrim $ ConstForeignRef . ForeignRef <$> newForeignPtr_ (unsafeReferencePtr p)
 
-finalizeForeignRef :: PrimMonad m => ForeignRef (PrimState m) a -> m ()
-finalizeForeignRef (ForeignRef fp) = unsafeIOToPrim $ finalizeForeignPtr fp
+withForeignRef :: (PrimBase m, ForeignReference (PrimState m) fr) => fr a -> (Ref (PrimState m) a -> m b) -> m b
+withForeignRef fp k = unsafeIOToPrim $ withForeignPtr (unsafeForeignReferencePtr fp) (unsafePrimToIO . k . Ref)
 
-castForeignRef :: ForeignRef s a -> ForeignRef s b
-castForeignRef = coerce
+withAForeignRef :: (PrimBase m, ConstForeignReference (PrimState m) fr, ConstReference (PrimState m) (Unforeign fr)) => fr a -> (Unforeign fr a -> m b) -> m b
+withAForeignRef fp k = unsafeIOToPrim $ withForeignPtr (unsafeForeignReferencePtr fp) (unsafePrimToIO . k . unsafePtrReference)
 
-plusForeignRef :: forall s a b. ForeignRef s a -> Int -> ForeignRef s b
-plusForeignRef = coerce (plusForeignPtr @a @b)
+withConstForeignRef :: (PrimBase m, ConstForeignReference (PrimState m) fr) => fr a -> (ConstRef (PrimState m) a -> m b) -> m b
+withConstForeignRef fp k = unsafeIOToPrim $ withForeignPtr (unsafeForeignReferencePtr fp) (unsafePrimToIO . k . unsafePtrReference)
+
+finalizeForeignRef :: (PrimMonad m, ConstForeignReference (PrimState m) fr) => fr a -> m ()
+finalizeForeignRef fp = unsafeIOToPrim $ finalizeForeignPtr $ unsafeForeignReferencePtr fp
+
+castForeignRef :: ForeignReference s fr => fr a -> ForeignRef s b
+castForeignRef = unsafeForeignPtrReference . castForeignPtr . unsafeForeignReferencePtr
+
+castConstForeignRef :: ConstForeignReference s fr => fr a -> ConstForeignRef s b
+castConstForeignRef = unsafeForeignPtrReference . castForeignPtr . unsafeForeignReferencePtr
+
+plusForeignRef :: forall a b fr s. ConstForeignReference s fr => fr a -> Int -> fr b
+plusForeignRef fp i = unsafeForeignPtrReference $ plusForeignPtr (unsafeForeignReferencePtr fp) i
+
+plusConstForeignRef :: forall a b fr s. ConstForeignReference s fr => fr a -> Int -> ConstForeignRef s b
+plusConstForeignRef fp i = unsafeForeignPtrReference $ plusForeignPtr (unsafeForeignReferencePtr fp) i
 
 -- * Allocating managed memory
 

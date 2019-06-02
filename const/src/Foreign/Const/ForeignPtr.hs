@@ -49,10 +49,10 @@ import Foreign.Ptr
 
 import Data.Const.Unsafe
 
-type family Unforeign (fp :: * -> *) :: * -> * where
-  Unforeign ForeignPtr = Ptr
-  Unforeign ConstForeignPtr = ConstPtr
+type family Unforeign (fp :: * -> *) :: * -> *
 
+type instance Unforeign ForeignPtr = Ptr
+type instance Unforeign ConstForeignPtr = ConstPtr
 
 constForeignPtr :: AForeignPtr fp => fp a -> ConstForeignPtr a
 constForeignPtr = constant

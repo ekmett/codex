@@ -14,7 +14,7 @@
 {-# language PolyKinds #-}
 {-# language DataKinds #-}
 {-# language UnboxedTuples #-}
-{-# options -Wno-orphans #-}
+--{-# options -Wno-orphans #-}
 
 module Foreign.Ref.Unsafe
 ( Ref(..)
@@ -55,8 +55,10 @@ import GHC.Prim
 import Prelude hiding (id,(.))
 
 -- orphans
-deriving instance Prim IntPtr
-deriving instance Prim WordPtr
+--deriving instance Prim IntPtr
+--deriving instance Prim WordPtr 
+--deriving instance Prim (IntRef s)
+--deriving instance Prim (WordRef s)
 
 newtype Ref s a = Ref { unsafeRefToPtr :: Ptr a }
  deriving stock (Data)
@@ -79,7 +81,7 @@ unsafeFunPtrToFunRef = FunRef
 
 newtype IntRef s = IntRef { unsafeIntRefToIntPtr :: IntPtr }
   deriving stock (Data)
-  deriving newtype (Bounded,Enum,Eq,Integral,Num,Ord,Read,Real,Show,FiniteBits,Bits,Storable,Prim)
+  deriving newtype (Bounded,Enum,Eq,Integral,Num,Ord,Read,Real,Show,FiniteBits,Bits,Storable)
 
 unsafeIntPtrToIntRef :: IntPtr -> IntRef s
 unsafeIntPtrToIntRef = IntRef
@@ -91,7 +93,7 @@ instance Default (IntRef s) where
 
 newtype WordRef s = WordRef { unsafeWordRefToWordPtr :: WordPtr }
   deriving stock (Data)
-  deriving newtype (Bounded,Enum,Eq,Integral,Num,Ord,Read,Real,Show,FiniteBits,Bits,Storable,Prim)
+  deriving newtype (Bounded,Enum,Eq,Integral,Num,Ord,Read,Real,Show,FiniteBits,Bits,Storable)
 
 unsafeWordPtrToWordRef :: WordPtr -> WordRef s
 unsafeWordPtrToWordRef = WordRef
