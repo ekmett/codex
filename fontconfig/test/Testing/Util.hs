@@ -1,21 +1,21 @@
-module Testing.Util where
+{-# options_ghc -Wno-orphans #-}
+module Testing.Util
+( shouldbe
+, shouldreturn
+, givesNEList
+, resultMatches
+, patternAddPropTripping
+, returnsTrue
+, returnsFalse
+) where
 
 import Control.Monad
-import Data.Functor
-import Data.Version
 import Test.Hspec
 import Test.QuickCheck hiding (Result)
 import qualified Test.QuickCheck.Gen as Gen
 
-import Text.Printf
-
 import Graphics.Fontconfig
 import Graphics.Fontconfig.Internal (Result (..), FcBool (..))
-
-infixr 9 </>
-
-(</>) :: FilePath -> FilePath -> FilePath
-(</>) a b = a <> "/" <> b
 
 givesNEList :: Show b => (a -> IO [b]) -> a -> Expectation
 givesNEList f = f >=> flip shouldNotSatisfy null
@@ -23,18 +23,18 @@ givesNEList f = f >=> flip shouldNotSatisfy null
 shouldbe :: (Eq a, Show a) => a -> a -> Expectation
 shouldbe = flip shouldBe
 
-shouldbeM :: (Eq a, Show a) => a -> IO a -> Expectation
-shouldbeM a f = f >>= shouldbe a
+shouldreturn :: (Eq a, Show a) => a -> IO a -> Expectation
+shouldreturn = flip shouldReturn
 
 returnsTrue :: IO Bool -> Expectation
-returnsTrue = shouldbeM True
+returnsTrue = shouldreturn True
 
 returnsFalse :: IO Bool -> Expectation
-returnsFalse = shouldbeM False
+returnsFalse = shouldreturn False
 
-resultMatchesB :: (Show a, Eq a) => a -> Result a -> Bool
+resultMatchesB :: Eq a => a -> Result a -> Bool
 resultMatchesB b (ResultMatch a) = a == b
-resultMatchesB b r               = False
+resultMatchesB _ _               = False
 
 resultMatches :: (Show a, Eq a) => Result a -> a -> Expectation
 resultMatches (ResultMatch a) b = a `shouldBe` b
@@ -42,7 +42,7 @@ resultMatches r               b = expectationFailure ("Result did not match exac
 
 -- orphan instance, oh no.
 instance Arbitrary FcBool where arbitrary = elements [FcTrue, FcFalse]
-  
+
 patternAddPropTripping
   :: ( Eq a
      , Show a
@@ -60,6 +60,3 @@ patternAddPropTripping ps addf getf implicationf = property $ \v -> maybe True (
       pat <- patternCreate
       addOk <- addf pat p v
       if addOk then resultMatchesB v <$> getf pat p 0 else pure False
-
-    checkResult v p Nothing = expectationFailure $ printf "Failed to add value of %s to property %s" (show v) p
-    checkResult v _ (Just r) = resultMatches v r

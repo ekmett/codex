@@ -291,6 +291,7 @@ import Data.Functor
 import Data.StateVar
 import Data.Traversable
 import Data.Version
+import Data.Word
 import Foreign.C
 import Foreign.Const.Marshal.Utils
 import Foreign.ForeignPtr
@@ -728,8 +729,8 @@ rangeCreateDouble :: MonadIO m => Double -> Double -> m Range
 rangeCreateDouble (coerce -> lo) (coerce -> hi) = liftIO $ [C.exp|FcRange * { FcRangeCreateDouble($(double lo),$(double hi)) }|] >>= foreignRange
 {-# inlinable rangeCreateDouble #-}
 
-rangeCreateInteger :: MonadIO m => Int -> Int -> m Range
-rangeCreateInteger (fromIntegral -> lo) (fromIntegral -> hi) = liftIO $ [C.exp|FcRange * { FcRangeCreateInteger($(int lo),$(int hi)) }|] >>= foreignRange
+rangeCreateInteger :: MonadIO m => Word32 -> Word32 -> m Range
+rangeCreateInteger (fromIntegral -> lo) (fromIntegral -> hi) = liftIO $ [C.exp|FcRange * { FcRangeCreateInteger($(FcChar32 lo),$(FcChar32 hi)) }|] >>= foreignRange
 {-# inlinable rangeCreateInteger #-}
 
 rangeCopy :: MonadIO m => Range -> m Range

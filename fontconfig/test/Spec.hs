@@ -8,8 +8,8 @@ module Main
 import Control.Monad
 import Data.Functor
 import Data.Version
-import Data.Word
 import qualified Data.List.NonEmpty as NE
+import System.FilePath ((</>))
 import Prelude hiding (init)
 import System.Directory (getCurrentDirectory, getHomeDirectory)
 import Text.Printf
@@ -99,14 +99,13 @@ main = do
           configParseAndLoad c (confD </> "eevee-font-conf.conf") complain
 
     describe "Range" $ do
-      let compareRange l u = maybe False (== (l,u))
-
-      it "tripping integer range" $ property $ \(l :: Word32) (u :: Word32) -> do
-        range <- rangeCreateInteger (fromIntegral l) (fromIntegral u)
+      it "tripping integer range" $ property $ \l u -> do
+        range <- rangeCreateInteger l u
         rangeGetDouble range `shouldReturn` Just (fromIntegral l, fromIntegral u)
 
-      it "tripping double range" $ property $ \l u -> ioProperty $
-        rangeCreateDouble l u >>= fmap ( compareRange l u ) . rangeGetDouble
+      it "tripping double range" $ property $ \l u -> do
+        range <- rangeCreateDouble l u
+        rangeGetDouble range `shouldReturn` Just (l, u)
 
       describe "copying range" $ before (rangeCreateInteger 0 10 >>= \r -> (r,) <$> rangeCopy r) $ do
         it "won't have matching pointers" $ \(og, copy) ->
@@ -158,12 +157,12 @@ main = do
       it "filters patterns using object set" $ do
         pA <- nameParse courierMono121314Styled
         let pAFiltered = "Courier,Monospace-12,13,14"
-        shouldbeM pAFiltered $ objectSet (NE.fromList ["family","size"]) >>= patternFilter pA . Just >>= nameUnparse
+        shouldreturn pAFiltered $ objectSet (NE.fromList ["family","size"]) >>= patternFilter pA . Just >>= nameUnparse
 
       it "filter patterns with empty object set duplicate pattern" $ do
         let pat = "Courier,Monospace-12,13,14:slant=100:weight=200"
         pA <- nameParse pat
-        shouldbeM pat $ patternFilter pA Nothing >>= nameUnparse
+        shouldreturn pat $ patternFilter pA Nothing >>= nameUnparse
 
       describe "Adding values to patterns" $ do
         it "adds integer to the pattern value listed in objectset" $ patternAddPropTripping
@@ -193,13 +192,13 @@ main = do
       describe "remove/delete values from patterns correctly" . before (nameParse courierMono121314Styled) $ do
         it "patternDel: all values for existing property are are removed" $ \p -> do
           returnsTrue $ patternDel p "size"
-          shouldbeM courierMonoStyled $ nameUnparse p
+          shouldreturn courierMonoStyled $ nameUnparse p
         it "patternDel: missing property returns false" $ \p ->
           returnsFalse $ patternDel p "foundry"
 
         it "patternRemove: existing value on object is removed" $ \p -> do
           returnsTrue $ patternRemove p "family" 1
-          shouldbeM courier121314Styled $ nameUnparse p
+          shouldreturn courier121314Styled $ nameUnparse p
         it "patternRemove: missing 'ith value for existing property returns false" $ \p ->
           returnsFalse $ patternRemove p "family" 3
         it "patternRemove: missing value on object returns false" $ \p ->
