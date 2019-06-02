@@ -6,7 +6,12 @@
 {-# language ScopedTypeVariables #-}
 {-# language OverloadedStrings #-}
 {-# language ForeignFunctionInterface #-}
+{-# language DeriveAnyClass #-}
+{-# language DerivingStrategies #-}
 {-# language GeneralizedNewtypeDeriving #-}
+{-# language PolyKinds #-}
+{-# language DataKinds #-}
+{-# language UnboxedTuples #-}
 {-# language CPP #-}
 {-# options_ghc -Wno-missing-pattern-synonym-signatures #-}
 
@@ -44,6 +49,16 @@ module Graphics.FreeType.Internal
 , Fixed
 , Pos
 , SizeRec(..), SizeMetrics(..), SizeInternalRec
+, SizeRequest
+, SizeRequestRec(..)
+, SizeRequestType
+  ( SizeRequestType
+  , SIZE_REQUEST_TYPE_NOMINAL
+  , SIZE_REQUEST_TYPE_REAL_DIM
+  , SIZE_REQUEST_TYPE_BBOX
+  , SIZE_REQUEST_TYPE_CELL
+  , SIZE_REQUEST_TYPE_SCALES
+  )
 , pattern FREETYPE_MAJOR
 , pattern FREETYPE_MINOR
 , pattern FREETYPE_PATCH
@@ -57,6 +72,7 @@ module Graphics.FreeType.Internal
 import Control.Exception
 import Data.Int
 import qualified Data.Map as Map
+import Data.Primitive.Types
 import Data.Word
 import Foreign.C.String
 import Foreign.C.Types
@@ -71,7 +87,7 @@ import qualified Language.C.Types as C
 import Graphics.FreeType.Private
 
 -- | By convention the library will throw any non-0 FT_Error encountered.
-newtype Error = Error CInt deriving (Eq,Ord,Show,Num,Enum,Real,Integral,Storable)
+newtype Error = Error CInt deriving newtype (Eq,Ord,Show,Num,Enum,Real,Integral,Storable)
 
 #ifndef HLINT
 #err_patterns
@@ -208,6 +224,40 @@ instance Storable SizeRec where
     (#poke FT_SizeRec, metrics) p size_metrics
     (#poke FT_SizeRec, internal) p size_internal
 
+newtype SizeRequestType = SizeRequestType Int32 deriving newtype (Eq,Show,Storable,Prim)
+
+pattern SIZE_REQUEST_TYPE_NOMINAL = SizeRequestType (#const FT_SIZE_REQUEST_TYPE_NOMINAL)
+pattern SIZE_REQUEST_TYPE_REAL_DIM = SizeRequestType (#const FT_SIZE_REQUEST_TYPE_REAL_DIM)
+pattern SIZE_REQUEST_TYPE_BBOX = SizeRequestType (#const FT_SIZE_REQUEST_TYPE_BBOX)
+pattern SIZE_REQUEST_TYPE_CELL = SizeRequestType (#const FT_SIZE_REQUEST_TYPE_CELL)
+pattern SIZE_REQUEST_TYPE_SCALES = SizeRequestType (#const FT_SIZE_REQUEST_TYPE_SCALES)
+
+type SizeRequest = Ptr SizeRequestRec
+
+data SizeRequestRec = SizeRequestRec
+  { size_request_type  :: {-# unpack #-} !SizeRequestType
+  , size_request_width
+  , size_request_height :: {-# unpack #-} !Int32
+  , size_request_horiResolution
+  , size_request_vertResolution :: {-# unpack #-} !Word32
+  } deriving (Eq,Show)
+
+instance Storable SizeRequestRec where
+  sizeOf    _ = #size FT_Size_RequestRec
+  alignment _ = #alignment FT_Size_RequestRec
+  peek ptr = SizeRequestRec
+    <$> (#peek FT_Size_RequestRec, type) ptr
+    <*> (#peek FT_Size_RequestRec, width) ptr
+    <*> (#peek FT_Size_RequestRec, height) ptr
+    <*> (#peek FT_Size_RequestRec, horiResolution) ptr
+    <*> (#peek FT_Size_RequestRec, vertResolution) ptr
+  poke ptr SizeRequestRec{..} = do
+    (#poke FT_Size_RequestRec, type) ptr size_request_type
+    (#poke FT_Size_RequestRec, width) ptr size_request_width
+    (#poke FT_Size_RequestRec, height) ptr size_request_height
+    (#poke FT_Size_RequestRec, horiResolution) ptr size_request_horiResolution
+    (#poke FT_Size_RequestRec, vertResolution) ptr size_request_vertResolution
+
 C.include "<ft2build.h>"
 C.verbatim "#include FT_FREETYPE_H"
 C.verbatim "#include FT_MODULE_H"
@@ -223,26 +273,32 @@ foreignLibrary p = Library <$> Concurrent.newForeignPtr p ([C.exp|FT_Error { FT_
 freeTypeCtx :: C.Context
 freeTypeCtx = mempty
   { C.ctxTypesTable = Map.fromList
-    [ (C.TypeName "FT_Error",             [t|Error|])
-    , (C.TypeName "FT_Face",              [t|Ptr FaceRec|])
-    , (C.TypeName "FT_FaceRec_",          [t|FaceRec|])
-    , (C.TypeName "FT_Generic",           [t|Generic|])
-    , (C.TypeName "FT_Int",               [t|Int32|])
-    , (C.TypeName "FT_Int32",             [t|Int32|])
-    , (C.TypeName "FT_Library",           [t|Ptr LibraryRec|])
-    , (C.TypeName "FT_LibraryRec_",       [t|LibraryRec|])
-    , (C.TypeName "FT_Long",              [t|Int32|])
-    , (C.TypeName "FT_Memory",            [t|Ptr MemoryRec|])
-    , (C.TypeName "FT_MemoryRec_",        [t|MemoryRec|])
-    , (C.TypeName "FT_Size_Internal",     [t|Ptr SizeInternalRec|])
-    , (C.Struct   "FT_Size_InternalRec_", [t|SizeInternalRec|])
-    , (C.TypeName "FT_Size_Metrics",      [t|SizeMetrics|])
-    , (C.Struct   "FT_Size_Metrics_",     [t|SizeMetrics|])
-    , (C.TypeName "FT_Size_Rec",          [t|SizeRec|])
-    , (C.Struct   "FT_Size_Rec_",         [t|SizeRec|])
-    , (C.TypeName "FT_UInt",              [t|Word32|])
-    , (C.TypeName "FT_UInt32",            [t|Word32|])
-    , (C.TypeName "FT_ULong",             [t|Word32|])
+    [ (C.TypeName "FT_Error",              [t|Error|])
+    , (C.TypeName "FT_Face",               [t|Ptr FaceRec|])
+    , (C.TypeName "FT_FaceRec_",           [t|FaceRec|])
+    , (C.TypeName "FT_Generic",            [t|Generic|])
+    , (C.TypeName "FT_Int",                [t|Int32|])
+    , (C.TypeName "FT_Int32",              [t|Int32|])
+    , (C.TypeName "FT_Library",            [t|Ptr LibraryRec|])
+    , (C.TypeName "FT_LibraryRec_",        [t|LibraryRec|])
+    , (C.TypeName "FT_Long",               [t|Int32|])
+    , (C.TypeName "FT_Memory",             [t|Ptr MemoryRec|])
+    , (C.TypeName "FT_MemoryRec_",         [t|MemoryRec|])
+    , (C.TypeName "FT_Size_Internal",      [t|Ptr SizeInternalRec|])
+    , (C.Struct   "FT_Size_InternalRec_",  [t|SizeInternalRec|])
+    , (C.TypeName "FT_Size_Metrics",       [t|SizeMetrics|])
+    , (C.Struct   "FT_Size_Metrics_",      [t|SizeMetrics|])
+    , (C.TypeName "FT_Size_Rec",           [t|SizeRec|])
+    , (C.Struct   "FT_Size_Rec_",          [t|SizeRec|])
+    , (C.Struct   "FT_Size_Request",       [t|Ptr SizeRequestRec|])
+    , (C.Struct   "FT_Size_RequestRec_",   [t|SizeRequestRec|])
+    , (C.TypeName "FT_Size_RequestRec",    [t|SizeRequestRec|])
+    , (C.TypeName "FT_Size_Request_Type",  [t|SizeRequestType|])
+    , (C.Enum     "FT_Size_Request_Type_", [t|SizeRequestType|])
+    , (C.Struct   "FT_Size_Rec_",          [t|SizeRec|])
+    , (C.TypeName "FT_UInt",               [t|Word32|])
+    , (C.TypeName "FT_UInt32",             [t|Word32|])
+    , (C.TypeName "FT_ULong",              [t|Word32|])
     ]
   , C.ctxAntiQuoters = Map.fromList
     [ ("ustr", anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char (Just C.Unsigned))) [t|Ptr CUChar|] [|withCUString|])

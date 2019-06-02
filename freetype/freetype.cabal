@@ -36,6 +36,7 @@ common base
     bytestring,
     containers,
     inline-c,
+    primitive,
     template-haskell
 
 library raw
