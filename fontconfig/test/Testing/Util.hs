@@ -1,12 +1,8 @@
 {-# options_ghc -Wno-orphans #-}
 module Testing.Util
-( shouldbe
-, shouldreturn
-, givesNEList
+( givesNEList
 , resultMatches
 , patternAddPropTripping
-, returnsTrue
-, returnsFalse
 ) where
 
 import Control.Monad
@@ -18,19 +14,7 @@ import Graphics.Fontconfig
 import Graphics.Fontconfig.Internal (Result (..), FcBool (..))
 
 givesNEList :: Show b => (a -> IO [b]) -> a -> Expectation
-givesNEList f = f >=> flip shouldNotSatisfy null
-
-shouldbe :: (Eq a, Show a) => a -> a -> Expectation
-shouldbe = flip shouldBe
-
-shouldreturn :: (Eq a, Show a) => a -> IO a -> Expectation
-shouldreturn = flip shouldReturn
-
-returnsTrue :: IO Bool -> Expectation
-returnsTrue = shouldreturn True
-
-returnsFalse :: IO Bool -> Expectation
-returnsFalse = shouldreturn False
+givesNEList f = f >=> (`shouldNotSatisfy` null)
 
 resultMatchesB :: Eq a => a -> Result a -> Bool
 resultMatchesB b (ResultMatch a) = a == b

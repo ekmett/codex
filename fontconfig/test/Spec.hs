@@ -1,7 +1,7 @@
 {-# language LambdaCase #-}
 {-# language TupleSections #-}
 {-# language ScopedTypeVariables #-}
-module Main 
+module Main
 ( main
 ) where
 
@@ -63,8 +63,8 @@ main = do
 
   (testSpec "spec" >=> defaultMain) $ do
     describe "Config Loading" $ do
-      it "should init" $ returnsTrue init
-      it "should init and bring up to date" $ returnsTrue initBringUptoDate
+      it "should init" $ init `shouldReturn` True
+      it "should init and bring up to date" $ initBringUptoDate `shouldReturn` True
       -- it "should init and load" $ do
       --   _ <- initLoadConfig -- Checking we can load without blowing up
       --   shouldBe True True
@@ -72,31 +72,31 @@ main = do
       --   _ <- initLoadConfigAndFonts
       --   shouldBe True True
       it "tolerate being reinitialised" $ do
-        returnsTrue initReinitialize
+        initReinitialize `shouldReturn` True
       it "tolerate being finalised then reinitialised" $ do
         fini
-        returnsTrue initReinitialize
+        initReinitialize `shouldReturn` True
       -- it "should die if used after finalisation" $ do
       --   c <- initLoadConfigAndFonts
-      --   fini 
+      --   fini
       --   shouldThrow (configGetConfigDirs c) anyException -- Can't catch a SIGABRT !
       --   returnsTrue initReinitialize
       --   c0 <- initLoadConfigAndFonts
       --   shouldThrow (configGetConfigDirs c0) anyException -- Won't get to here :(
 
     describe "Config" . before initLoadConfig $ do
-      it "check if up to date" $ \c -> returnsTrue (configUptoDate c)
+      it "check if up to date" $ \c -> configUptoDate c `shouldReturn` True
       describe "lists font and config directories" $ do
         it "list existing font dirs" $ givesNEList configGetFontDirs
         it "list existing config dirs" $ givesNEList configGetConfigDirs
         it "list existing config files" $ givesNEList configGetConfigFiles
         it "list existing config files" $ givesNEList configGetCacheDirs
       describe "adding font info" $ do
-        it "can add a font file" $ \c -> returnsTrue $ configAppFontAddFile c (fontD </> "unifont_csur.ttf")
-        it "can add a font directory" $ \c -> returnsTrue $ configAppFontAddDir c fontD
+        it "can add a font file" $ \c -> configAppFontAddFile c (fontD </> "unifont_csur.ttf") `shouldReturn` True
+        it "can add a font directory" $ \c -> configAppFontAddDir c fontD `shouldReturn` True
       describe "load and parse config files" $ do
-        it "loads eevee config" $ \c -> returnsTrue $
-          configParseAndLoad c (confD </> "eevee-font-conf.conf") complain
+        it "loads eevee config" $ \c ->
+          configParseAndLoad c (confD </> "eevee-font-conf.conf") complain `shouldReturn` True
 
     describe "Range" $ do
       it "tripping integer range" $ property $ \l u -> do
@@ -127,42 +127,44 @@ main = do
         checkPattern "Courier:slant=100"   -- italic
 
       it "formats the pattern" $ do
-        nameParse "Courier-12:slant=100"
-          >>= flip patternFormat "Family: %{family}, Size: %{size}, Style: %{slant=}"
-          >>= flip shouldBe (Just "Family: Courier, Size: 12, Style: slant=100")
+        p <- nameParse "Courier-12:slant=100"
+        patternFormat p "Family: %{family}, Size: %{size}, Style: %{slant=}"
+          `shouldReturn` Just "Family: Courier, Size: 12, Style: slant=100"
 
       describe "matches patterns" $ do
         it "can match patterns" $ do
           pA <- nameParse times12
           pB <- nameParse times12
-          returnsTrue $ patternEqual pA pB
+          patternEqual pA pB `shouldReturn` True
 
         it "won't match non-similar patterns" $ do
           pA <- nameParse times12
           pB <- nameParse "Times-12:slant=100"
-          returnsFalse $ patternEqual pA pB
+          patternEqual pA pB `shouldReturn` False
 
       describe "duplicates patterns" $ before (nameParse times12 >>= \pA -> (pA,) <$> patternDuplicate pA) $ do
         it "will have different pointers" $ \(og, copy) -> do
           og `shouldNotBe` copy
+
         it "will be the same pattern" $ \(og, copy) -> do
-          returnsTrue $ patternEqual og copy
+          patternEqual og copy `shouldReturn` True
 
       it "matches patterns given object set" $ do
         pA <- nameParse courierMono121314Styled
         pB <- nameParse "Courier-12,13,14"
-        returnsTrue $ objectSet (NE.fromList ["size"]) >>= patternEqualSubset pA pB
-        returnsFalse $ objectSet (NE.fromList ["family"]) >>= patternEqualSubset pA pB
+        (objectSet (NE.fromList ["size"]) >>= patternEqualSubset pA pB) `shouldReturn` True
+        (objectSet (NE.fromList ["family"]) >>= patternEqualSubset pA pB) `shouldReturn` False
 
       it "filters patterns using object set" $ do
         pA <- nameParse courierMono121314Styled
         let pAFiltered = "Courier,Monospace-12,13,14"
-        shouldreturn pAFiltered $ objectSet (NE.fromList ["family","size"]) >>= patternFilter pA . Just >>= nameUnparse
+        os <- objectSet (NE.fromList ["family","size"])
+        (patternFilter pA (Just os) >>= nameUnparse) `shouldReturn` pAFiltered
 
       it "filter patterns with empty object set duplicate pattern" $ do
         let pat = "Courier,Monospace-12,13,14:slant=100:weight=200"
         pA <- nameParse pat
-        shouldreturn pat $ patternFilter pA Nothing >>= nameUnparse
+        (patternFilter pA Nothing >>= nameUnparse) `shouldReturn` pat
 
       describe "Adding values to patterns" $ do
         it "adds integer to the pattern value listed in objectset" $ patternAddPropTripping
@@ -170,42 +172,42 @@ main = do
           patternAddInteger
           patternGetInteger
           Nothing
-  
+
         it "adds double to the pattern value listed in objectset" $ patternAddPropTripping
           ["size", "aspect", "pixelsize", "scale", "dpi"]
           patternAddDouble
           patternGetDouble
           Nothing
-  
+
         it "adds bool to the pattern value listed in objectset" $ patternAddPropTripping
           ["antialias", "hinting", "verticallayout", "autohint", "globaladvance", "outline", "scalable", "color", "minspace", "embolden", "embeddedbitmap", "decorative"]
           patternAddBool
           patternGetBool
           Nothing
-  
+
         it "adds string to the pattern value listed in objectset" $ patternAddPropTripping
           ["family" ,"familylang" ,"style" ,"stylelang" ,"fullname" ,"fullnamelang" ,"foundry" ,"file" ,"rasterizer" ,"lang" ,"capability" ,"fontformat" ,"fontfeatures" ,"namelang" ,"prgname" ,"postscriptname"]
           patternAddString
           patternGetString
           $ pure (not . any (== '\NUL'))
-               
+
       describe "remove/delete values from patterns correctly" . before (nameParse courierMono121314Styled) $ do
         it "patternDel: all values for existing property are are removed" $ \p -> do
-          returnsTrue $ patternDel p "size"
-          shouldreturn courierMonoStyled $ nameUnparse p
+          patternDel p "size" `shouldReturn` True
+          nameUnparse p `shouldReturn` courierMonoStyled
         it "patternDel: missing property returns false" $ \p ->
-          returnsFalse $ patternDel p "foundry"
+          patternDel p "foundry" `shouldReturn` False
 
         it "patternRemove: existing value on object is removed" $ \p -> do
-          returnsTrue $ patternRemove p "family" 1
-          shouldreturn courier121314Styled $ nameUnparse p
+          patternRemove p "family" 1 `shouldReturn` True
+          nameUnparse p `shouldReturn` courier121314Styled
         it "patternRemove: missing 'ith value for existing property returns false" $ \p ->
-          returnsFalse $ patternRemove p "family" 3
+          patternRemove p "family" 3 `shouldReturn` False
         it "patternRemove: missing value on object returns false" $ \p ->
-          returnsFalse $ patternRemove p "postscriptname" 0
+          patternRemove p "postscriptname" 0 `shouldReturn` False
 
 --- failing tests with explanations below
-  
+
       it "can read home directory" $ do
         homeOn <- configEnableHome True
         when homeOn $ configHome `shouldReturn` Just userHomeDir
