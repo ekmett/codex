@@ -32,3 +32,4 @@ objs/vc2010/
 dist/
 cabal-dev/
 tags
+.uuid
