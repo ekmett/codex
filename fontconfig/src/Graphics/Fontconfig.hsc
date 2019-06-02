@@ -548,7 +548,7 @@ patternAddInteger p k (fromIntegral -> v) = liftIO $ [C.exp|int { FcPatternAddIn
 {-# inlinable patternAddInteger #-}
 
 -- | Returns the i'th value associated with the property object.
-patternGetInteger :: MonadIO m => Pattern -> String -> Int -> m (Result Int)
+patternGetInteger :: MonadIO m => Pattern -> String -> Int -> m (Maybe Int)
 patternGetInteger p k (fromIntegral -> i) = liftIO $
   alloca $ \t -> do
     result <- [C.exp|FcResult { FcPatternGetInteger($pattern:p,$str:k,$(int i),$(int * t)) }|]
@@ -569,7 +569,7 @@ patternAddDouble :: MonadIO m => Pattern -> String -> Double -> m Bool
 patternAddDouble p k (coerce -> v) = liftIO $ [C.exp|int { FcPatternAddDouble($pattern:p,$str:k,$(double v)) }|] <&> cbool
 {-# inline patternAddDouble #-}
 
-patternGetDouble :: MonadIO m => Pattern -> String -> Int -> m (Result Double)
+patternGetDouble :: MonadIO m => Pattern -> String -> Int -> m (Maybe Double)
 patternGetDouble p k (fromIntegral -> i) = liftIO $
   alloca $ \t -> do
     result <- [C.exp|FcResult { FcPatternGetDouble($pattern:p,$str:k,$(int i),$(double * t)) }|]
@@ -597,7 +597,7 @@ patternAddBool :: MonadIO m => Pattern -> String -> FcBool -> m Bool
 patternAddBool p k (marshal -> v) = liftIO $ [C.exp|int { FcPatternAddBool($pattern:p,$str:k,$(int v)) }|] <&> cbool
 {-# inline patternAddBool #-}
 
-patternGetBool :: MonadIO m => Pattern -> String -> Int -> m (Result FcBool)
+patternGetBool :: MonadIO m => Pattern -> String -> Int -> m (Maybe FcBool)
 patternGetBool p k (fromIntegral -> i) = liftIO $
   alloca $ \t -> do
     result <- [C.exp|FcResult { FcPatternGetBool($pattern:p,$str:k,$(int i),$(int * t)) }|]
@@ -631,7 +631,7 @@ patternAddString :: MonadIO m => Pattern -> String -> String -> m Bool
 patternAddString p k v = liftIO $ [C.exp|int { FcPatternAddString($pattern:p,$str:k,$ustr:v) }|] <&> cbool
 {-# inlinable patternAddString #-}
 
-patternGetString :: MonadIO m => Pattern -> String -> Int -> m (Result String)
+patternGetString :: MonadIO m => Pattern -> String -> Int -> m (Maybe String)
 patternGetString p k (fromIntegral -> i) = liftIO $
   alloca $ \t -> do
     result <- [C.exp|FcResult { FcPatternGetString($pattern:p,$str:k,$(int i),$(unsigned char ** t)) }|]
@@ -656,7 +656,7 @@ patternAddCharSet :: MonadIO m => Pattern -> String -> CharSet -> m Bool
 patternAddCharSet p k v = liftIO $ [C.exp|int { FcPatternAddCharSet($pattern:p,$str:k,$charset:v) }|] <&> cbool
 {-# inlinable patternAddCharSet #-}
 
-patternGetCharSet :: MonadIO m => Pattern -> String -> Int -> m (Result CharSet)
+patternGetCharSet :: MonadIO m => Pattern -> String -> Int -> m (Maybe CharSet)
 patternGetCharSet p k (fromIntegral -> i) = liftIO $
   alloca $ \t -> do
     result <- [C.exp|FcResult { FcPatternGetCharSet($pattern:p,$str:k,$(int i),$(FcCharSet ** t)) }|]
@@ -669,7 +669,7 @@ patternAddLangSet :: MonadIO m => Pattern -> String -> LangSet -> m Bool
 patternAddLangSet p k v = liftIO $ [C.exp|int { FcPatternAddLangSet($pattern:p,$str:k,$langset:v) }|] <&> cbool
 {-# inlinable patternAddLangSet #-}
 
-patternGetLangSet :: MonadIO m => Pattern -> String -> Int -> m (Result LangSet)
+patternGetLangSet :: MonadIO m => Pattern -> String -> Int -> m (Maybe LangSet)
 patternGetLangSet p k (fromIntegral -> i) = liftIO $
   alloca $ \t -> do
     result <- [C.exp|FcResult { FcPatternGetLangSet($pattern:p,$str:k,$(int i),$(FcLangSet ** t)) }|]
@@ -682,7 +682,7 @@ patternAddRange :: MonadIO m => Pattern -> String -> Range -> m Bool
 patternAddRange p k v = liftIO $ [C.exp|int { FcPatternAddRange($pattern:p,$str:k,$range:v) }|] <&> cbool
 {-# inlinable patternAddRange #-}
 
-patternGetRange :: MonadIO m => Pattern -> String -> Int -> m (Result Range)
+patternGetRange :: MonadIO m => Pattern -> String -> Int -> m (Maybe Range)
 patternGetRange p k (fromIntegral -> i) = liftIO $
   alloca $ \t -> do
     result <- [C.exp|FcResult { FcPatternGetRange($pattern:p,$str:k,$(int i),$(FcRange ** t)) }|]
@@ -1048,7 +1048,7 @@ valueMatch (Type type_) p = liftIO $ do
   type2 <- (#peek FcValue, type) p
   if type_ == type2 then Just <$> (#peek FcValue, u) p else pure Nothing
 
-patternGet :: MonadIO m => Pattern -> String -> Int -> (Ptr Value -> IO r) -> m (Result r)
+patternGet :: MonadIO m => Pattern -> String -> Int -> (Ptr Value -> IO r) -> m (Maybe r)
 patternGet fp s (fromIntegral -> i) k = liftIO $
   allocaBytes sizeOfValue $ \v ->
     withForeignPtr (coerce fp) $ \p -> do

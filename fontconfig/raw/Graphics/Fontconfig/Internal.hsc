@@ -92,8 +92,14 @@ module Graphics.Fontconfig.Internal
   , TypeLangSet
   , TypeRange
   )
-, Result(..)
-, CResult
+, Result
+  ( Result
+  , ResultMatch
+  , ResultNoMatch
+  , ResultTypeMismatch
+  , ResultNoId
+  , ResultOutOfMemory
+  )
 , getResult
 
 , AllocationFailed(..)
@@ -124,17 +130,18 @@ module Graphics.Fontconfig.Internal
 , _FcValueDestroy
 ) where
 
-import Control.Monad
+import Control.Exception
+import Control.Monad.IO.Class
 import Data.Const.Unsafe
 import Data.Data (Data)
 import Data.Default (Default(..))
+import Data.Int
 import qualified Data.Map as Map
 import Foreign.C
 import Foreign.ForeignPtr
 import Foreign.Marshal.Utils
 import Foreign.Ptr
 import Foreign.Storable
-import GHC.Generics (Generic)
 import qualified Language.C.Inline as C
 import qualified Language.C.Inline.Context as C
 import qualified Language.C.Types as C
@@ -249,35 +256,19 @@ statCreate = Stat <$> mallocForeignPtrBytes (#size struct stat)
 
 -- * Results
 
-data Result a
-  = ResultMatch a
-  | ResultNoMatch
-  | ResultTypeMismatch
-  | ResultNoId
-  | ResultOutOfMemory
-  deriving (Eq,Ord,Functor, Show,Read,Generic,Data)
+newtype Result = Result Int32 deriving (Eq,Show,Data)
 
-instance Applicative Result where
-  pure = ResultMatch
-  (<*>) = ap
-
-instance Monad Result where
-  ResultMatch a >>= f = f a
-  ResultNoMatch >>= _ = ResultNoMatch
-  ResultTypeMismatch >>= _ = ResultTypeMismatch
-  ResultNoId >>= _ = ResultNoId
-  ResultOutOfMemory >>= _  = ResultOutOfMemory
-
-type CResult = CInt
+getResult :: MonadIO m => Result -> m a -> m (Maybe a)
+getResult ResultMatch f = Just <$> f
+getResult ResultOutOfMemory _ = liftIO $ throwIO AllocationFailed
+getResult _ _ = pure Nothing
 
 #ifndef HLINT
-getResult :: Applicative f => CResult -> f r -> f (Result r)
-getResult (#const FcResultMatch) m = ResultMatch <$> m
-getResult (#const FcResultNoMatch) _ = pure ResultNoMatch
-getResult (#const FcResultTypeMismatch) _ = pure ResultTypeMismatch
-getResult (#const FcResultNoId) _ = pure ResultNoId
-getResult (#const FcResultOutOfMemory) _ = pure ResultOutOfMemory
-getResult _ _ = error "Font.Config.Internal.getResult: unknown result"
+pattern ResultMatch = Result (#const FcResultMatch)
+pattern ResultNoMatch = Result (#const FcResultNoMatch)
+pattern ResultTypeMismatch = Result (#const FcResultTypeMismatch)
+pattern ResultNoId = Result (#const FcResultNoId)
+pattern ResultOutOfMemory = Result (#const FcResultOutOfMemory)
 #endif
 
 foreign import ccall "fontconfig/fontconfig.h &FcConfigDestroy" _FcConfigDestroy :: FinalizerPtr Config
@@ -332,7 +323,7 @@ fontconfigCtx = mempty
     , (C.TypeName "FcCache", [t| Cache |])
     , (C.TypeName "FcBool", [t| FcBool |])
     , (C.TypeName "FcRange", [t| Range |])
-    , (C.TypeName "FcResult", [t| CResult |])
+    , (C.TypeName "FcResult", [t| Result |])
     , (C.TypeName "FcChar8", [t| CUChar |])
     , (C.TypeName "FcChar16", [t| CUShort |])
     , (C.TypeName "FcChar32", [t| CUInt |])

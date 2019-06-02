@@ -1,6 +1,7 @@
 {-# language LambdaCase #-}
 {-# language TupleSections #-}
 {-# language ScopedTypeVariables #-}
+{-# options_ghc -Wno-orphans #-}
 module Main
 ( main
 ) where
@@ -15,12 +16,34 @@ import System.Directory (getCurrentDirectory, getHomeDirectory)
 import Text.Printf
 import Test.Hspec
 import Test.QuickCheck hiding (Result)
+import qualified Test.QuickCheck.Gen as Gen
 
 import Graphics.Fontconfig
-import Testing.Util
+import Graphics.Fontconfig.Internal (FcBool (..))
 
 import Test.Tasty
 import Test.Tasty.Hspec
+
+givesNEList :: Show b => (a -> IO [b]) -> a -> Expectation
+givesNEList f = f >=> (`shouldNotSatisfy` null)
+
+instance Arbitrary FcBool where
+  arbitrary = elements [FcTrue, FcFalse]
+
+patternAddPropTripping
+  :: (Eq a, Show a, Arbitrary a)
+  => [String]
+  -> (Pattern -> String -> a -> IO Bool)
+  -> (Pattern -> String -> Int -> IO (Maybe a))
+  -> Maybe (a -> Bool)
+  -> Property
+patternAddPropTripping ps addf getf implicationf = property $ \v -> maybe True ($ v) implicationf ==>
+  forAll (Gen.elements ps) (ioProperty . test v)
+  where
+    test v p = do
+      pat <- patternCreate
+      addOk <- addf pat p v
+      if addOk then (Just v ==) <$> getf pat p 0 else pure False
 
 testDir,confDir,fontDir :: FilePath
 testDir = "test"

@@ -67,7 +67,6 @@ library
 test-suite spec
   import: base
   type: exitcode-stdio-1.0
-  other-modules: Testing.Util
   hs-source-dirs: test
   main-is: Spec.hs
   build-depends:
