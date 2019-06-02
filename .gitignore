@@ -31,3 +31,4 @@ objs/vc2010/
 *.swp
 dist/
 cabal-dev/
+tags
