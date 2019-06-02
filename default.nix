@@ -38,19 +38,22 @@ let
 
   # Codex packages                    
   sources = {
-    atlas             = ./atlas;
-    const             = ./const;
-    fontconfig        = ./fontconfig;
-    freetype          = ./freetype;
-    glow              = ./glow;
-    hkd               = ./hkd;
-    harfbuzz          = ./harfbuzz;
-    harfbuzz-freetype = ./harfbuzz-freetype;
-    harfbuzz-opentype = ./harfbuzz-opentype;
-    harfbuzz-icu      = ./harfbuzz-icu;
-    ptrdiff           = ./ptrdiff;
-    weak              = ./weak;
-    ui                = ./ui;
+    atlas               = ./atlas;
+    const               = ./const;
+    fontconfig          = ./fontconfig;
+    fontconfig-freetype = ./fontconfig-freetype;
+    freetype            = ./freetype;
+    glow                = ./glow;
+    hkd                 = ./hkd;
+    harfbuzz            = ./harfbuzz;
+    harfbuzz-freetype   = ./harfbuzz-freetype;
+    harfbuzz-opentype   = ./harfbuzz-opentype;
+    harfbuzz-icu        = ./harfbuzz-icu;
+    weak                = ./weak;
+    primitive-statevar  = ./primitive-statevar;
+    ptrdiff             = ./ptrdiff;
+    bidi-icu            = ./bidi-icu;
+    ui                  = ./ui;
   };
 
   c2nix = p: n: args:
@@ -60,12 +63,13 @@ let
   # Basic overrides to include our packages
   modHaskPkgs = haskellPackages.override {
     overrides = hself: hsuper: {
-
-      ptrdiff      = c2nix hsuper "ptrdiff" {};
-      atlas        = c2nix hsuper "atlas" {};
-      hkd          = c2nix hself "hkd" {};
-      const        = c2nix hsuper "const" {};
-      weak         = c2nix hsuper "weak" {};
+      bidi-icu           = c2nix hsuper "bidi-icu" { icu-uc = pkgs.icu; };
+      primitive-statevar = c2nix hsuper "primitive-statevar" {};
+      ptrdiff            = c2nix hsuper "ptrdiff" {};
+      atlas              = c2nix hsuper "atlas" {};
+      hkd                = c2nix hself "hkd" {};
+      const              = c2nix hsuper "const" {};
+      weak               = c2nix hsuper "weak" {};
 
       # Provide the external lib dependency to match the cabal file
       freetype     = c2nix hself "freetype" { freetype2 = pkgs.freetype; };
@@ -74,10 +78,11 @@ let
 
   # Adding any of these into the modHaskPkgs overrides will result in an
   # infinite recursion error.
-  fontconfig        = c2nix modHaskPkgs "fontconfig" {};
-  harfbuzz          = c2nix modHaskPkgs "harfbuzz" {};
-  harfbuzz-icu      = c2nix modHaskPkgs "harfbuzz-icu" { harfbuzz = harfbuzz; };
-  glow              = c2nix modHaskPkgs "glow" {};
+  fontconfig          = c2nix modHaskPkgs "fontconfig" {};
+  fontconfig-freetype = c2nix modHaskPkgs "fontconfig-freetype" {};
+  harfbuzz            = c2nix modHaskPkgs "harfbuzz" {};
+  harfbuzz-icu        = c2nix modHaskPkgs "harfbuzz-icu" { harfbuzz = harfbuzz; };
+  glow                = c2nix modHaskPkgs "glow" {};
 
   # Build the UI derivation and include our specific dependencies.
   ui = c2nix modHaskPkgs "ui" { 
@@ -95,8 +100,12 @@ modHaskPkgs.shellFor {
     p.weak
     p.atlas
     p.freetype
+    p.primitive-statevar
+    p.bidi-icu
+    p.ptrdiff
 
     fontconfig
+    fontconfig-freetype
     harfbuzz
     harfbuzz-icu
     glow

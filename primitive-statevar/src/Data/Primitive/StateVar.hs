@@ -22,8 +22,7 @@ import Control.Monad.ST
 import Control.Monad.Primitive
 import Data.IORef
 import Data.Primitive.MutVar
--- import Data.Primitive.PrimRef
-import Data.Primitive.Types
+import Data.Primitive.Ptr
 import qualified Data.StateVar as Simple
 import Data.STRef
 import Foreign.Storable
