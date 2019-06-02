@@ -151,19 +151,27 @@ module Graphics.Fontconfig
 
 , Value
 , valueEqual
-, valueMatch
 , patternAdd
 , patternAddWeak
 , patternGet
 , withValue
-, withStringValue
 , withBoolValue
+, withCharSetValue
 , withDoubleValue
 , withIntegerValue
-, withCharSetValue
 , withLangSetValue
-, withRangeValue
 , withMatrixValue
+, withRangeValue
+, withStringValue
+, matchValue
+, matchBoolValue
+, matchCharSetValue
+, matchDoubleValue
+, matchIntegerValue
+, matchLangSetValue
+, matchMatrixValue
+, matchRangeValue
+, matchStringValue
 
 , weightFromOpenTypeDouble
 , weightToOpenTypeDouble
@@ -294,6 +302,7 @@ import Data.Version
 import Data.Word
 import Foreign.C
 import Foreign.Const.Marshal.Utils
+import Foreign.Const.Ptr
 import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
@@ -1043,10 +1052,34 @@ patternAddWeak :: MonadIO m => Pattern -> String -> Ptr Value -> Bool -> m Bool
 patternAddWeak p k v (marshal -> append) = liftIO $
   [C.exp|int { FcPatternAddWeak($pattern:p,$str:k,*($(FcValue *v)),$(int append)) }|] <&> cbool
 
-valueMatch :: (MonadIO m, Storable a) => Type a -> Ptr Value -> m (Maybe a)
-valueMatch (Type type_) p = liftIO $ do
+matchValue :: (MonadIO m, Storable a) => Type a -> Ptr Value -> m (Maybe a)
+matchValue (Type type_) p = liftIO $ do
   type2 <- (#peek FcValue, type) p
   if type_ == type2 then Just <$> (#peek FcValue, u) p else pure Nothing
+
+matchBoolValue :: MonadIO m => Ptr Value -> m (Maybe Bool)
+matchBoolValue v = fmap (FcFalse/=) <$> matchValue TypeBool v
+
+matchDoubleValue :: MonadIO m => Ptr Value -> m (Maybe Double)
+matchDoubleValue = matchValue TypeDouble
+
+matchIntegerValue :: MonadIO m => Ptr Value -> m (Maybe Int)
+matchIntegerValue v = fmap fromIntegral <$> matchValue TypeInteger v
+
+matchStringValue :: MonadIO m => Ptr Value -> m (Maybe String)
+matchStringValue = matchValue TypeString >=> liftIO . traverse (peekCUString . unsafePtr)
+
+matchCharSetValue :: MonadIO m => Ptr Value -> m (Maybe CharSet)
+matchCharSetValue = matchValue TypeCharSet >=> traverse charSetCopyPtr
+
+matchLangSetValue :: MonadIO m => Ptr Value -> m (Maybe LangSet)
+matchLangSetValue = matchValue TypeLangSet >=> traverse langSetCopyPtr
+
+matchMatrixValue :: MonadIO m => Ptr Value -> m (Maybe Matrix)
+matchMatrixValue = matchValue TypeMatrix >=> liftIO . traverse peekAt
+
+matchRangeValue :: MonadIO m => Ptr Value -> m (Maybe Range)
+matchRangeValue = matchValue TypeRange >=> traverse rangeCopyPtr
 
 patternGet :: MonadIO m => Pattern -> String -> Int -> (Ptr Value -> IO r) -> m (Maybe r)
 patternGet fp s (fromIntegral -> i) k = liftIO $

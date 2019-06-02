@@ -10,20 +10,23 @@
 -- Portability: non-portable
 --
 module Graphics.Fontconfig.FreeType
-( pattern TypeFace
-, patternAddFace
-, patternGetFace
-, withFaceValue
-, freeTypeCharIndex
+( freeTypeCharIndex
 , freeTypeCharSet
 , freeTypeCharSetAndSpacing
 , freeTypeQuery
 , freeTypeQueryAll
 , freeTypeQueryFace
+-- pattern matching
+, pattern TypeFace
+, withFaceValue
+, matchFaceValue
+, patternAddFace
+, patternGetFace
 ) where
 
 import Control.Monad.IO.Class
 import Data.Functor ((<&>))
+import Data.Traversable (for)
 import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
 import Foreign.Ptr
@@ -46,26 +49,6 @@ C.verbatim "#include FT_FREETYPE_H"
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #endif
-
-pattern TypeFace :: Type (Ptr FaceRec)
-pattern TypeFace = #const FcTypeFTFace
-
-withFaceValue :: Face -> (Ptr Value -> IO r) -> IO r
-withFaceValue (Face face) f = withForeignPtr face $ \p -> withValue TypeFace p f
-
-patternAddFace :: MonadIO m => Pattern -> String -> Face -> m Bool
-patternAddFace p k v = liftIO $ [C.exp|int { FcPatternAddFTFace($pattern:p,$str:k,$fptr-ptr:(FT_Face v)) }|] <&> (/=0)
-{-# inlinable patternAddFace #-}
-
-patternGetFace :: MonadIO m => Pattern -> String -> Int -> m (Result Face)
-patternGetFace p k (fromIntegral -> i) = liftIO $
-  alloca $ \fp -> do
-    result <- [C.exp|int { FcPatternGetFTFace($pattern:p,$str:k,$(int i),$(FT_Face * fp)) }|]
-    getResult result $ do
-      f <- peek fp
-      [C.block|void { FT_Reference_Face($(FT_Face f)); }|]
-      foreignFace f
-{-# inlinable patternGetFace #-}
 
 freeTypeCharIndex :: MonadIO m => Face -> Char -> m Int
 freeTypeCharIndex f (fromIntegral . fromEnum -> c) = liftIO $ [C.exp|int { FcFreeTypeCharIndex($fptr-ptr:(FT_Face f),$(FcChar32 c)) }|] <&> fromIntegral
@@ -93,3 +76,31 @@ freeTypeQueryAll p (fromIntegral -> i) fs = liftIO $ alloca $ \count ->
 -- | Constructs a pattern representing a given font face. The FilePath and id are used soly as data for pattern elements. (FC_FILE, FC_INDEX, possibly FC_FAMILY).
 freeTypeQueryFace :: MonadIO m => Face -> FilePath -> Int -> m Pattern
 freeTypeQueryFace f p (fromIntegral -> i) = liftIO $ [C.exp|FcPattern * { FcFreeTypeQueryFace($fptr-ptr:(FT_Face f),$ustr:p,$(int i),0) }|] >>= foreignPattern
+
+pattern TypeFace :: Type (Ptr FaceRec)
+pattern TypeFace = #const FcTypeFTFace
+
+withFaceValue :: Face -> (Ptr Value -> IO r) -> IO r
+withFaceValue (Face face) f = withForeignPtr face $ \p -> withValue TypeFace p f
+
+-- note this will be an immutable face you should not edit!
+matchFaceValue :: MonadIO m => Ptr Value -> m (Maybe Face)
+matchFaceValue v = liftIO $ do
+    mf <- matchValue TypeFace v
+    for mf $ \f -> do
+      [C.block|void { FT_Reference_Face($(FT_Face f)); }|]
+      foreignFace f
+
+patternAddFace :: MonadIO m => Pattern -> String -> Face -> m Bool
+patternAddFace p k v = liftIO $ [C.exp|int { FcPatternAddFTFace($pattern:p,$str:k,$fptr-ptr:(FT_Face v)) }|] <&> (/=0)
+{-# inlinable patternAddFace #-}
+
+patternGetFace :: MonadIO m => Pattern -> String -> Int -> m (Maybe Face)
+patternGetFace p k (fromIntegral -> i) = liftIO $
+  alloca $ \fp -> do
+    result <- [C.exp|FcResult { FcPatternGetFTFace($pattern:p,$str:k,$(int i),$(FT_Face * fp)) }|]
+    getResult result $ do
+      f <- peek fp
+      [C.block|void { FT_Reference_Face($(FT_Face f)); }|]
+      foreignFace f
+{-# inlinable patternGetFace #-}
