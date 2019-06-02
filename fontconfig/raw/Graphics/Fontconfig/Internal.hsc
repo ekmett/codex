@@ -44,6 +44,7 @@ module Graphics.Fontconfig.Internal
 , StrSet(..)
 , Matrix(..)
 , Value
+, sizeOfValue
 
 -- * Results
 , StrList
@@ -219,6 +220,8 @@ pattern TypeRange = (#const FcTypeRange) :: Type (ConstPtr Range)
 
 data StrList
 data Value
+sizeOfValue :: Int
+sizeOfValue = #size FcValue
 
 -- bootstrapping Storable Value
 C.context $ C.baseCtx <> mempty
@@ -329,6 +332,7 @@ fontconfigCtx = mempty
     , (C.TypeName "FcCache", [t| Cache |])
     , (C.TypeName "FcBool", [t| FcBool |])
     , (C.TypeName "FcRange", [t| Range |])
+    , (C.TypeName "FcResult", [t| CResult |])
     , (C.TypeName "FcChar8", [t| CUChar |])
     , (C.TypeName "FcChar16", [t| CUShort |])
     , (C.TypeName "FcChar32", [t| CUInt |])
