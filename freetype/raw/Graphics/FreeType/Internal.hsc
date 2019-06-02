@@ -29,26 +29,52 @@
 #include FT_MODULE_H
 #include FT_SYSTEM_H
 #include FT_TYPES_H
+#include FT_TRIGONOMETRY_H
 #include "hsc-err.h"
 #let err_exports = err_exports()
 #let err_patterns = err_patterns()
 #endif
 
 module Graphics.FreeType.Internal
-( Error
+( Angle
+, pattern ANGLE_PI
+, pattern ANGLE_2PI
+, pattern ANGLE_PI2
+, pattern ANGLE_PI4
+, angleDiff
+
+, Error
   ( Error
 #ifndef HLINT
 #err_exports
 #endif
   )
 , ok
-, Face(..), FaceRec
+
+, Face(..)
+, FaceRec
+, foreignFace
+
 , Generic(..)
-, Library(..), LibraryRec
-, Memory(..), MemoryRec(..), AllocFunc, FreeFunc, ReallocFunc
-, Fixed
+
+, Library(..)
+, LibraryRec
+, foreignLibrary
+, pattern FREETYPE_MAJOR
+, pattern FREETYPE_MINOR
+, pattern FREETYPE_PATCH
+
+, Matrix(..)
+, matrixInvert, matrixMultiply
+
+, Memory(..)
+, MemoryRec(..)
+, AllocFunc, FreeFunc, ReallocFunc
+
 , Pos
+
 , SizeRec(..), SizeMetrics(..), SizeInternalRec
+
 , SizeRequest
 , SizeRequestRec(..)
 , SizeRequestType
@@ -59,17 +85,16 @@ module Graphics.FreeType.Internal
   , SIZE_REQUEST_TYPE_CELL
   , SIZE_REQUEST_TYPE_SCALES
   )
-, pattern FREETYPE_MAJOR
-, pattern FREETYPE_MINOR
-, pattern FREETYPE_PATCH
 
-, foreignLibrary
-, foreignFace
+, Vector(..)
+, vectorTransform
+
 -- * contexts
 , freeTypeCtx
 ) where
 
 import Control.Exception
+import Data.Default
 import Data.Int
 import qualified Data.Map as Map
 import Data.Primitive.Types
@@ -79,12 +104,20 @@ import Foreign.C.Types
 import Foreign.ForeignPtr
 import qualified Foreign.Concurrent as Concurrent
 import Foreign.Marshal.Unsafe
+import Foreign.Marshal.Utils
 import Foreign.Ptr
 import Foreign.Storable
+import Numeric.Fixed
 import qualified Language.C.Inline as C
 import qualified Language.C.Inline.Context as C
 import qualified Language.C.Types as C
 import Graphics.FreeType.Private
+
+type Angle = Fixed
+pattern ANGLE_PI  = Fixed (#const FT_ANGLE_PI)
+pattern ANGLE_2PI = Fixed (#const FT_ANGLE_2PI)
+pattern ANGLE_PI2 = Fixed (#const FT_ANGLE_PI2)
+pattern ANGLE_PI4 = Fixed (#const FT_ANGLE_PI4)
 
 -- | By convention the library will throw any non-0 FT_Error encountered.
 newtype Error = Error CInt deriving newtype (Eq,Ord,Show,Num,Enum,Real,Integral,Storable)
@@ -111,6 +144,40 @@ pattern FREETYPE_MAJOR = (#const FREETYPE_MAJOR) :: Int
 pattern FREETYPE_MINOR = (#const FREETYPE_MINOR) :: Int
 pattern FREETYPE_PATCH = (#const FREETYPE_PATCH) :: Int
 #endif
+
+data Generic = Generic
+  { generic_data      :: {-# unpack #-} !(Ptr ())
+  , generic_finalizer :: {-# unpack #-} !(FinalizerPtr ())
+  } deriving (Eq,Show)
+
+instance Storable Generic where
+  sizeOf _ = #size FT_Generic
+  alignment _ = #alignment FT_Generic
+  peek p = Generic
+    <$> (#peek FT_Generic, data) p
+    <*> (#peek FT_Generic, finalizer) p
+  poke p Generic{..} = do
+    (#poke FT_Generic, data) p generic_data
+    (#poke FT_Generic, finalizer) p generic_finalizer
+
+data Matrix = Matrix
+  { matrix_xx, matrix_xy
+  , matrix_yx, matrix_yy :: {-# unpack #-} !Fixed
+  } deriving (Eq,Show)
+
+instance Storable Matrix where
+  sizeOf _    = #size FT_Matrix
+  alignment _ = #alignment FT_Matrix
+  peek ptr = Matrix
+    <$> (#peek FT_Matrix, xx) ptr
+    <*> (#peek FT_Matrix, xy) ptr
+    <*> (#peek FT_Matrix, yx) ptr
+    <*> (#peek FT_Matrix, yy) ptr
+  poke ptr Matrix{..} = do
+    (#poke FT_Matrix, xx) ptr matrix_xx
+    (#poke FT_Matrix, xy) ptr matrix_xy
+    (#poke FT_Matrix, yx) ptr matrix_yx
+    (#poke FT_Matrix, yy) ptr matrix_yy
 
 data LibraryRec
 newtype Library = Library (ForeignPtr LibraryRec) deriving (Eq,Ord,Show)
@@ -142,28 +209,6 @@ instance Storable MemoryRec where
 
 newtype Memory = Memory (ForeignPtr MemoryRec) deriving (Eq,Ord,Show)
 
-C.context $ C.baseCtx <> mempty
-  { C.ctxTypesTable = Map.fromList
-    [ (C.TypeName "FT_Error", [t|Error|])
-    , (C.TypeName "FT_Face", [t|Ptr FaceRec|])
-    , (C.TypeName "FT_Library", [t|Ptr LibraryRec|])
-    ]
-  }
-
-data Generic = Generic
-  { generic_data      :: {-# unpack #-} !(Ptr ())
-  , generic_finalizer :: {-# unpack #-} !(FinalizerPtr ())
-  } deriving (Eq,Show)
-
-instance Storable Generic where
-  sizeOf _ = #size FT_Generic
-  alignment _ = #alignment FT_Generic
-  peek p = Generic
-    <$> (#peek FT_Generic, data) p
-    <*> (#peek FT_Generic, finalizer) p
-  poke p Generic{..} = do
-    (#poke FT_Generic, data) p generic_data
-    (#poke FT_Generic, finalizer) p generic_finalizer
 
 data SizeMetrics = SizeMetrics
   { size_metrics_x_ppem
@@ -200,7 +245,6 @@ instance Storable SizeMetrics where
 
 data SizeInternalRec
 
-type Fixed = Word32
 type Pos = Int32
 
 data SizeRec = SizeRec
@@ -258,10 +302,73 @@ instance Storable SizeRequestRec where
     (#poke FT_Size_RequestRec, horiResolution) ptr size_request_horiResolution
     (#poke FT_Size_RequestRec, vertResolution) ptr size_request_vertResolution
 
+data Vector = Vector
+  { vector_x, vector_y :: {-# unpack #-} !Pos
+  } deriving (Eq, Show)
+
+instance Storable Vector where
+  sizeOf _    = #size FT_Vector
+  alignment _ = #alignment FT_Vector
+  peek ptr = Vector
+    <$> (#peek FT_Vector, x) ptr
+    <*> (#peek FT_Vector, y) ptr
+  poke ptr Vector{..} = do
+    (#poke FT_Vector, x) ptr vector_x
+    (#poke FT_Vector, y) ptr vector_y
+
+C.context $ C.baseCtx <> mempty
+  { C.ctxTypesTable = Map.fromList
+    [ (C.TypeName "FT_Angle", [t|Fixed|])
+    , (C.TypeName "FT_Error", [t|Error|])
+    , (C.TypeName "FT_Face", [t|Ptr FaceRec|])
+    , (C.TypeName "FT_Fixed", [t|Fixed|])
+    , (C.TypeName "FT_Library", [t|Ptr LibraryRec|])
+    , (C.TypeName "FT_Matrix", [t|Matrix|])
+    , (C.TypeName "FT_Vector", [t|Vector|])
+    ]
+  }
+
 C.include "<ft2build.h>"
 C.verbatim "#include FT_FREETYPE_H"
+C.verbatim "#include FT_GLYPH_H"
 C.verbatim "#include FT_MODULE_H"
 C.verbatim "#include FT_TYPES_H"
+C.verbatim "#include FT_TRIGONOMETRY_H"
+
+angleDiff :: Angle -> Angle -> Angle
+angleDiff angle1 angle2 = [C.pure|FT_Angle { FT_Angle_Diff($(FT_Angle angle1),$(FT_Angle angle2)) }|]
+
+matrixInvert:: Matrix -> Maybe Matrix
+matrixInvert m = unsafeLocalState $
+  with m $ \mm -> do
+    e <- [C.exp|FT_Error { FT_Matrix_Invert($(FT_Matrix * mm))}|]
+    if e == Err_Ok then Just <$> peek mm else pure Nothing
+
+matrixMultiply :: Matrix -> Matrix -> Matrix
+matrixMultiply m n = unsafeLocalState $
+   with m $ \mm ->
+   with n $ \nm ->
+    [C.block|void {
+      FT_Matrix_Multiply($(FT_Matrix * mm),$(FT_Matrix * nm));
+    }|] *> peek nm
+
+instance Semigroup Matrix where
+  (<>) = matrixMultiply
+
+instance Monoid Matrix where
+  mempty = Matrix 1 0 0 1
+
+instance Default Matrix where
+  def = Matrix 1 0 0 1
+
+vectorTransform :: Vector -> Matrix -> Vector
+vectorTransform v m = unsafeLocalState $
+  with v $ \vp ->
+    with m $ \mp ->
+      [C.block|void { FT_Vector_Transform($(FT_Vector * vp),$(FT_Matrix * mp)); }|] *> peek vp
+
+instance Default Vector where
+  def = Vector 0 0
 
 foreignFace :: Ptr FaceRec -> IO Face
 foreignFace p = Face <$> Concurrent.newForeignPtr p ([C.exp|FT_Error { FT_Done_Face($(FT_Face p)) }|] >>= ok)
@@ -282,6 +389,8 @@ freeTypeCtx = mempty
     , (C.TypeName "FT_Library",            [t|Ptr LibraryRec|])
     , (C.TypeName "FT_LibraryRec_",        [t|LibraryRec|])
     , (C.TypeName "FT_Long",               [t|Int32|])
+    , (C.TypeName "FT_Matrix",             [t|Matrix|])
+    , (C.Struct   "FT_Matrix_",            [t|Matrix|])
     , (C.TypeName "FT_Memory",             [t|Ptr MemoryRec|])
     , (C.TypeName "FT_MemoryRec_",         [t|MemoryRec|])
     , (C.TypeName "FT_Size_Internal",      [t|Ptr SizeInternalRec|])
@@ -299,14 +408,16 @@ freeTypeCtx = mempty
     , (C.TypeName "FT_UInt",               [t|Word32|])
     , (C.TypeName "FT_UInt32",             [t|Word32|])
     , (C.TypeName "FT_ULong",              [t|Word32|])
+    , (C.TypeName "FT_Vector",             [t|Vector|])
+    , (C.Struct   "FT_Vector_",            [t|Vector|])
     ]
   , C.ctxAntiQuoters = Map.fromList
     [ ("ustr", anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char (Just C.Unsigned))) [t|Ptr CUChar|] [|withCUString|])
     , ("str", anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char Nothing)) [t|Ptr CChar|] [|withCString|])
     , ("face", anti (C.TypeSpecifier mempty $ C.TypeName "FT_Face") [t|Ptr FaceRec|] [|withForeignPtr|])
-    , ("generic", anti (C.TypeSpecifier mempty $ C.TypeName "FT_Generic") [t|Ptr Generic|] [|with|])
     , ("library", anti (C.TypeSpecifier mempty $ C.TypeName "FT_Library") [t|Ptr LibraryRec|] [|withForeignPtr|])
-    , ("sizemetrics", anti (C.TypeSpecifier mempty $ C.TypeName "FT_Size_Metrics") [t|Ptr SizeMetrics|] [|with|])
-    , ("sizerec", anti (C.TypeSpecifier mempty $ C.TypeName "FT_Size_Rec") [t|Ptr SizeRec|] [|with|])
-    ]
-  }
+    , ("generic", anti (ptr $ C.TypeName "FT_Generic") [t|Ptr Generic|] [|with|])
+    , ("matrix",  anti (ptr $ C.TypeName "FT_Matrix") [t|Ptr Matrix|] [|with|])
+    , ("vector",  anti (ptr $ C.TypeName "FT_Vector") [t|Ptr Vector|] [|with|])
+    ] 
+  } where ptr = C.Ptr [] . C.TypeSpecifier mempty
