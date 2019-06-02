@@ -41,4 +41,3 @@ pokeAtElemOff p i = unsafeIOToPrim . pokeElemOff (unsafeReferencePtr p) i
 
 pokeAtDiff :: forall p m a b. (PrimMonad m, Reference (PrimState m) p, Storable b) => p a -> Diff a b -> b -> m ()
 pokeAtDiff p (Diff d) b = pokeAtByteOff p d b
-

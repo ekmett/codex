@@ -6,11 +6,12 @@
 module Foreign.Ref
 ( 
 -- * Refs
-  Ref
-, nullRef
-, castRef
-, plusRef
-, alignRef
+  Ref, ConstRef
+, Reference, ref, ConstReference, constRef
+, pattern Null
+, castRef, castARef, castConstRef
+, plusRef, plusARef, plusConstRef
+, alignRef, alignARef, alignConstRef
 , minusRef
 -- * FunRefs
 , FunRef(NullFunRef)
@@ -27,12 +28,6 @@ module Foreign.Ref
 , refToWordRef
 , wordRefToRef
 -- * Constness
-, ConstRef
-, Reference
-, ref
-, ConstReference
-, pattern Null
-, constRef
 ) where
 
 import Data.Coerce
@@ -41,24 +36,44 @@ import Foreign.Ref.Unsafe
 
 -- * Ref
 
-nullRef :: Ref s a
-nullRef = Ref nullPtr
-{-# inline nullRef #-}
-
-castRef :: forall s a b. Ref s a -> Ref s b
-castRef = coerce (castPtr @a)
+castRef :: forall a b r s. Reference s r => r a -> Ref s b
+castRef = unsafePtrReference . castPtr . unsafeReferencePtr
 {-# inline castRef #-}
 
-plusRef :: forall s a b. Ref s a -> Int -> Ref s b
-plusRef = coerce (plusPtr @a)
+castARef :: forall a b r s. ConstReference s r => r a -> r b
+castARef = unsafePtrReference . castPtr . unsafeReferencePtr
+{-# inline castARef #-}
+
+castConstRef :: forall a b r s. ConstReference s r => r a -> ConstRef s b
+castConstRef = unsafePtrReference . castPtr . unsafeReferencePtr
+{-# inline castConstRef #-}
+
+plusRef :: forall a b r s. Reference s r => r a -> Int -> Ref s b
+plusRef p a = unsafePtrReference $ plusPtr (unsafeReferencePtr p) a
 {-# inline plusRef #-}
 
-alignRef :: forall s a. Ref s a -> Int -> Ref s a
-alignRef = coerce (alignPtr @a)
+plusARef :: forall a b r s. ConstReference s r => r a -> Int -> r b
+plusARef  p a = unsafePtrReference $ plusPtr (unsafeReferencePtr p) a
+{-# inline plusARef #-}
+
+plusConstRef :: forall a b r s. ConstReference s r => r a -> Int -> ConstRef s b
+plusConstRef p a = unsafePtrReference $ plusPtr (unsafeReferencePtr p) a
+{-# inline plusConstRef #-}
+
+alignRef :: forall a r s. Reference s r => r a -> Int -> Ref s a
+alignRef p a = unsafePtrReference $ alignPtr (unsafeReferencePtr p) a
 {-# inline alignRef #-}
 
-minusRef :: forall s a b. Ref s a -> Ref s b -> Int
-minusRef = coerce (minusPtr @a @b)
+alignARef :: forall a r s. ConstReference s r => r a -> Int -> r a
+alignARef p a = unsafePtrReference $ alignPtr (unsafeReferencePtr p) a
+{-# inline alignARef #-}
+
+alignConstRef :: forall a r s. ConstReference s r => r a -> Int -> ConstRef s a
+alignConstRef p a = unsafePtrReference $ alignPtr (unsafeReferencePtr p) a
+{-# inline alignConstRef #-}
+
+minusRef :: forall a b p q s. (ConstReference s p, ConstReference s q) => p a -> q b -> Int
+minusRef p q = minusPtr (unsafeReferencePtr p) (unsafeReferencePtr q)
 {-# inline minusRef #-}
 
 -- * FunRef

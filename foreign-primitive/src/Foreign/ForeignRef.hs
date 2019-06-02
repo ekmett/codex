@@ -16,8 +16,10 @@ module Foreign.ForeignRef
 , withConstForeignRef
 , finalizeForeignRef
 , castForeignRef
+, castAForeignRef
 , castConstForeignRef
 , plusForeignRef
+, plusAForeignRef
 , plusConstForeignRef
 , mallocForeignRef
 , mallocForeignRefBytes
@@ -53,11 +55,17 @@ finalizeForeignRef fp = unsafeIOToPrim $ finalizeForeignPtr $ unsafeForeignRefer
 castForeignRef :: ForeignReference s fr => fr a -> ForeignRef s b
 castForeignRef = unsafeForeignPtrReference . castForeignPtr . unsafeForeignReferencePtr
 
+castAForeignRef :: ForeignReference s fr => fr a -> fr b
+castAForeignRef = unsafeForeignPtrReference . castForeignPtr . unsafeForeignReferencePtr
+
 castConstForeignRef :: ConstForeignReference s fr => fr a -> ConstForeignRef s b
 castConstForeignRef = unsafeForeignPtrReference . castForeignPtr . unsafeForeignReferencePtr
 
-plusForeignRef :: forall a b fr s. ConstForeignReference s fr => fr a -> Int -> fr b
+plusForeignRef :: forall a b fr s. ConstForeignReference s fr => fr a -> Int -> ForeignRef s b
 plusForeignRef fp i = unsafeForeignPtrReference $ plusForeignPtr (unsafeForeignReferencePtr fp) i
+
+plusAForeignRef :: forall a b fr s. ConstForeignReference s fr => fr a -> Int -> fr b
+plusAForeignRef fp i = unsafeForeignPtrReference $ plusForeignPtr (unsafeForeignReferencePtr fp) i
 
 plusConstForeignRef :: forall a b fr s. ConstForeignReference s fr => fr a -> Int -> ConstForeignRef s b
 plusConstForeignRef fp i = unsafeForeignPtrReference $ plusForeignPtr (unsafeForeignReferencePtr fp) i
