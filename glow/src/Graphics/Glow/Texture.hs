@@ -1,8 +1,11 @@
 {-# language CPP #-}
 {-# language DeriveDataTypeable #-}
-{-# language DeriveGeneric      #-}
+{-# language DeriveGeneric #-}
 {-# language DataKinds #-}
 {-# language OverloadedLists #-}
+{-# language PatternSynonyms #-}
+{-# language ViewPatterns #-}
+{-# options_ghc -Wno-missing-pattern-synonym-signatures #-}
 -- |
 -- Copyright :  (c) 2014-2019 Edward Kmett
 -- License   :  BSD-2-Clause OR Apache 2.0
@@ -20,8 +23,23 @@ module Graphics.Glow.Texture
 , TextureUnit
 -- * Texture Binding
 , boundTexture
+, withBoundTexture
 -- * Texture Targets
-, TextureTarget, TextureBinding
+, TextureTarget 
+  ( TextureTarget
+  , textureTarget
+  , textureBinding
+  , Texture1D
+  , Texture1DArray
+  , Texture2D
+  , Texture2DArray
+  , Texture2DMultisample
+  , Texture2DMultisampleArray
+  , Texture3D
+  , TextureBuffer
+  , TextureCubeMap
+  , TextureRectangle
+  )
 -- * Texture Parameter
 , TextureParameter
 -- ** Bound Based
@@ -42,6 +60,7 @@ module Graphics.Glow.Texture
 , activeTexture
 ) where
 
+import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
 import Data.Coerce
@@ -62,10 +81,22 @@ import Linear.V
 
 import Graphics.Glow.Object
 
--- TODO: wrap these more carefully?
+data TextureTarget = TextureTarget
+  { textureTarget  :: {-# unpack #-} !GLenum
+  , textureBinding :: {-# unpack #-} !GLenum
+  } deriving (Eq,Ord,Show,Read)
 
-type TextureTarget = GLenum
-type TextureBinding = GLenum
+pattern Texture1D = TextureTarget GL_TEXTURE_1D GL_TEXTURE_BINDING_1D
+pattern Texture1DArray = TextureTarget GL_TEXTURE_1D_ARRAY GL_TEXTURE_BINDING_1D_ARRAY
+pattern Texture2D = TextureTarget GL_TEXTURE_2D GL_TEXTURE_BINDING_2D
+pattern Texture2DArray = TextureTarget GL_TEXTURE_2D_ARRAY GL_TEXTURE_BINDING_2D_ARRAY
+pattern Texture2DMultisample = TextureTarget GL_TEXTURE_2D_MULTISAMPLE GL_TEXTURE_BINDING_2D_MULTISAMPLE
+pattern Texture2DMultisampleArray = TextureTarget GL_TEXTURE_2D_MULTISAMPLE_ARRAY GL_TEXTURE_BINDING_2D_MULTISAMPLE_ARRAY
+pattern Texture3D = TextureTarget GL_TEXTURE_3D GL_TEXTURE_BINDING_3D
+pattern TextureBuffer = TextureTarget GL_TEXTURE_BUFFER GL_TEXTURE_BINDING_BUFFER
+pattern TextureCubeMap = TextureTarget GL_TEXTURE_CUBE_MAP GL_TEXTURE_BINDING_CUBE_MAP
+pattern TextureRectangle = TextureTarget GL_TEXTURE_RECTANGLE GL_TEXTURE_BINDING_RECTANGLE
+
 type TextureParameter = GLenum
 type TextureWrapping = GLenum
 type TextureMinificationFilter = GLenum
@@ -92,12 +123,15 @@ instance Gen Texture where
 instance Default Texture where
   def = Texture 0
 
-boundTexture :: TextureTarget -> TextureBinding -> StateVar Texture
-boundTexture target binding = StateVar g s where
+boundTexture :: TextureTarget -> StateVar Texture
+boundTexture (TextureTarget target binding) = StateVar g s where
   g = do
     i <- alloca $ liftM2 (>>) (glGetIntegerv binding) peek
     return $ Texture (fromIntegral i)
   s = glBindTexture target . coerce
+
+withBoundTexture :: TextureTarget -> Texture -> IO a -> IO a
+withBoundTexture (boundTexture -> StateVar g s) v = bracket (g <* s v) s . const
 
 -- * Texture Parameter
 
@@ -106,17 +140,17 @@ boundTexture target binding = StateVar g s where
 -- Consider using 'Graphics.Glow.Sampler' to store settings 'Texture' independent
 
 texParameterf :: TextureTarget -> TextureParameter -> StateVar Float
-texParameterf t p = StateVar g s where
+texParameterf (TextureTarget t _) p = StateVar g s where
   g = alloca $ (>>) <$> glGetTexParameterfv t p . castPtr <*> peek
   s = glTexParameterf t p
 
 texParameteri :: TextureTarget -> TextureParameter -> StateVar Int32
-texParameteri t p = StateVar g s where
+texParameteri (TextureTarget t _) p = StateVar g s where
   g = alloca $ (>>) <$> glGetTexParameteriv t p . castPtr <*> peek
   s = glTexParameteri t p
 
 texParameterfv' :: Storable (f Float) => TextureTarget -> TextureParameter -> StateVar (f Float)
-texParameterfv' t p = StateVar g s where
+texParameterfv' (TextureTarget t _) p = StateVar g s where
   g = alloca $ (>>) <$> glGetTexParameterfv t p . castPtr <*> peek
   s v = alloca $ (>>) <$> glTexParameterfv t p . castPtr <*> (`poke` v)
 
@@ -133,7 +167,7 @@ texParameter4f :: TextureTarget -> TextureParameter -> StateVar (V4 Float)
 texParameter4f = texParameterfv'
 
 texParameteriv' :: Storable (f Int32) => TextureTarget -> TextureParameter -> StateVar (f Int32)
-texParameteriv' t p = StateVar g s where
+texParameteriv' (TextureTarget t _) p = StateVar g s where
   g = alloca $ (>>) <$> glGetTexParameteriv t p . castPtr <*> peek
   s v = alloca $ (>>) <$> glTexParameteriv t p . castPtr <*> (`poke` v)
 
@@ -150,17 +184,16 @@ texParameter4i :: TextureTarget -> TextureParameter -> StateVar (V4 Int32)
 texParameter4i = texParameteriv'
 
 texParameterIiv :: Dim n => TextureTarget -> TextureParameter -> StateVar (V n Int32)
-texParameterIiv t p = StateVar g s where
+texParameterIiv (TextureTarget t _) p = StateVar g s where
   g = alloca $ (>>) <$> glGetTexParameterIiv t p . castPtr <*> peek
   s v = alloca $ (>>) <$> glTexParameterIiv t p . castPtr <*> (`poke` v)
 
 texParameterIuiv :: Dim n => TextureTarget -> TextureParameter -> StateVar (V n Word32)
-texParameterIuiv t p = StateVar g s where
+texParameterIuiv (TextureTarget t _) p = StateVar g s where
   g = alloca $ (>>) <$> glGetTexParameterIuiv t p . castPtr <*> peek
   s v = alloca $ (>>) <$> glTexParameterIuiv t p . castPtr <*> (`poke` v)
 
 -- * Texture Unit
-
 activeTexture :: StateVar Word32
 activeTexture = StateVar g s where
   g = fmap fromIntegral $ alloca $ liftM2 (>>) (glGetIntegerv GL_ACTIVE_TEXTURE) peek

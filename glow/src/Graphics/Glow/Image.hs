@@ -73,12 +73,12 @@ instance ImageFormat PixelRGBF where
 swizzleL :: TextureTarget -> IO ()
 swizzleL t = allocaArray 4 $ \p -> do
   pokeArray p [GL_RED, GL_RED, GL_RED, GL_ONE]
-  glTexParameteriv t GL_TEXTURE_SWIZZLE_RGBA p
+  glTexParameteriv (textureTarget t) GL_TEXTURE_SWIZZLE_RGBA p
 
 swizzleLA :: TextureTarget -> IO ()
 swizzleLA t = allocaArray 4 $ \p -> do
   pokeArray p [GL_RED, GL_RED, GL_RED, GL_GREEN]
-  glTexParameteriv t GL_TEXTURE_SWIZZLE_RGBA p
+  glTexParameteriv (textureTarget t) GL_TEXTURE_SWIZZLE_RGBA p
 
 instance ImageFormat Word8 where
   internalFormat _ = GL_R8
@@ -161,19 +161,19 @@ class Image2D i where
 instance ImageFormat a => Image2D (Image a) where
   upload i@(Image w h v) t l= liftIO $ do
     packedPixelStore
-    V.unsafeWith v $ glTexSubImage2D t l 0 0 (fromIntegral w) (fromIntegral h) (pixelFormat i) (pixelType i) . castPtr
+    V.unsafeWith v $ glTexSubImage2D (textureTarget t) l 0 0 (fromIntegral w) (fromIntegral h) (pixelFormat i) (pixelType i) . castPtr
     swizzle i t
   store i@(Image w h _) t = liftIO $ do
-    glTexStorage2D t 1 (internalFormat i) (fromIntegral w) (fromIntegral h)
+    glTexStorage2D (textureTarget t) 1 (internalFormat i) (fromIntegral w) (fromIntegral h)
     upload i t 0
 
 instance (ImageFormat a, s ~ RealWorld) => Image2D (MutableImage s a) where
   upload i@(MutableImage w h v) t l = liftIO $ do
     packedPixelStore
-    MV.unsafeWith v $ glTexSubImage2D t l 0 0 (fromIntegral w) (fromIntegral h) (pixelFormat i) (pixelType i) . castPtr
+    MV.unsafeWith v $ glTexSubImage2D (textureTarget t) l 0 0 (fromIntegral w) (fromIntegral h) (pixelFormat i) (pixelType i) . castPtr
     swizzle i t
   store i@(MutableImage w h _) t = liftIO $ do
-    glTexStorage2D t 1 (internalFormat i) (fromIntegral w) (fromIntegral h)
+    glTexStorage2D (textureTarget t) 1 (internalFormat i) (fromIntegral w) (fromIntegral h)
     upload i t 0
 
 instance Image2D DynamicImage where

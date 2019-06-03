@@ -31,20 +31,20 @@ module Graphics.Glow.Buffer
 -- * Buffer Targets
 , BufferTarget
   ( BufferTarget
-  , ArrayBuffer
-  , AtomicCounterBuffer
-  , CopyReadBuffer
-  , CopyWriteBuffer
-  , DispatchIndirectBuffer
-  , DrawIndirectBuffer
-  , ElementArrayBuffer
-  , PixelPackBuffer
-  , PixelUnpackBuffer
-  , QueryBuffer
-  , ShaderStorageBuffer
-  , TextureBuffer
-  , TransformFeedbackBuffer
-  , UniformBuffer
+  , ArrayBufferTarget
+  , AtomicCounterBufferTarget
+  , CopyReadBufferTarget
+  , CopyWriteBufferTarget
+  , DispatchIndirectBufferTarget
+  , DrawIndirectBufferTarget
+  , ElementArrayBufferTarget
+  , PixelPackBufferTarget
+  , PixelUnpackBufferTarget
+  , QueryBufferTarget
+  , ShaderStorageBufferTarget
+  , TextureBufferTarget
+  , TransformFeedbackBufferTarget
+  , UniformBufferTarget
   )
 -- * Buffer Usage
 -- $usage
@@ -219,82 +219,82 @@ bufferData (BufferTarget t _) = StateVar g s where
 -- * Buffer Types
 
 -- | Vertex attributes
-pattern ArrayBuffer :: BufferTarget
-pattern ArrayBuffer = BufferTarget GL_ARRAY_BUFFER GL_ARRAY_BUFFER_BINDING
+pattern ArrayBufferTarget :: BufferTarget
+pattern ArrayBufferTarget = BufferTarget GL_ARRAY_BUFFER GL_ARRAY_BUFFER_BINDING
 
 -- | Atomic counter storage
-pattern AtomicCounterBuffer :: BufferTarget
-pattern AtomicCounterBuffer = BufferTarget GL_ATOMIC_COUNTER_BUFFER GL_ATOMIC_COUNTER_BUFFER_BINDING
+pattern AtomicCounterBufferTarget :: BufferTarget
+pattern AtomicCounterBufferTarget = BufferTarget GL_ATOMIC_COUNTER_BUFFER GL_ATOMIC_COUNTER_BUFFER_BINDING
 
 -- | Buffer copy source
-pattern CopyReadBuffer :: BufferTarget
-pattern CopyReadBuffer = BufferTarget GL_COPY_READ_BUFFER GL_COPY_READ_BUFFER_BINDING
+pattern CopyReadBufferTarget :: BufferTarget
+pattern CopyReadBufferTarget = BufferTarget GL_COPY_READ_BUFFER GL_COPY_READ_BUFFER_BINDING
 
 -- | Buffer copy destination
-pattern CopyWriteBuffer :: BufferTarget
-pattern CopyWriteBuffer = BufferTarget GL_COPY_WRITE_BUFFER GL_COPY_WRITE_BUFFER_BINDING
+pattern CopyWriteBufferTarget :: BufferTarget
+pattern CopyWriteBufferTarget = BufferTarget GL_COPY_WRITE_BUFFER GL_COPY_WRITE_BUFFER_BINDING
 
 -- | Indirect compute dispatch commands
-pattern DispatchIndirectBuffer :: BufferTarget
-pattern DispatchIndirectBuffer = BufferTarget GL_DISPATCH_INDIRECT_BUFFER GL_DISPATCH_INDIRECT_BUFFER_BINDING
+pattern DispatchIndirectBufferTarget :: BufferTarget
+pattern DispatchIndirectBufferTarget = BufferTarget GL_DISPATCH_INDIRECT_BUFFER GL_DISPATCH_INDIRECT_BUFFER_BINDING
 
 -- | Indirect command arguments
-pattern DrawIndirectBuffer :: BufferTarget
-pattern DrawIndirectBuffer = BufferTarget GL_DRAW_INDIRECT_BUFFER GL_DRAW_INDIRECT_BUFFER_BINDING
+pattern DrawIndirectBufferTarget :: BufferTarget
+pattern DrawIndirectBufferTarget = BufferTarget GL_DRAW_INDIRECT_BUFFER GL_DRAW_INDIRECT_BUFFER_BINDING
 
 -- | Vertex array indices
-pattern ElementArrayBuffer :: BufferTarget
-pattern ElementArrayBuffer = BufferTarget GL_ELEMENT_ARRAY_BUFFER GL_ELEMENT_ARRAY_BUFFER_BINDING
+pattern ElementArrayBufferTarget :: BufferTarget
+pattern ElementArrayBufferTarget = BufferTarget GL_ELEMENT_ARRAY_BUFFER GL_ELEMENT_ARRAY_BUFFER_BINDING
 
 -- | Pixel read target
-pattern PixelPackBuffer :: BufferTarget
-pattern PixelPackBuffer = BufferTarget GL_PIXEL_PACK_BUFFER GL_PIXEL_PACK_BUFFER_BINDING
+pattern PixelPackBufferTarget :: BufferTarget
+pattern PixelPackBufferTarget = BufferTarget GL_PIXEL_PACK_BUFFER GL_PIXEL_PACK_BUFFER_BINDING
 
 -- | Texture data source
-pattern PixelUnpackBuffer :: BufferTarget
-pattern PixelUnpackBuffer = BufferTarget GL_PIXEL_UNPACK_BUFFER GL_PIXEL_UNPACK_BUFFER_BINDING
+pattern PixelUnpackBufferTarget :: BufferTarget
+pattern PixelUnpackBufferTarget = BufferTarget GL_PIXEL_UNPACK_BUFFER GL_PIXEL_UNPACK_BUFFER_BINDING
 
 -- | Query result buffer
-pattern QueryBuffer :: BufferTarget
-pattern QueryBuffer = BufferTarget GL_QUERY_BUFFER GL_QUERY_BUFFER_BINDING
+pattern QueryBufferTarget :: BufferTarget
+pattern QueryBufferTarget = BufferTarget GL_QUERY_BUFFER GL_QUERY_BUFFER_BINDING
 
 -- | Shader storage buffers
 --
 -- You should probably use the 'Graphics.Glow.Block.STD140' or 'Graphics.Glow.Block.STD430' newtype wrapper around the contents.
 -- Requires OpenGL 4.3+
-pattern ShaderStorageBuffer :: BufferTarget
-pattern ShaderStorageBuffer = BufferTarget GL_SHADER_STORAGE_BUFFER GL_SHADER_STORAGE_BUFFER_BINDING
+pattern ShaderStorageBufferTarget :: BufferTarget
+pattern ShaderStorageBufferTarget = BufferTarget GL_SHADER_STORAGE_BUFFER GL_SHADER_STORAGE_BUFFER_BINDING
 
 -- | Texture data buffer
-pattern TextureBuffer :: BufferTarget
-pattern TextureBuffer = BufferTarget GL_TEXTURE_BUFFER GL_TEXTURE_BUFFER_BINDING
+pattern TextureBufferTarget :: BufferTarget
+pattern TextureBufferTarget = BufferTarget GL_TEXTURE_BUFFER GL_TEXTURE_BUFFER_BINDING
 
 -- | Transform feedback buffer
-pattern TransformFeedbackBuffer :: BufferTarget
-pattern TransformFeedbackBuffer = BufferTarget GL_TRANSFORM_FEEDBACK_BUFFER GL_TRANSFORM_FEEDBACK_BUFFER_BINDING
+pattern TransformFeedbackBufferTarget :: BufferTarget
+pattern TransformFeedbackBufferTarget = BufferTarget GL_TRANSFORM_FEEDBACK_BUFFER GL_TRANSFORM_FEEDBACK_BUFFER_BINDING
 
 -- | Uniform block storage
 --
 -- You should probably use the 'Graphics.Glow.Block.STD140' newtype wrapper around the contents.
-pattern UniformBuffer :: BufferTarget
-pattern UniformBuffer = BufferTarget GL_UNIFORM_BUFFER GL_UNIFORM_BUFFER_BINDING
+pattern UniformBufferTarget :: BufferTarget
+pattern UniformBufferTarget = BufferTarget GL_UNIFORM_BUFFER GL_UNIFORM_BUFFER_BINDING
 
 instance Show BufferTarget where
   showsPrec d = \case
-    ArrayBuffer -> showString "ArrayBuffer"
-    AtomicCounterBuffer -> showString "AtomicCounterBuffer"
-    CopyReadBuffer -> showString "CopyReadBuffer"
-    CopyWriteBuffer -> showString "CopyWriteBuffer"
-    DispatchIndirectBuffer -> showString "DispatchIndirectBuffer"
-    DrawIndirectBuffer -> showString "DrawIndirectBuffer"
-    ElementArrayBuffer -> showString "ElementArrayBuffer"
-    PixelPackBuffer -> showString "PixelPackBuffer"
-    PixelUnpackBuffer -> showString "PixelUnpackBuffer"
-    QueryBuffer -> showString "QueryBuffer"
-    ShaderStorageBuffer -> showString "ShaderStorageBuffer"
-    TextureBuffer -> showString "TextureBuffer"
-    TransformFeedbackBuffer -> showString "TransformFeedbackBuffer"
-    UniformBuffer -> showString "UniformBuffer"
+    ArrayBufferTarget -> showString "ArrayBufferTarget"
+    AtomicCounterBufferTarget -> showString "AtomicCounterBufferTarget"
+    CopyReadBufferTarget -> showString "CopyReadBufferTarget"
+    CopyWriteBufferTarget -> showString "CopyWriteBufferTarget"
+    DispatchIndirectBufferTarget -> showString "DispatchIndirectBufferTarget"
+    DrawIndirectBufferTarget -> showString "DrawIndirectBufferTarget"
+    ElementArrayBufferTarget -> showString "ElementArrayBufferTarget"
+    PixelPackBufferTarget -> showString "PixelPackBufferTarget"
+    PixelUnpackBufferTarget -> showString "PixelUnpackBufferTarget"
+    QueryBufferTarget -> showString "QueryBufferTarget"
+    ShaderStorageBufferTarget -> showString "ShaderStorageBufferTarget"
+    TextureBufferTarget -> showString "TextureBufferTarget"
+    TransformFeedbackBufferTarget -> showString "TransformFeedbackBufferTarget"
+    UniformBufferTarget -> showString "UniformBufferTarget"
     BufferTarget x y -> showParen (d > 10) $
       showString "BufferTarget " . showsPrec 11 x . showChar ' ' . showsPrec 11 y
 
