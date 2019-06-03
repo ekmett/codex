@@ -5,6 +5,7 @@ import Data.Const.ByteString
 import Data.Default
 import Data.Functor
 import Data.Primitive.StateVar
+import Data.Text.Foreign (lengthWord16)
 import Graphics.Harfbuzz
 import System.Mem
 import Test.Hspec as Hspec
@@ -13,6 +14,7 @@ import Test.Tasty.Hspec
 
 gc :: UnicodeGeneralCategory -> GeneralCategory
 gc (UNICODE_GENERAL_CATEGORY x) = x
+
 
 spec :: Spec
 spec = Hspec.after_ performMajorGC $ do
@@ -34,7 +36,7 @@ spec = Hspec.after_ performMajorGC $ do
       uf <- unicode_funcs_get_default
       unicode_compose uf 'e' '\x0301' `shouldReturn` Just '\x00e9'
   describe "tag" $ do
-    it "TAG matches" $ (case script_to_iso15924_tag SCRIPT_HEBREW of TAG a b c d -> (a,b,c,d); _ -> undefined) `shouldBe` ('H','e','b','r')
+    it "TAG matches" $ script_to_iso15924_tag SCRIPT_HEBREW `shouldBe` TAG 'H' 'e' 'b' 'r'
     it "TAG constructs" $ script_from_iso15924_tag (TAG 'H' 'e' 'b' 'r') == SCRIPT_HEBREW
   describe "script" $ do
     it "compares" $ (SCRIPT_HEBREW == SCRIPT_TAMIL) `shouldBe` False
@@ -154,6 +156,21 @@ spec = Hspec.after_ performMajorGC $ do
       font <- font_create face
       font `shouldNotBe` def -- non-empty font
       face_is_immutable face `shouldReturn` True -- creating a font freezes the face
+  describe "shape" $ do
+    it "Hindi" $ do
+      blob <- blob_create_from_file "test/fonts/Sanskrit2003.ttf"
+      face <- face_create blob 0
+      font <- font_create face
+      buffer <- buffer_create
+      buffer_direction buffer $= DIRECTION_LTR
+      buffer_language buffer $= "hi"
+      buffer_script buffer $= SCRIPT_DEVANAGARI
+      let text = "हालाँकि प्रचलित रूप पूजा"
+      buffer_add_text buffer text 0 (lengthWord16 text)
+      shape font buffer []
+      gis <- buffer_get_glyph_infos buffer
+      map glyph_info_codepoint gis `shouldBe` [199,548,193,548,559,454,166,2,0,0]
+      -- gps <- buffer_get_glyph_positions buffer
 
 main :: IO ()
 main = do

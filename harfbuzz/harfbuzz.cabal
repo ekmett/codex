@@ -26,7 +26,8 @@ common base
     base >= 4.11 && < 5,
     const,
     data-default,
-    primitive-statevar
+    primitive-statevar,
+    text
   ghc-options:
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
     -Wredundant-constraints -Widentities -Wmissing-export-lists
@@ -43,7 +44,6 @@ common lib
     inline-c,
     primitive,
     template-haskell,
-    text,
     transformers
 
 library raw
