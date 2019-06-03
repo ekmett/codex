@@ -107,7 +107,6 @@ main = do
         -- x <- flip execStateT prog $ use uiTextBuffer >>= \tbuf -> uiFont >>= \font ->
         --  B.add tbuf def font "Quick brown triangle jumped over the lazy signed distance field"
 
-        glClear GL_COLOR
         draw window prog mouseEvt
         SDL.glSwapWindow window
 
