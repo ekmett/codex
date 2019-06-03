@@ -26,7 +26,7 @@ module Graphics.FreeType
 , property_get
 
 -- ** raw library initialization
-, new_library
+, new_uninitialized_library -- name mangled to keep users from reaching for it
 , add_default_modules
 , set_default_properties
 
@@ -192,8 +192,8 @@ set_transform face m v = liftIO [C.block|void { FT_Set_Transform($face:face,$mat
 -- * Library
 
 -- this will use fixed memory allocation functions, but allows us to avoid the FT_Init_FreeType and FT_Done_FreeType global mess.
-new_library :: MonadIO m => m Library
-new_library = liftIO $
+new_uninitialized_library :: MonadIO m => m Library
+new_uninitialized_library = liftIO $
   alloca $ \p -> do
     [C.exp|FT_Error { FT_New_Library(&hs_memory,$(FT_Library * p))}|] >>= ok
     peek p >>= foreignLibrary
@@ -206,7 +206,7 @@ set_default_properties library = liftIO [C.block|void { FT_Set_Default_Propertie
 
 init_library :: MonadIO m => m Library
 init_library = liftIO $ do
-  l <- new_library
+  l <- new_uninitialized_library
   add_default_modules l
   set_default_properties l
   return l
