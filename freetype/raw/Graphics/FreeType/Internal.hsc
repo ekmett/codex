@@ -31,8 +31,6 @@
 #include FT_TYPES_H
 #include FT_TRIGONOMETRY_H
 #include "hsc-err.h"
-#let err_exports = err_exports()
-#let err_patterns = err_patterns()
 #endif
 
 module Graphics.FreeType.Internal

@@ -8,7 +8,7 @@
 #define xstr(s) str(s)+3
 #define str(s) #s
 
-static inline const char * err_exports() {
+static inline void hsc_err_exports() {
 #undef  FTERRORS_H_
 #undef  FT_ERROR_START_LIST
 #define FT_ERROR_START_LIST
@@ -20,11 +20,9 @@ static inline const char * err_exports() {
 #define FT_ERROR_END_LIST
 
 #include FT_ERRORS_H
-
-  return "";
 }
 
-static inline const char * err_patterns() {
+static inline void hsc_err_patterns() {
 #undef  FTERRORS_H_
 #undef  FT_ERROR_START_LIST
 #define FT_ERROR_START_LIST
@@ -36,7 +34,5 @@ static inline const char * err_patterns() {
 #define FT_ERROR_END_LIST
 
 #include FT_ERRORS_H
-
-  return "";
 }
 #endif
