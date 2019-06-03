@@ -1,5 +1,5 @@
 cabal-version: 2.2
-name: foreign-primitive
+name: primitive-ffi
 version: 0
 synopsis: FFI primitives for ST and MonadPrim
 homepage: https://github.com/ekmett/codex/tree/master/foreign-ref#readme
