@@ -27,7 +27,12 @@ let
       };
     });
 
+    # Flip the ICU bit.
     harfbuzz-icu = self.harfbuzz.override { withIcu = true; };
+
+    # some renames to keep cabal & pkg-config happy
+    freetype2 = super.freetype;
+    icu-uc = super.icu;
   };
 
   pkgs = import nixpkgs { overlays = [overlay]; };
@@ -36,79 +41,53 @@ let
     then pkgs.haskellPackages
     else pkgs.haskell.packages.${compiler};
 
-  # Codex packages                    
+  # Codex packages, add source location here first. If you hit
+  # infinite recursion errors when trying to 'nix-shell' then you
+  # might have to move the package to 'recursiveSrcs'.
   sources = {
     atlas               = ./atlas;
+    bidi-icu            = ./bidi-icu;
     const               = ./const;
-    fontconfig          = ./fontconfig;
-    fontconfig-freetype = ./fontconfig-freetype;
     freetype            = ./freetype;
-    glow                = ./glow;
-    hkd                 = ./hkd;
-    harfbuzz            = ./harfbuzz;
     harfbuzz-freetype   = ./harfbuzz-freetype;
     harfbuzz-opentype   = ./harfbuzz-opentype;
-    harfbuzz-icu        = ./harfbuzz-icu;
-    weak                = ./weak;
+    hkd                 = ./hkd;
+    primitive-ffi       = ./primitive-ffi;
     primitive-statevar  = ./primitive-statevar;
     ptrdiff             = ./ptrdiff;
-    bidi-icu            = ./bidi-icu;
-    ui                  = ./ui;
+    weak                = ./weak;
   };
-
-  c2nix = p: n: args:
-    # Why type when you can function?
-    p.callCabal2nix n sources.${n} args;
 
   # Basic overrides to include our packages
   modHaskPkgs = haskellPackages.override {
-    overrides = hself: hsuper: {
-      bidi-icu           = c2nix hsuper "bidi-icu" { icu-uc = pkgs.icu; };
-      primitive-statevar = c2nix hsuper "primitive-statevar" {};
-      ptrdiff            = c2nix hsuper "ptrdiff" {};
-      atlas              = c2nix hsuper "atlas" {};
-      hkd                = c2nix hself "hkd" {};
-      const              = c2nix hsuper "const" {};
-      weak               = c2nix hsuper "weak" {};
-
-      # Provide the external lib dependency to match the cabal file
-      freetype     = c2nix hself "freetype" { freetype2 = pkgs.freetype; };
-    };
+    overrides = hself: hsuper: pkgs.lib.mapAttrs (n: p: hsuper.callCabal2nix n p {}) sources;
   };
 
-  # Adding any of these into the modHaskPkgs overrides will result in an
-  # infinite recursion error.
-  fontconfig          = c2nix modHaskPkgs "fontconfig" {};
-  fontconfig-freetype = c2nix modHaskPkgs "fontconfig-freetype" {};
-  harfbuzz            = c2nix modHaskPkgs "harfbuzz" {};
-  harfbuzz-icu        = c2nix modHaskPkgs "harfbuzz-icu" { harfbuzz = harfbuzz; };
-  glow                = c2nix modHaskPkgs "glow" {};
-
-  # Build the UI derivation and include our specific dependencies.
-  ui = c2nix modHaskPkgs "ui" { 
-    fontconfig   = fontconfig;
-    harfbuzz     = harfbuzz;
-    harfbuzz-icu = harfbuzz-icu;
-    glow         = glow;
+  # Move sources to here if we find they're triggering 'infinite
+  # recursion' errors when building the environment.
+  #
+  # Sean: I'm sure that I'm missing something as having mutually
+  # recursive packages is supposed to be handled by `shellFor`??
+  #
+  recursiveSrcs = rec {
+    fontconfig          = modHaskPkgs.callCabal2nix "fontconfig" ./fontconfig {};
+    fontconfig-freetype = modHaskPkgs.callCabal2nix "fontconfig-freetype" ./fontconfig-freetype {};
+    harfbuzz            = modHaskPkgs.callCabal2nix "harfbuzz" ./harfbuzz {};
+    harfbuzz-icu        = modHaskPkgs.callCabal2nix "harfbuzz-icu" ./harfbuzz-icu { harfbuzz = harfbuzz; };
+    glow                = modHaskPkgs.callCabal2nix "glow" ./glow {};
+    ui                  = modHaskPkgs.callCabal2nix "ui" ./ui {
+      fontconfig   = fontconfig;
+      harfbuzz     = harfbuzz;
+      harfbuzz-icu = harfbuzz-icu;
+      glow         = glow;
+    };
   };
 
 in
 modHaskPkgs.shellFor {
-  packages = p: [
-    p.hkd
-    p.const
-    p.weak
-    p.atlas
-    p.freetype
-    p.primitive-statevar
-    p.bidi-icu
-    p.ptrdiff
-
-    fontconfig
-    fontconfig-freetype
-    harfbuzz
-    harfbuzz-icu
-    glow
-    ui
-  ];
+  packages = p:
+  # Add the normal packages to the environment
+  pkgs.lib.attrsets.attrVals (pkgs.lib.attrNames sources) p ++
+  # Add our recursive snowflake packages to the environment
+  pkgs.lib.attrValues recursiveSrcs;
 }
