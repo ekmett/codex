@@ -4,6 +4,16 @@
 {-# language FlexibleInstances #-}
 {-# language FlexibleContexts #-}
 {-# language TypeFamilies #-}
+{-# language CPP #-}
+
+
+#ifndef MIN_VERSION_StateVar
+#define MIN_VERSION_StateVar(x,y,z) 1
+#endif
+
+#if !(MIN_VERSION_StateVar(1,2,0))
+{-# options_ghc -Wno-orphans #-}
+#endif
 
 -- | Generalizes Data.StateVar to arbitrary PrimMonads
 
@@ -18,6 +28,9 @@ module Data.Primitive.StateVar
 ) where
 
 import Control.Concurrent.STM
+#if !(MIN_VERSION_StateVar(1,2,0))
+import Control.Monad.IO.Class
+#endif
 import Control.Monad.ST
 import Control.Monad.Primitive
 import Data.IORef
@@ -25,70 +38,97 @@ import Data.Primitive.MutVar
 import Data.Primitive.Ptr
 import qualified Data.StateVar as Simple
 import Data.STRef
+import Foreign.ForeignPtr
 import Foreign.Storable
 
-class HasGetter s a t | t -> a where
+#if !(MIN_VERSION_StateVar(1,2,0))
+instance Storable a => Simple.HasGetter (ForeignPtr a) a where
+  get p = liftIO $ withForeignPtr p get
+
+instance Storable a => Simple.HasSetter (ForeignPtr a) a where
+  p $= a = liftIO $ withForeignPtr p ($= a)
+
+instance Storable a => Simple.HasUpdate (ForeignPtr a) a a where
+  p $~ f = liftIO $ withForeignPtr p ($~ f)
+  p $~! f = liftIO $ withForeignPtr p ($~! f)
+#endif
+
+------------------------------------------------------------------------------------------
+-- * HasGetter
+------------------------------------------------------------------------------------------
+
+class HasGetter s a t | t -> s a where
   get :: (PrimMonad m, PrimState m ~ s) => t -> m a
 
 instance HasGetter RealWorld a (IO a) where
   get = ioToPrim
 
-instance (s ~ s') => HasGetter s' a (ST s a) where
+instance HasGetter s a (ST s a) where
   get = stToPrim
 
-instance Storable a => HasGetter s a (Ptr a) where
+instance Storable a => HasGetter RealWorld a (Ptr a) where
   get = unsafeIOToPrim . peek
 
-instance s ~ RealWorld => HasGetter s a (STM a) where
+instance HasGetter RealWorld a (STM a) where
   get = ioToPrim . atomically
 
-instance s ~ RealWorld => HasGetter s a (TVar a) where
+instance HasGetter RealWorld a (TVar a) where
   get = ioToPrim . atomically . readTVar
 
-instance s ~ RealWorld => HasGetter s a (IORef a) where
+instance HasGetter RealWorld a (IORef a) where
   get = ioToPrim . readIORef
 
--- instance HasGetter s a (PrimRef s a) where get = readPrimRef
+instance Storable a => HasGetter RealWorld a (ForeignPtr a) where
+  get p = unsafeIOToPrim $ withForeignPtr p get
 
-instance s ~ s' => HasGetter s' a (STRef s a) where
+instance HasGetter s a (STRef s a) where
   get = stToPrim . readSTRef
 
-instance s ~ s' => HasGetter s' a (MutVar s a) where
+instance HasGetter s a (MutVar s a) where
   get = readMutVar
 
-instance s ~ RealWorld => HasGetter s a (Simple.StateVar a) where
+instance HasGetter RealWorld a (Simple.StateVar a) where
   get (Simple.StateVar g _ ) = ioToPrim g
 
-class HasSetter s a t | t -> a where
+------------------------------------------------------------------------------------------
+-- * HasSetter
+------------------------------------------------------------------------------------------
+
+class HasSetter s a t | t -> s a where
   ($=) :: (PrimMonad m, PrimState m ~ s) => t -> a -> m ()
 
-instance s ~ RealWorld => HasSetter s a (Simple.StateVar a) where
+instance HasSetter RealWorld a (Simple.StateVar a) where
   Simple.StateVar _ s $= v = ioToPrim $ s v
 
-instance s ~ RealWorld => HasSetter s a (Simple.SettableStateVar a) where
+instance HasSetter RealWorld a (Simple.SettableStateVar a) where
   Simple.SettableStateVar f $= v  = ioToPrim $ f v
 
-instance Storable a => HasSetter s a (Ptr a) where
+instance Storable a => HasSetter RealWorld a (Ptr a) where
   p $= a = unsafeIOToPrim $ poke p a
 
-instance s ~ RealWorld => HasSetter s a (IORef a) where
+instance HasSetter RealWorld a (IORef a) where
   p $= a = ioToPrim $ writeIORef p a
 
-instance s ~ RealWorld => HasSetter s a (TVar a) where
+instance HasSetter RealWorld a (TVar a) where
   p $= a = ioToPrim $ atomically $ writeTVar p a
 
-instance s ~ s' => HasSetter s' a (STRef s a) where
+instance HasSetter s a (STRef s a) where
   p $= a = stToPrim $ writeSTRef p a
 
-instance s ~ s' => HasSetter s' a (MutVar s a) where
+instance HasSetter s a (MutVar s a) where
   ($=) = writeMutVar
 
--- instance Prim a => HasSetter s a (PrimRef s a) where ($=) = writePrimRef
+instance Storable a => HasSetter RealWorld a (ForeignPtr a) where
+  p $= a = unsafeIOToPrim $ withForeignPtr p ($= a)
 
 ($=!) :: (HasSetter (PrimState m) a t, PrimMonad m) => t -> a -> m ()
 p $=! a = (p $=) $! a
 
-class HasSetter s b t => HasUpdate s a b t | t -> a b where
+------------------------------------------------------------------------------------------
+-- * HasUpdate
+------------------------------------------------------------------------------------------
+
+class HasSetter s b t => HasUpdate s a b t | t -> s a b where
   ($~) :: (PrimMonad m, PrimState m ~ s) => t -> (a -> b) -> m ()
   default ($~) :: (PrimMonad m, PrimState m ~ s, a ~ b, HasGetter s a t) => t -> (a -> b) -> m ()
   ($~) = defaultUpdate
@@ -107,15 +147,19 @@ defaultUpdateStrict r f = stToPrim $ do
   a <- get r
   r $=! f a
 
-instance s ~ RealWorld => HasUpdate s a a (Simple.StateVar a)
-instance Storable a => HasUpdate s a a (Ptr a)
-instance s ~ RealWorld => HasUpdate s a a (IORef a) where
+instance HasUpdate RealWorld a a (Simple.StateVar a)
+
+instance Storable a => HasUpdate RealWorld a a (Ptr a)
+
+instance HasUpdate RealWorld a a (IORef a) where
   r $~  f = ioToPrim $ atomicModifyIORef r $ \a -> (f a, ())
   r $~! f = ioToPrim $ atomicModifyIORef' r $ \a -> (f a, ())
-instance s ~ s' => HasUpdate s' a a (STRef s a)
-instance s ~ s' => HasUpdate s' a a (MutVar s a)
--- instance HasUpdate s a a (PrimRef s a)
-instance s ~ RealWorld => HasUpdate s a a (TVar a) where
+
+instance HasUpdate s a a (STRef s a)
+
+instance HasUpdate s a a (MutVar s a)
+
+instance HasUpdate RealWorld a a (TVar a) where
   r $~ f = ioToPrim $ atomically $ do
     a <- readTVar r
     writeTVar r (f a)
@@ -123,18 +167,29 @@ instance s ~ RealWorld => HasUpdate s a a (TVar a) where
     a <- readTVar r
     writeTVar r $! f a
 
+instance Storable a => HasUpdate RealWorld a a (ForeignPtr a) where
+  p $~ a = unsafeIOToPrim $ withForeignPtr p ($~ a)
+  p $~! a = unsafeIOToPrim $ withForeignPtr p ($~! a)
+
+------------------------------------------------------------------------------------------
+-- * SettableStateVar
+------------------------------------------------------------------------------------------
 
 data SettableStateVar s a = SettableStateVar (a -> ST s ())
 
-instance s ~ s' => HasSetter s' a (SettableStateVar s a) where
+instance HasSetter s a (SettableStateVar s a) where
   SettableStateVar f $= a = stToPrim $ f a
+
+------------------------------------------------------------------------------------------
+-- * StateVar
+------------------------------------------------------------------------------------------
 
 data StateVar s a = StateVar (ST s a) (a -> ST s ())
 
-instance s ~ s' => HasGetter s' a (StateVar s a) where
+instance HasGetter s a (StateVar s a) where
   get (StateVar g _) = stToPrim g
 
-instance s ~ s' => HasSetter s' a (StateVar s a) where
+instance HasSetter s a (StateVar s a) where
   StateVar _ s $= a = stToPrim $ s a
 
 makeStateVar :: PrimBase m => m a -> (a -> m ()) -> StateVar (PrimState m) a

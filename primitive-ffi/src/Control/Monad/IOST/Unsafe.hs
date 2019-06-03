@@ -1,6 +1,8 @@
 {-# language MagicHash #-}
 {-# language TypeFamilies #-}
 {-# language GeneralizedNewtypeDeriving #-}
+{-# language FlexibleInstances #-}
+{-# language MultiParamTypeClasses #-}
 module Control.Monad.IOST.Unsafe
 ( IOST(..)
 , unsafeIOToIOST
@@ -11,6 +13,7 @@ import Control.Monad
 import Control.Monad.Fail
 import Control.Monad.Fix
 import Control.Monad.Primitive
+import Data.Primitive.StateVar
 import GHC.Prim
 
 -- | This monad is an implementation of the 'ST' monad that is built as a newtype over 'IO'.
@@ -26,6 +29,9 @@ instance PrimMonad (IOST s) where
 
 instance PrimBase (IOST s) where
   internal = unsafeCoerce#
+
+instance HasGetter s a (IOST s a) where
+  get = primToPrim
 
 unsafeIOToIOST :: IO a -> IOST s a
 unsafeIOToIOST = IOST

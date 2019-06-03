@@ -72,6 +72,14 @@ instance Default (Ref s a) where
   def = Ref nullPtr
   {-# inline def #-}
 
+instance Storable a => HasGetter s a (Ref s a) where
+  get (Ref p) = unsafeIOToPrim (peek p)
+
+instance Storable a => HasSetter s a (Ref s a) where
+  Ref p $= a = unsafeIOToPrim (poke p a)
+
+instance Storable a => HasUpdate s a (Ref s a)
+
 newtype FunRef s a = FunRef { unsafeFunRefToFunPtr :: FunPtr a }
   deriving newtype (Eq,Ord,Show,Storable,Prim,DiffTorsor)
 
@@ -107,6 +115,8 @@ newtype ConstRef s a = ConstRef { unsafeConstRefToRef :: Ref s a } deriving (Eq,
 instance Constable (ConstRef s) (Ref s)
 instance Constable (ConstRef s) (ConstRef s)
 type ARef s = Constable (ConstRef s) -- Ref s a or ConstRef s a
+
+instance Storable s => HasGetter (ConstRef s a) where
 
 unsafeConstPtrToConstRef :: ConstPtr a -> ConstRef s a
 unsafeConstPtrToConstRef (ConstPtr p) = ConstRef (Ref p)

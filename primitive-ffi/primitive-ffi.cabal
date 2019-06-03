@@ -33,6 +33,7 @@ library
     data-default,
     ghc-prim,
     primitive,
+    primitive-statevar,
     ptrdiff
   exposed-modules:
     Control.Monad.IOST
