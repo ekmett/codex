@@ -14,7 +14,7 @@ docs:
 	fi
 
 run:
-	cabal v2-run $(LIBRARY)
+	cabal v2-run
 
 repl:
 	cabal v2-repl $(LIBRARY) --repl-options=-fobject-code --repl-options=-v1 --repl-options=-ferror-spans --repl-options=-j

@@ -1,6 +1,7 @@
 {-# language OverloadedStrings #-}
 {-# language StrictData #-}
 
+import Control.Exception (displayException)
 import Control.Monad.ST (RealWorld)
 import Control.Monad
 import Data.Atlas (Atlas)
@@ -9,6 +10,7 @@ import Data.IORef
 import Data.Foldable (for_)
 import Data.StateVar
 import Foreign.Marshal.Alloc
+import GHC.Conc (setUncaughtExceptionHandler)
 import Graphics.FreeType as FT
 import Graphics.GL.Compatibility32
 import Graphics.Glow
@@ -17,6 +19,7 @@ import Graphics.Harfbuzz.FreeType
 import Linear
 import qualified SDL
 import System.Exit
+import System.IO
 
 data TextureAtlas = TextureAtlas 
   { ta_texture :: Texture
@@ -39,6 +42,9 @@ new_texture_atlas w h = do
 
 main :: IO ()
 main = do
+  setUncaughtExceptionHandler $ putStrLn . displayException
+  hSetBuffering stdout NoBuffering
+
   SDL.initialize [SDL.InitVideo]
   window <- SDL.createWindow "harfbuzz-freetype example" SDL.defaultWindow
     { SDL.windowInitialSize = V2 640 480
@@ -49,7 +55,7 @@ main = do
   _ <- SDL.glCreateContext window
   throwErrors
 
-  library <- new_library
+  library <- init_library
   face <- new_face library "test/fonts/Sanskrit2003.ttf" 0
   font <- hb_ft_font_create_referenced face
 
@@ -65,10 +71,9 @@ main = do
     withBoundTexture Texture2D (ta_texture ta) $ do
       glEnable GL_TEXTURE_2D
       glBegin GL_QUADS
-      -- spew quads here, old school
+      -- TODO: spew quads here, old school
       glEnd
       glDisable GL_TEXTURE_2D
-      glBindTexture GL_TEXTURE_2D 0
     SDL.glSwapWindow window
     when (any escOrQuit events) $ do
       SDL.destroyWindow window
