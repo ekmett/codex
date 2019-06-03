@@ -13,9 +13,8 @@ import Test.Hspec as Hspec
 import Test.Tasty
 import Test.Tasty.Hspec
 
+import Graphics.FreeType
 import Graphics.FreeType.Internal
-import Graphics.FreeType.Library
-import Graphics.FreeType.Face
 
 c2w :: Char -> Word32
 c2w = fromIntegral . fromEnum
@@ -60,6 +59,10 @@ spec = Hspec.after_ performMajorGC $ do
       get_char_index face (c2w 'a') `shouldReturn` 28 -- mined from the font itself
       get_first_char face `shouldReturn` (c2w ' ',1)
       get_font_format face `shouldReturn` "TrueType"
+    it "can load sanskrit font" $ do
+      lib <- init_library
+      face <- new_face lib "test/fonts/Sanskrit2003.ttf" 0
+      has_multiple_masters face `shouldReturn` False
 
 main :: IO ()
 main = do
