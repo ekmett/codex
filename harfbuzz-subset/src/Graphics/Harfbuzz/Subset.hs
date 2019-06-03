@@ -14,7 +14,7 @@ module Graphics.Harfbuzz.Subset
 , input_nameid_set
 , input_drop_tables_set
 , input_drop_hints -- statevar
-, input_subroutinize -- statevar
+, input_desubroutinize -- statevar
 , input_retain_gids -- statevar
 , subset
 ) where
@@ -104,10 +104,10 @@ input_drop_hints (Input i) = unsafeStateVar g s where
   g = [C.exp|hb_bool_t { hb_subset_input_get_drop_hints($fptr-ptr:(hb_subset_input_t * i)) }|] <&> (0/=)
   s (fromIntegral . fromEnum -> v) = [C.block|void { hb_subset_input_set_drop_hints($fptr-ptr:(hb_subset_input_t * i),$(hb_bool_t v)); }|]
 
-input_subroutinize :: Input s -> StateVar s Bool
-input_subroutinize (Input i) = unsafeStateVar g s where
-  g = [C.exp|hb_bool_t { hb_subset_input_get_subroutinize($fptr-ptr:(hb_subset_input_t * i)) }|] <&> (0/=)
-  s (fromIntegral . fromEnum -> v) = [C.block|void { hb_subset_input_set_subroutinize($fptr-ptr:(hb_subset_input_t * i),$(hb_bool_t v)); }|]
+input_desubroutinize :: Input s -> StateVar s Bool
+input_desubroutinize (Input i) = unsafeStateVar g s where
+  g = [C.exp|hb_bool_t { hb_subset_input_get_desubroutinize($fptr-ptr:(hb_subset_input_t * i)) }|] <&> (0/=)
+  s (fromIntegral . fromEnum -> v) = [C.block|void { hb_subset_input_set_desubroutinize($fptr-ptr:(hb_subset_input_t * i),$(hb_bool_t v)); }|]
 
 -- retain the glyph ids?
 input_retain_gids :: Input s -> StateVar s Bool
