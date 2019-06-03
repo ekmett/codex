@@ -1,6 +1,7 @@
 {-# language DerivingStrategies #-}
 {-# language DeriveDataTypeable #-}
 {-# language ScopedTypeVariables #-}
+{-# language StandaloneDeriving #-}
 {-# language TypeApplications #-}
 {-# language GeneralizedNewtypeDeriving #-}
 {-# language ViewPatterns #-}
@@ -33,7 +34,7 @@ module Foreign.ForeignRef.Unsafe
 , unsafeForeignRef
 , ConstForeignReference
 , constForeignRef
-, ForeignReference 
+, ForeignReference
 , foreignRef
 , unsafeForeignReferenceCoercion
 , unsafeForeignReferencePtr
@@ -41,19 +42,23 @@ module Foreign.ForeignRef.Unsafe
 ) where
 
 import Control.Category
+import Control.Monad.IO.Class
 import Control.Monad.IOST
 import Control.Monad.Primitive
 import Data.Coerce
 import Data.Const.Unsafe
 import Data.Data (Data)
+import Data.Primitive.StateVar
+import qualified Data.StateVar as Simple
 import Data.Type.Coercion
 import qualified Foreign.Concurrent as Concurrent
 import Foreign.Const.ForeignPtr
-import Foreign.Ref.Unsafe
-import Foreign.Ptr
-import Foreign.Ptr.Diff
 import Foreign.ForeignPtr
 import Foreign.ForeignPtr.Unsafe
+import Foreign.Ptr
+import Foreign.Ptr.Diff
+import Foreign.Ref.Unsafe
+import Foreign.Storable
 import Prelude hiding (id,(.))
 
 -- TODO: ConstForeignRef
@@ -70,9 +75,34 @@ unsafeForeignRefToRef :: forall s a. ForeignRef s a -> Ref s a
 unsafeForeignRefToRef = coerce (unsafeForeignPtrToPtr @a)
 {-# inline unsafeForeignRefToRef #-}
 
+instance (RealWorld ~ s, Storable a) => Simple.HasGetter (ForeignRef s a) a where
+  get (ForeignRef p) = liftIO $ withForeignPtr p Simple.get
+
+instance (RealWorld ~ s, Storable a) => Simple.HasSetter (ForeignRef s a) a where
+  ForeignRef p $= a = liftIO $ withForeignPtr p (Simple.$= a)
+
+instance (RealWorld ~ s, Storable a) => Simple.HasUpdate (ForeignRef s a) a a where
+  ForeignRef p $~ a = liftIO $ withForeignPtr p (Simple.$~ a)
+  ForeignRef p $~! a = liftIO $ withForeignPtr p (Simple.$~! a)
+
+instance Storable a => HasGetter s a (ForeignRef s a) where
+  get (ForeignRef p) = unsafeIOToPrim $ withForeignPtr p Simple.get
+
+instance Storable a => HasSetter s a (ForeignRef s a) where
+  ForeignRef p $= a = unsafeIOToPrim $ withForeignPtr p ($= a)
+
+instance Storable a => HasUpdate s a a (ForeignRef s a) where
+  ForeignRef p $~ a = unsafeIOToPrim $ withForeignPtr p ($~ a)
+  ForeignRef p $~! a = unsafeIOToPrim $ withForeignPtr p ($~! a)
+
 newtype ConstForeignRef s a = ConstForeignRef { unsafeConstForeignRefToForeignRef :: ForeignRef s a }
   deriving stock Data
   deriving newtype (Eq,Ord,Show,DiffTorsor)
+
+instance (s ~ RealWorld, Storable a) => Simple.HasGetter (ConstForeignRef s a) a where
+  get (ConstForeignRef r) = Simple.get r
+
+deriving instance Storable a => HasGetter s a (ConstForeignRef s a)
 
 type instance Unforeign (ForeignRef s) = Ref s
 type instance Unforeign (ConstForeignRef s) = ConstRef s
@@ -106,7 +136,7 @@ class ConstForeignReference s r => ForeignReference s r | r -> s
 instance ForeignReference s (ForeignRef s)
 instance ForeignReference RealWorld ForeignPtr
 
-constForeignRef :: forall r a s. ConstForeignReference s r => r a -> ConstForeignRef s a 
+constForeignRef :: forall r a s. ConstForeignReference s r => r a -> ConstForeignRef s a
 constForeignRef = coerceWith $ sym (unsafeForeignReferenceCoercion @(ConstForeignRef s) @a) . unsafeForeignReferenceCoercion @r @a @s
 
 foreignRef :: forall r a s. ForeignReference s r => r a -> ForeignRef s a

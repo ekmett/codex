@@ -8,6 +8,7 @@
 {-# language StandaloneDeriving #-}
 {-# language MultiParamTypeClasses #-}
 {-# language FunctionalDependencies #-}
+{-# language TypeFamilies #-}
 {-# language FlexibleInstances #-}
 {-# language FlexibleContexts #-}
 {-# language QuantifiedConstraints #-}
@@ -41,22 +42,25 @@ module Foreign.Ref.Unsafe
 ) where
 
 import Control.Category
+import Control.Monad.IO.Class
+import Control.Monad.Primitive
 import Data.Bits
 import Data.Coerce
 import Data.Const.Unsafe
 import Data.Data (Data)
 import Data.Default
+import Data.Primitive.StateVar
 import Data.Primitive.Types
+import qualified Data.StateVar as Simple
 import Data.Type.Coercion
 import Foreign.Ptr
 import Foreign.Ptr.Diff
 import Foreign.Storable
-import GHC.Prim
 import Prelude hiding (id,(.))
 
 -- orphans
 --deriving instance Prim IntPtr
---deriving instance Prim WordPtr 
+--deriving instance Prim WordPtr
 --deriving instance Prim (IntRef s)
 --deriving instance Prim (WordRef s)
 
@@ -72,13 +76,21 @@ instance Default (Ref s a) where
   def = Ref nullPtr
   {-# inline def #-}
 
+instance (RealWorld ~ s, Storable a) => Simple.HasGetter (Ref s a) a where
+  get (Ref p) = liftIO (peek p)
+
+instance (RealWorld ~ s, Storable a) => Simple.HasSetter (Ref s a) a where
+  Ref p $= a = liftIO (poke p a)
+
+instance (RealWorld ~ s, Storable a) => Simple.HasUpdate (Ref s a) a a
+
 instance Storable a => HasGetter s a (Ref s a) where
   get (Ref p) = unsafeIOToPrim (peek p)
 
 instance Storable a => HasSetter s a (Ref s a) where
   Ref p $= a = unsafeIOToPrim (poke p a)
 
-instance Storable a => HasUpdate s a (Ref s a)
+instance Storable a => HasUpdate s a a (Ref s a)
 
 newtype FunRef s a = FunRef { unsafeFunRefToFunPtr :: FunPtr a }
   deriving newtype (Eq,Ord,Show,Storable,Prim,DiffTorsor)
@@ -116,7 +128,14 @@ instance Constable (ConstRef s) (Ref s)
 instance Constable (ConstRef s) (ConstRef s)
 type ARef s = Constable (ConstRef s) -- Ref s a or ConstRef s a
 
-instance Storable s => HasGetter (ConstRef s a) where
+instance (RealWorld ~ s, Storable a) => Simple.HasGetter (ConstRef s a) a where
+  get (ConstRef (Ref p)) = liftIO $ peek p
+
+instance Storable a => HasGetter s a (ConstRef s a) where
+  get (ConstRef (Ref p)) = unsafeIOToPrim $ peek p
+
+instance Default (ConstRef s a) where
+  def = ConstRef (Ref nullPtr)
 
 unsafeConstPtrToConstRef :: ConstPtr a -> ConstRef s a
 unsafeConstPtrToConstRef (ConstPtr p) = ConstRef (Ref p)
