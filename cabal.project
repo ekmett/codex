@@ -1,1 +1,1 @@
-packages: *
+packages: *, inline-c/inline-c
