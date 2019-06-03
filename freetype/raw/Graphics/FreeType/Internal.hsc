@@ -2,7 +2,12 @@
 {-# language LambdaCase #-}
 {-# language TemplateHaskell #-}
 {-# language QuasiQuotes #-}
+{-# language TypeFamilies #-}
 {-# language RecordWildCards #-}
+{-# language ViewPatterns #-}
+{-# language TypeSynonymInstances #-}
+{-# language FlexibleInstances #-}
+{-# language FlexibleContexts #-}
 {-# language ScopedTypeVariables #-}
 {-# language OverloadedStrings #-}
 {-# language ForeignFunctionInterface #-}
@@ -34,7 +39,9 @@
 #endif
 
 module Graphics.FreeType.Internal
-( Angle
+( Rec(..)
+
+, Angle
 , pattern ANGLE_PI
 , pattern ANGLE_2PI
 , pattern ANGLE_PI2
@@ -55,6 +62,9 @@ module Graphics.FreeType.Internal
 
 , Generic(..)
 
+, GlyphSlot(..)
+, GlyphSlotRec
+
 , Library(..)
 , LibraryRec
 , foreignLibrary
@@ -66,12 +76,12 @@ module Graphics.FreeType.Internal
 , matrixInvert, matrixMultiply
 
 , Memory(..)
-, MemoryRec(..)
+, MemoryRec
 , AllocFunc, FreeFunc, ReallocFunc
 
 , Pos
 
-, SizeRec(..), SizeMetrics(..), SizeInternalRec
+, SizeRec, SizeMetrics(..), SizeInternalRec
 
 , SizeRequest
 , SizeRequestRec(..)
@@ -88,10 +98,12 @@ module Graphics.FreeType.Internal
 , vectorTransform
 
 -- * contexts
+, childPtr
 , freeTypeCtx
 ) where
 
 import Control.Exception
+import Data.Coerce
 import Data.Default
 import Data.Int
 import qualified Data.Map as Map
@@ -100,6 +112,7 @@ import Data.Word
 import Foreign.C.String
 import Foreign.C.Types
 import Foreign.ForeignPtr
+import Foreign.ForeignPtr.Unsafe
 import qualified Foreign.Concurrent as Concurrent
 import Foreign.Marshal.Unsafe
 import Foreign.Marshal.Utils
@@ -111,11 +124,20 @@ import qualified Language.C.Inline.Context as C
 import qualified Language.C.Types as C
 import Graphics.FreeType.Private
 
+data family Rec t
+
 type Angle = Fixed
 pattern ANGLE_PI  = Fixed (#const FT_ANGLE_PI)
 pattern ANGLE_2PI = Fixed (#const FT_ANGLE_2PI)
 pattern ANGLE_PI2 = Fixed (#const FT_ANGLE_PI2)
 pattern ANGLE_PI4 = Fixed (#const FT_ANGLE_PI4)
+
+-- | Given a foreign ptr and a ptr, produces a foreign ptr that has the same finalizers as the first, but now
+-- pointing at the target value. Holding this foreign ptr will keep the original alive and vice versa.
+--
+-- This can be used when accessing, say, a part of a whole that has a shared lifetime.
+childPtr :: forall a b. (Coercible a (ForeignPtr (Rec a)), Coercible b (ForeignPtr (Rec b))) => a -> Ptr (Rec b) -> b
+childPtr (coerce -> fp :: ForeignPtr (Rec a)) p = coerce (fp `plusForeignPtr` minusPtr p (unsafeForeignPtrToPtr fp) :: ForeignPtr (Rec b))
 
 -- | By convention the library will throw any non-0 FT_Error encountered.
 newtype Error = Error CInt deriving newtype (Eq,Ord,Show,Num,Enum,Real,Integral,Storable)
@@ -134,7 +156,8 @@ ok :: Error -> IO ()
 ok Err_Ok = return ()
 ok e = throwIO e
 
-data FaceRec
+data instance Rec Face
+type FaceRec = Rec Face
 newtype Face = Face (ForeignPtr FaceRec) deriving (Eq,Ord,Show)
 
 #ifndef HLINT
@@ -177,19 +200,27 @@ instance Storable Matrix where
     (#poke FT_Matrix, yx) ptr matrix_yx
     (#poke FT_Matrix, yy) ptr matrix_yy
 
-data LibraryRec
+
+data instance Rec GlyphSlot
+type GlyphSlotRec = Rec GlyphSlot
+newtype GlyphSlot = GlyphSlot (ForeignPtr GlyphSlotRec) deriving (Eq,Ord,Show)
+
+data instance Rec Library
+type LibraryRec = Rec Library
 newtype Library = Library (ForeignPtr LibraryRec) deriving (Eq,Ord,Show)
 
 type AllocFunc = Memory -> CLong -> IO (Ptr ())
 type FreeFunc = Memory -> Ptr () -> IO ()
 type ReallocFunc = Memory -> CLong -> CLong -> Ptr () -> IO (Ptr ())
 
-data MemoryRec = MemoryRec
+data instance Rec Memory = MemoryRec
   { memory_user :: Ptr ()
   , memory_alloc :: FunPtr AllocFunc
   , memory_free :: FunPtr FreeFunc
   , memory_realloc :: FunPtr ReallocFunc
   } deriving (Eq,Show)
+
+type MemoryRec = Rec Memory
 
 instance Storable MemoryRec where
   sizeOf _ = #size struct FT_MemoryRec_
@@ -206,7 +237,6 @@ instance Storable MemoryRec where
     (#poke struct FT_MemoryRec_, realloc) p memory_realloc
 
 newtype Memory = Memory (ForeignPtr MemoryRec) deriving (Eq,Ord,Show)
-
 
 data SizeMetrics = SizeMetrics
   { size_metrics_x_ppem
@@ -245,12 +275,15 @@ data SizeInternalRec
 
 type Pos = Int32
 
-data SizeRec = SizeRec
-  { size_face :: {-# unpack #-} !(Ptr FaceRec)
+data instance Rec Size = SizeRec
+  { size_face :: {-# unpack #-} !(Ptr (Rec Face))
   , size_generic :: {-# unpack #-} !Generic
   , size_metrics :: {-# unpack #-} !SizeMetrics
   , size_internal :: {-# unpack #-} !(Ptr SizeInternalRec)
   } deriving (Eq,Show)
+
+type SizeRec = Rec Size
+newtype Size = Size (ForeignPtr SizeRec) deriving (Eq,Ord,Show)
 
 instance Storable SizeRec where
   sizeOf _ = #size FT_SizeRec
@@ -382,6 +415,9 @@ freeTypeCtx = mempty
     , (C.TypeName "FT_Face",               [t|Ptr FaceRec|])
     , (C.TypeName "FT_FaceRec_",           [t|FaceRec|])
     , (C.TypeName "FT_Generic",            [t|Generic|])
+    , (C.TypeName "FT_GlyphSlot",          [t|Ptr GlyphSlotRec|])
+    , (C.TypeName "FT_GlyphSlotRec",       [t|GlyphSlotRec|])
+    , (C.Struct   "FT_GlyphSlotRec_",      [t|GlyphSlotRec|])
     , (C.TypeName "FT_Int",                [t|Int32|])
     , (C.TypeName "FT_Int32",              [t|Int32|])
     , (C.TypeName "FT_Library",            [t|Ptr LibraryRec|])
@@ -414,8 +450,9 @@ freeTypeCtx = mempty
     , ("str", anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char Nothing)) [t|Ptr CChar|] [|withCString|])
     , ("face", anti (C.TypeSpecifier mempty $ C.TypeName "FT_Face") [t|Ptr FaceRec|] [|withForeignPtr|])
     , ("library", anti (C.TypeSpecifier mempty $ C.TypeName "FT_Library") [t|Ptr LibraryRec|] [|withForeignPtr|])
+    , ("glyph-slot", anti (C.TypeSpecifier mempty $ C.TypeName "FT_GlyphSlot") [t|Ptr GlyphSlotRec|] [|withForeignPtr|])
     , ("generic", anti (ptr $ C.TypeName "FT_Generic") [t|Ptr Generic|] [|with|])
     , ("matrix",  anti (ptr $ C.TypeName "FT_Matrix") [t|Ptr Matrix|] [|with|])
     , ("vector",  anti (ptr $ C.TypeName "FT_Vector") [t|Ptr Vector|] [|with|])
-    ] 
+    ]
   } where ptr = C.Ptr [] . C.TypeSpecifier mempty

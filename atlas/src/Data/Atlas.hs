@@ -54,6 +54,9 @@ new width height mn = unsafeIOToPrim $ do
 new_ :: PrimMonad m => Int -> Int -> m (Atlas (PrimState m))
 new_ w h = new w h Nothing
 
+--reset :: PrimMonad m => Atlas (PrimState m) -> m ()
+--reset atlas = withAtlas fp c_reset_atlas
+
 heuristic :: PrimMonad m => Atlas (PrimState m) -> Heuristic -> m ()
 heuristic fp h = unsafeIOToPrim $ withAtlas fp $ \p -> stbrp_setup_heuristic p (heuristicId h)
 

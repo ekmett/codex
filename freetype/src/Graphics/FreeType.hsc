@@ -2,6 +2,13 @@
 {-# language QuasiQuotes #-}
 {-# language TemplateHaskell #-}
 {-# language ViewPatterns #-}
+
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include FT_MODULE_H
+#include FT_TYPES_H
+#include FT_FONT_FORMATS_H
+
 -- |
 -- Copyright :  (c) 2019 Edward Kmett
 -- License   :  BSD-2-Clause OR Apache-2.0
@@ -9,6 +16,7 @@
 -- Stability :  experimental
 -- Portability: non-portable
 --
+
 module Graphics.FreeType
 (
 -- * Library
@@ -58,7 +66,21 @@ module Graphics.FreeType
 , set_pixel_sizes
 , set_transform
 , load_char
+, load_glyph
 , has_multiple_masters
+
+-- glyph_slot
+, GlyphSlot
+, face_glyph
+, glyph_slot_face
+-- diffs
+, glyph_slot_glyph_index
+, glyph_slot_generic
+, glyph_slot_linearHoriAdvance
+, glyph_slot_linearVertAdvance
+, glyph_slot_bitmap_left
+, glyph_slot_bitmap_top
+, glyph_slot_num_subglyphs
 
 -- * Math
 -- ** angles
@@ -102,6 +124,7 @@ import Data.Word
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
 import Foreign.Ptr
+import Foreign.Ptr.Diff
 import Foreign.Storable
 import Graphics.FreeType.Internal
 import qualified Language.C.Inline as C
@@ -114,6 +137,8 @@ C.verbatim "#include FT_MODULE_H"
 C.verbatim "#include FT_TYPES_H"
 C.verbatim "#include FT_FONT_FORMATS_H"
 C.include "ft.h"
+
+--part :: ForeignPtr a => Diff a b
 
 -- this will use fixed memory allocation functions, but allows us to avoid the FT_Init_FreeType and FT_Done_FreeType global mess.
 new_face :: MonadIO m => Library -> FilePath -> Int -> m Face
@@ -174,6 +199,30 @@ get_name_index face name = liftIO [C.exp|FT_UInt { FT_Get_Name_Index($face:face,
 
 load_char :: MonadIO m => Face -> Word32 -> Int32 -> m ()
 load_char face char_code load_flags = liftIO $ [C.exp|FT_Error { FT_Load_Char($face:face,$(FT_ULong char_code),$(FT_Int32 load_flags)) }|] >>= ok
+
+load_glyph :: MonadIO m => Face -> Word32 -> Int32 -> m ()
+load_glyph face glyph_index load_flags = liftIO $ [C.exp|FT_Error { FT_Load_Glyph($face:face,$(FT_ULong glyph_index),$(FT_Int32 load_flags)) }|] >>= ok
+
+face_glyph :: MonadIO m => Face -> m GlyphSlot
+face_glyph face = liftIO $ childPtr face <$> [C.exp|FT_GlyphSlot { $face:face->glyph }|]
+
+glyph_slot_face :: MonadIO m => GlyphSlot -> m Face
+glyph_slot_face slot = liftIO $ childPtr slot <$> [C.exp|FT_Face { $glyph-slot:slot->face }|]
+
+#let diff hsFrom, cTy, hsName, cField, hsTo = "%s :: Diff %s %s\n%s = Diff %lu\n{-# inline %s #-}", #hsName, #hsFrom, #hsTo, #hsName, (long) offsetof(cTy,cField), #hsName
+
+#diff GlyphSlotRec, FT_GlyphSlotRec, glyph_slot_glyph_index, glyph_index, Word32
+#diff GlyphSlotRec, FT_GlyphSlotRec, glyph_slot_generic, generic, Generic
+--diff GlyphSlotRec, FT_GlyphSlotRec, glyph_slot_metrics, metrics, GlyphMetrics
+#diff GlyphSlotRec, FT_GlyphSlotRec, glyph_slot_linearHoriAdvance, linearHoriAdvance, Fixed
+#diff GlyphSlotRec, FT_GlyphSlotRec, glyph_slot_linearVertAdvance, linearVertAdvance, Fixed
+--diff GlyphSlotRec, FT_GlyphSlotRec, glyph_slot_format, format, GlyphFormat
+--diff GlyphSlotRec, FT_GlyphSlotRec, glyph_slot_bitmap, bitmap, Bitmap
+#diff GlyphSlotRec, FT_GlyphSlotRec, glyph_slot_bitmap_left, bitmap_left, Int32
+#diff GlyphSlotRec, FT_GlyphSlotRec, glyph_slot_bitmap_top, bitmap_top, Int32
+--diff GlyphSlotRec, FT_GlyphSlotRec, glyph_slot_outline, outline, Outline
+#diff GlyphSlotRec, FT_GlyphSlotRec, glyph_slot_num_subglyphs, num_subglyphs, Word32
+--diff GlyphSlotRec, FT_GlyphSlotRec, glyph_slot_subglyphs, subglyphs, SubGlyph
 
 -- | This is a suitable form for use as an X11 @FONT_PROPERTY@.
 --
