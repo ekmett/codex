@@ -22,7 +22,7 @@ source-repository head
 
 library
   default-language: Haskell2010
-  pkgconfig-depends: harfbuzz-subset
+  pkgconfig-depends: harfbuzz-subset >= 2.5.0
   build-depends:
     base >= 4.11 && < 5,
     containers >= 0.6,

@@ -87,6 +87,7 @@ input_glyph_set :: PrimMonad m => Input (PrimState m) -> m (Set (PrimState m))
 input_glyph_set i@(Input p) = unsafeIOToPrim $
   [C.exp|hb_set_t * { hb_subset_input_glyph_set($fptr-ptr:(hb_subset_input_t * p)) }|] <&> childSet i
 
+-- requires harfbuzz 2.5.0+
 input_nameid_set :: PrimMonad m => Input (PrimState m) -> m (Set (PrimState m))
 input_nameid_set i@(Input p) = unsafeIOToPrim $
   [C.exp|hb_set_t * { hb_subset_input_nameid_set($fptr-ptr:(hb_subset_input_t * p)) }|] <&> childSet i
