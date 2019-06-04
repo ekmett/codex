@@ -8,6 +8,7 @@
 {-# language TypeSynonymInstances #-}
 {-# language FlexibleInstances #-}
 {-# language FlexibleContexts #-}
+{-# language StrictData #-}
 {-# language ScopedTypeVariables #-}
 {-# language OverloadedStrings #-}
 {-# language ForeignFunctionInterface #-}
@@ -19,6 +20,7 @@
 {-# language UnboxedTuples #-}
 {-# language CPP #-}
 {-# options_ghc -Wno-missing-pattern-synonym-signatures #-}
+{-# options_ghc -funbox-strict-fields #-}
 
 -- |
 -- Copyright :  (c) 2019 Edward Kmett
@@ -36,17 +38,20 @@
 #include FT_TYPES_H
 #include FT_TRIGONOMETRY_H
 #include "hsc-err.h"
+#let pattern n,t = "pattern %s = %s (%d)",#n,#t,(int)(FT_ ## n)
 #endif
 
 module Graphics.FreeType.Internal
-( Rec(..)
+(
 
-, Angle
+  Angle
 , pattern ANGLE_PI
 , pattern ANGLE_2PI
 , pattern ANGLE_PI2
 , pattern ANGLE_PI4
 , angleDiff
+
+, BitmapSize(..)
 
 , Error
   ( Error
@@ -56,16 +61,22 @@ module Graphics.FreeType.Internal
   )
 , ok
 
-, Face(..)
+, Face
 , FaceRec
 , foreignFace
 
 , Generic(..)
 
-, GlyphSlot(..)
+, GlyphSlot
 , GlyphSlotRec
 
-, Library(..)
+, KerningMode
+  ( KerningMode
+  , KERNING_DEFAULT
+  , KERNING_UNFITTED
+  , KERNING_UNSCALED
+  )
+, Library
 , LibraryRec
 , foreignLibrary
 , pattern FREETYPE_MAJOR
@@ -75,13 +86,25 @@ module Graphics.FreeType.Internal
 , Matrix(..)
 , matrixInvert, matrixMultiply
 
-, Memory(..)
-, MemoryRec
+, Memory
+, MemoryRec(..)
 , AllocFunc, FreeFunc, ReallocFunc
 
 , Pos
 
-, SizeRec, SizeMetrics(..), SizeInternalRec
+, RenderMode
+  ( RenderMode
+  , RENDER_MODE_NORMAL
+  , RENDER_MODE_LIGHT
+  , RENDER_MODE_MONO
+  , RENDER_MODE_LCD
+  , RENDER_MODE_LCD_V
+  )
+
+, Size
+, SizeRec(..)
+, SizeMetrics(..)
+, SizeInternalRec
 
 , SizeRequest
 , SizeRequestRec(..)
@@ -103,7 +126,6 @@ module Graphics.FreeType.Internal
 ) where
 
 import Control.Exception
-import Data.Coerce
 import Data.Default
 import Data.Int
 import qualified Data.Map as Map
@@ -113,7 +135,6 @@ import Foreign.C.String
 import Foreign.C.Types
 import Foreign.ForeignPtr
 import Foreign.ForeignPtr.Unsafe
-import qualified Foreign.Concurrent as Concurrent
 import Foreign.Marshal.Unsafe
 import Foreign.Marshal.Utils
 import Foreign.Ptr
@@ -124,23 +145,45 @@ import qualified Language.C.Inline.Context as C
 import qualified Language.C.Types as C
 import Graphics.FreeType.Private
 
-data family Rec t
-
 type Angle = Fixed
 pattern ANGLE_PI  = Fixed (#const FT_ANGLE_PI)
 pattern ANGLE_2PI = Fixed (#const FT_ANGLE_2PI)
 pattern ANGLE_PI2 = Fixed (#const FT_ANGLE_PI2)
 pattern ANGLE_PI4 = Fixed (#const FT_ANGLE_PI4)
 
+data BitmapSize = BitmapSize
+  { bitmapsize_height
+  , bitmapsize_width :: Int16
+  , bitmapsize_size
+  , bitmapsize_x_ppem
+  , bitmapsize_y_ppem :: Pos
+  } deriving (Eq,Show)
+
+instance Storable BitmapSize where
+  sizeOf _ = #size FT_Bitmap_Size
+  alignment _ = #alignment FT_Bitmap_Size
+  peek p = BitmapSize
+    <$> (#peek FT_Bitmap_Size, height) p
+    <*> (#peek FT_Bitmap_Size, width) p
+    <*> (#peek FT_Bitmap_Size, size) p
+    <*> (#peek FT_Bitmap_Size, x_ppem) p
+    <*> (#peek FT_Bitmap_Size, y_ppem) p
+  poke p BitmapSize{..} = do
+    (#poke FT_Bitmap_Size, height) p bitmapsize_height
+    (#poke FT_Bitmap_Size, width) p bitmapsize_width
+    (#poke FT_Bitmap_Size, size) p bitmapsize_size
+    (#poke FT_Bitmap_Size, x_ppem) p bitmapsize_x_ppem
+    (#poke FT_Bitmap_Size, y_ppem) p bitmapsize_y_ppem
+
 -- | Given a foreign ptr and a ptr, produces a foreign ptr that has the same finalizers as the first, but now
 -- pointing at the target value. Holding this foreign ptr will keep the original alive and vice versa.
 --
 -- This can be used when accessing, say, a part of a whole that has a shared lifetime.
-childPtr :: forall a b. (Coercible a (ForeignPtr (Rec a)), Coercible b (ForeignPtr (Rec b))) => a -> Ptr (Rec b) -> b
-childPtr (coerce -> fp :: ForeignPtr (Rec a)) p = coerce (fp `plusForeignPtr` minusPtr p (unsafeForeignPtrToPtr fp) :: ForeignPtr (Rec b))
+childPtr :: ForeignPtr a -> Ptr b -> ForeignPtr b
+childPtr fp p = fp `plusForeignPtr` minusPtr p (unsafeForeignPtrToPtr fp)
 
 -- | By convention the library will throw any non-0 FT_Error encountered.
-newtype Error = Error CInt deriving newtype (Eq,Ord,Show,Num,Enum,Real,Integral,Storable)
+newtype Error = Error CInt deriving newtype (Eq,Ord,Show,Storable)
 
 #ifndef HLINT
 #err_patterns
@@ -156,9 +199,8 @@ ok :: Error -> IO ()
 ok Err_Ok = return ()
 ok e = throwIO e
 
-data instance Rec Face
-type FaceRec = Rec Face
-newtype Face = Face (ForeignPtr FaceRec) deriving (Eq,Ord,Show)
+type Face = ForeignPtr FaceRec
+data FaceRec
 
 #ifndef HLINT
 pattern FREETYPE_MAJOR = (#const FREETYPE_MAJOR) :: Int
@@ -167,8 +209,8 @@ pattern FREETYPE_PATCH = (#const FREETYPE_PATCH) :: Int
 #endif
 
 data Generic = Generic
-  { generic_data      :: {-# unpack #-} !(Ptr ())
-  , generic_finalizer :: {-# unpack #-} !(FinalizerPtr ())
+  { generic_data      :: Ptr ()
+  , generic_finalizer :: FinalizerPtr ()
   } deriving (Eq,Show)
 
 instance Storable Generic where
@@ -183,7 +225,7 @@ instance Storable Generic where
 
 data Matrix = Matrix
   { matrix_xx, matrix_xy
-  , matrix_yx, matrix_yy :: {-# unpack #-} !Fixed
+  , matrix_yx, matrix_yy :: Fixed
   } deriving (Eq,Show)
 
 instance Storable Matrix where
@@ -200,27 +242,31 @@ instance Storable Matrix where
     (#poke FT_Matrix, yx) ptr matrix_yx
     (#poke FT_Matrix, yy) ptr matrix_yy
 
+type GlyphSlot = ForeignPtr GlyphSlotRec
+data GlyphSlotRec
 
-data instance Rec GlyphSlot
-type GlyphSlotRec = Rec GlyphSlot
-newtype GlyphSlot = GlyphSlot (ForeignPtr GlyphSlotRec) deriving (Eq,Ord,Show)
+-- Note: the library inconsistently passes these as an FT_UInt to FT_Get_Kerning
+-- but the type itself is an int
+newtype KerningMode = KerningMode Word32 deriving (Eq,Ord,Show)
 
-data instance Rec Library
-type LibraryRec = Rec Library
-newtype Library = Library (ForeignPtr LibraryRec) deriving (Eq,Ord,Show)
+#pattern KERNING_DEFAULT, KerningMode
+#pattern KERNING_UNFITTED, KerningMode
+#pattern KERNING_UNSCALED, KerningMode
+
+type Library = ForeignPtr LibraryRec
+data LibraryRec
 
 type AllocFunc = Memory -> CLong -> IO (Ptr ())
 type FreeFunc = Memory -> Ptr () -> IO ()
 type ReallocFunc = Memory -> CLong -> CLong -> Ptr () -> IO (Ptr ())
 
-data instance Rec Memory = MemoryRec
+type Memory = ForeignPtr MemoryRec
+data MemoryRec = MemoryRec
   { memory_user :: Ptr ()
   , memory_alloc :: FunPtr AllocFunc
   , memory_free :: FunPtr FreeFunc
   , memory_realloc :: FunPtr ReallocFunc
   } deriving (Eq,Show)
-
-type MemoryRec = Rec Memory
 
 instance Storable MemoryRec where
   sizeOf _ = #size struct FT_MemoryRec_
@@ -236,17 +282,15 @@ instance Storable MemoryRec where
     (#poke struct FT_MemoryRec_, free) p memory_free
     (#poke struct FT_MemoryRec_, realloc) p memory_realloc
 
-newtype Memory = Memory (ForeignPtr MemoryRec) deriving (Eq,Ord,Show)
-
 data SizeMetrics = SizeMetrics
-  { size_metrics_x_ppem
-  , size_metrics_y_ppem :: {-# unpack #-} !Word16
-  , size_metrics_x_scale
-  , size_metrics_y_scale :: {-# unpack #-} !Fixed
-  , size_metrics_ascender
-  , size_metrics_descender
-  , size_metrics_height
-  , size_metrics_max_advance :: {-# unpack #-} !Pos
+  { sizemetrics_x_ppem
+  , sizemetrics_y_ppem :: Word16
+  , sizemetrics_x_scale
+  , sizemetrics_y_scale :: Fixed
+  , sizemetrics_ascender
+  , sizemetrics_descender
+  , sizemetrics_height
+  , sizemetrics_max_advance :: Pos
   } deriving (Eq,Show)
 
 instance Storable SizeMetrics where
@@ -262,28 +306,26 @@ instance Storable SizeMetrics where
     <*> (#peek FT_Size_Metrics, height) p
     <*> (#peek FT_Size_Metrics, max_advance) p
   poke p SizeMetrics{..} = do
-    (#poke FT_Size_Metrics, x_ppem) p size_metrics_x_ppem
-    (#poke FT_Size_Metrics, y_ppem) p size_metrics_y_ppem
-    (#poke FT_Size_Metrics, x_scale) p size_metrics_x_scale
-    (#poke FT_Size_Metrics, y_scale) p size_metrics_y_scale
-    (#poke FT_Size_Metrics, ascender) p size_metrics_ascender
-    (#poke FT_Size_Metrics, descender) p size_metrics_descender
-    (#poke FT_Size_Metrics, height) p size_metrics_height
-    (#poke FT_Size_Metrics, max_advance) p size_metrics_max_advance
+    (#poke FT_Size_Metrics, x_ppem) p sizemetrics_x_ppem
+    (#poke FT_Size_Metrics, y_ppem) p sizemetrics_y_ppem
+    (#poke FT_Size_Metrics, x_scale) p sizemetrics_x_scale
+    (#poke FT_Size_Metrics, y_scale) p sizemetrics_y_scale
+    (#poke FT_Size_Metrics, ascender) p sizemetrics_ascender
+    (#poke FT_Size_Metrics, descender) p sizemetrics_descender
+    (#poke FT_Size_Metrics, height) p sizemetrics_height
+    (#poke FT_Size_Metrics, max_advance) p sizemetrics_max_advance
 
 data SizeInternalRec
 
 type Pos = Int32
 
-data instance Rec Size = SizeRec
-  { size_face :: {-# unpack #-} !(Ptr (Rec Face))
-  , size_generic :: {-# unpack #-} !Generic
-  , size_metrics :: {-# unpack #-} !SizeMetrics
-  , size_internal :: {-# unpack #-} !(Ptr SizeInternalRec)
+type Size = ForeignPtr SizeRec
+data SizeRec = SizeRec
+  { size_face     :: Ptr FaceRec
+  , size_generic  :: Generic
+  , size_metrics  :: SizeMetrics
+  , size_internal :: Ptr SizeInternalRec
   } deriving (Eq,Show)
-
-type SizeRec = Rec Size
-newtype Size = Size (ForeignPtr SizeRec) deriving (Eq,Ord,Show)
 
 instance Storable SizeRec where
   sizeOf _ = #size FT_SizeRec
@@ -301,20 +343,27 @@ instance Storable SizeRec where
 
 newtype SizeRequestType = SizeRequestType Int32 deriving newtype (Eq,Show,Storable,Prim)
 
-pattern SIZE_REQUEST_TYPE_NOMINAL = SizeRequestType (#const FT_SIZE_REQUEST_TYPE_NOMINAL)
-pattern SIZE_REQUEST_TYPE_REAL_DIM = SizeRequestType (#const FT_SIZE_REQUEST_TYPE_REAL_DIM)
-pattern SIZE_REQUEST_TYPE_BBOX = SizeRequestType (#const FT_SIZE_REQUEST_TYPE_BBOX)
-pattern SIZE_REQUEST_TYPE_CELL = SizeRequestType (#const FT_SIZE_REQUEST_TYPE_CELL)
-pattern SIZE_REQUEST_TYPE_SCALES = SizeRequestType (#const FT_SIZE_REQUEST_TYPE_SCALES)
+#pattern SIZE_REQUEST_TYPE_NOMINAL, SizeRequestType
+#pattern SIZE_REQUEST_TYPE_REAL_DIM, SizeRequestType
+#pattern SIZE_REQUEST_TYPE_BBOX, SizeRequestType
+#pattern SIZE_REQUEST_TYPE_CELL, SizeRequestType
+#pattern SIZE_REQUEST_TYPE_SCALES, SizeRequestType
+
+newtype RenderMode = RenderMode Int32 deriving newtype (Eq,Show,Storable,Prim)
+#pattern RENDER_MODE_NORMAL, RenderMode
+#pattern RENDER_MODE_LIGHT, RenderMode
+#pattern RENDER_MODE_MONO, RenderMode
+#pattern RENDER_MODE_LCD, RenderMode
+#pattern RENDER_MODE_LCD_V, RenderMode
 
 type SizeRequest = Ptr SizeRequestRec
 
 data SizeRequestRec = SizeRequestRec
-  { size_request_type  :: {-# unpack #-} !SizeRequestType
-  , size_request_width
-  , size_request_height :: {-# unpack #-} !Int32
-  , size_request_horiResolution
-  , size_request_vertResolution :: {-# unpack #-} !Word32
+  { sizerequest_type  :: SizeRequestType
+  , sizerequest_width
+  , sizerequest_height :: Int32
+  , sizerequest_horiResolution
+  , sizerequest_vertResolution :: Word32
   } deriving (Eq,Show)
 
 instance Storable SizeRequestRec where
@@ -327,14 +376,14 @@ instance Storable SizeRequestRec where
     <*> (#peek FT_Size_RequestRec, horiResolution) ptr
     <*> (#peek FT_Size_RequestRec, vertResolution) ptr
   poke ptr SizeRequestRec{..} = do
-    (#poke FT_Size_RequestRec, type) ptr size_request_type
-    (#poke FT_Size_RequestRec, width) ptr size_request_width
-    (#poke FT_Size_RequestRec, height) ptr size_request_height
-    (#poke FT_Size_RequestRec, horiResolution) ptr size_request_horiResolution
-    (#poke FT_Size_RequestRec, vertResolution) ptr size_request_vertResolution
+    (#poke FT_Size_RequestRec, type) ptr sizerequest_type
+    (#poke FT_Size_RequestRec, width) ptr sizerequest_width
+    (#poke FT_Size_RequestRec, height) ptr sizerequest_height
+    (#poke FT_Size_RequestRec, horiResolution) ptr sizerequest_horiResolution
+    (#poke FT_Size_RequestRec, vertResolution) ptr sizerequest_vertResolution
 
 data Vector = Vector
-  { vector_x, vector_y :: {-# unpack #-} !Pos
+  { vector_x, vector_y :: Pos
   } deriving (Eq, Show)
 
 instance Storable Vector where
@@ -402,11 +451,11 @@ instance Default Vector where
   def = Vector 0 0
 
 foreignFace :: Ptr FaceRec -> IO Face
-foreignFace p = Face <$> Concurrent.newForeignPtr p ([C.exp|FT_Error { FT_Done_Face($(FT_Face p)) }|] >>= ok)
+foreignFace = newForeignPtr [C.funPtr|void free_face(FT_Face f) { FT_Done_Face(f); }|]
 
 -- | Assumes we are using @FT_New_Library@ management rather than @FT_Init_FreeType@ management
 foreignLibrary :: Ptr LibraryRec -> IO Library
-foreignLibrary p = Library <$> Concurrent.newForeignPtr p ([C.exp|FT_Error { FT_Done_Library($(FT_Library p)) }|] >>= ok)
+foreignLibrary = newForeignPtr [C.funPtr|void free_library(FT_Library l) { FT_Done_Library(l); }|]
 
 freeTypeCtx :: C.Context
 freeTypeCtx = mempty
@@ -420,6 +469,8 @@ freeTypeCtx = mempty
     , (C.Struct   "FT_GlyphSlotRec_",      [t|GlyphSlotRec|])
     , (C.TypeName "FT_Int",                [t|Int32|])
     , (C.TypeName "FT_Int32",              [t|Int32|])
+    , (C.TypeName "FT_KerningMode",        [t|KerningMode|])
+    , (C.Enum     "FT_KerningMode_",       [t|KerningMode|])
     , (C.TypeName "FT_Library",            [t|Ptr LibraryRec|])
     , (C.TypeName "FT_LibraryRec_",        [t|LibraryRec|])
     , (C.TypeName "FT_Long",               [t|Int32|])
@@ -427,6 +478,8 @@ freeTypeCtx = mempty
     , (C.Struct   "FT_Matrix_",            [t|Matrix|])
     , (C.TypeName "FT_Memory",             [t|Ptr MemoryRec|])
     , (C.TypeName "FT_MemoryRec_",         [t|MemoryRec|])
+    , (C.TypeName "FT_Render_Mode",        [t|RenderMode|])
+    , (C.Enum     "FT_Render_Mode_",       [t|RenderMode|])
     , (C.TypeName "FT_Size_Internal",      [t|Ptr SizeInternalRec|])
     , (C.Struct   "FT_Size_InternalRec_",  [t|SizeInternalRec|])
     , (C.TypeName "FT_Size_Metrics",       [t|SizeMetrics|])

@@ -10,5 +10,6 @@ main = do
   set_pixel_sizes face 0 16
   glyph_index <- get_char_index face (fromIntegral (fromEnum 'a'))
   load_glyph face glyph_index 0
-  -- render_glyph 
+  glyphslot <- face_glyph face
+  render_glyph glyphslot RENDER_MODE_NORMAL
   pure ()

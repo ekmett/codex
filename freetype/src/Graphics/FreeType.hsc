@@ -8,6 +8,8 @@
 #include FT_MODULE_H
 #include FT_TYPES_H
 #include FT_FONT_FORMATS_H
+#let diff hsFrom, cTy, hsName, cField, hsTo = "%s :: Diff %s %s\n%s = Diff %lu\n{-# inline %s #-}", #hsName, #hsFrom, #hsTo, #hsName, (long) offsetof(cTy,cField), #hsName
+
 
 -- |
 -- Copyright :  (c) 2019 Edward Kmett
@@ -52,6 +54,28 @@ module Graphics.FreeType
 , new_face
 , new_memory_face
 
+-- slots
+, face_num_faces
+, face_index
+, face_flags
+, face_style_flags
+, face_num_glyphs
+, face_num_fixed_sizes
+, face_num_charmaps
+, face_ascender
+, face_descender
+, face_height
+, face_generic
+, face_units_per_EM
+, face_max_advance_width
+, face_max_advance_height
+, face_underline_position
+, face_underline_thickness
+, face_size
+
+, face_family_name
+, face_style_name
+
 -- ** manual reference counting
 , reference_face
 , done_face
@@ -67,20 +91,28 @@ module Graphics.FreeType
 , set_transform
 , load_char
 , load_glyph
+
+, has_kerning
+, get_kerning
+
+, has_fixed_sizes
 , has_multiple_masters
 
--- glyph_slot
+-- ** GlyphSlots
 , GlyphSlot
 , face_glyph
-, glyph_slot_face
+, glyphslot_face
 -- diffs
-, glyph_slot_glyph_index
-, glyph_slot_generic
-, glyph_slot_linearHoriAdvance
-, glyph_slot_linearVertAdvance
-, glyph_slot_bitmap_left
-, glyph_slot_bitmap_top
-, glyph_slot_num_subglyphs
+, glyphslot_glyph_index
+, glyphslot_generic
+, glyphslot_linearHoriAdvance
+, glyphslot_linearVertAdvance
+, glyphslot_bitmap_left
+, glyphslot_bitmap_top
+, glyphslot_num_subglyphs
+
+, RenderMode(..)
+, render_glyph
 
 -- * Math
 -- ** angles
@@ -121,6 +153,7 @@ import Data.Functor ((<&>))
 import Data.Int
 import Data.Version
 import Data.Word
+import Foreign.C.String
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
 import Foreign.Ptr
@@ -142,15 +175,15 @@ C.include "ft.h"
 
 -- this will use fixed memory allocation functions, but allows us to avoid the FT_Init_FreeType and FT_Done_FreeType global mess.
 new_face :: MonadIO m => Library -> FilePath -> Int -> m Face
-new_face library path (fromIntegral -> face_index) = liftIO $
+new_face library path (fromIntegral -> i) = liftIO $
   alloca $ \p -> do
-    [C.exp|FT_Error { FT_New_Face($library:library,$str:path,$(FT_Long face_index),$(FT_Face * p))}|] >>= ok
+    [C.exp|FT_Error { FT_New_Face($library:library,$str:path,$(FT_Long i),$(FT_Face * p))}|] >>= ok
     peek p >>= foreignFace
 
 new_memory_face :: MonadIO m => Library -> ByteString -> Int -> m Face
-new_memory_face library base (fromIntegral -> face_index) = liftIO $
+new_memory_face library base (fromIntegral -> i) = liftIO $
   alloca $ \p -> do
-    [C.exp|FT_Error { FT_New_Memory_Face($library:library,$bs-ptr:base,$bs-len:base,$(FT_Long face_index),$(FT_Face * p))}|] >>= ok
+    [C.exp|FT_Error { FT_New_Memory_Face($library:library,$bs-ptr:base,$bs-len:base,$(FT_Long i),$(FT_Face * p))}|] >>= ok
     peek p >>= foreignFace
 
 -- | Add a reference to a face
@@ -166,12 +199,10 @@ reference_face face = liftIO $
 -- For the most part this should already be done for you through the API provided in Haskell,
 -- but you may need this if you claim ownership of a face from another library.
 done_face :: MonadIO m => Face -> m ()
-done_face face = liftIO $
-  [C.exp|FT_Error { FT_Done_Face($face:face)}|] >>= ok
+done_face face = liftIO $ [C.exp|FT_Error { FT_Done_Face($face:face)}|] >>= ok
 
 get_char_index :: MonadIO m => Face -> Word32 -> m Word32
-get_char_index face c = liftIO $
-  [C.exp|FT_UInt { FT_Get_Char_Index($face:face,$(FT_ULong c)) }|]
+get_char_index face c = liftIO [C.exp|FT_UInt { FT_Get_Char_Index($face:face,$(FT_ULong c)) }|]
 
 -- | Returns the charmap's first code and the glyph index of the first character code, 0 if the charmap is empty.
 get_first_char :: MonadIO m => Face -> m (Word32, Word32)
@@ -187,8 +218,7 @@ get_next_char face c = liftIO $
 -- | Normally this is used to read additional information for the face object, such as attaching an AFM file that comes
 -- with a Type 1 font to get the kerning values and other metrics.
 attach_file :: MonadIO m => Face -> FilePath -> m ()
-attach_file face path = liftIO $
-  [C.exp|FT_Error { FT_Attach_File($face:face,$str:path) }|] >>= ok
+attach_file face path = liftIO $ [C.exp|FT_Error { FT_Attach_File($face:face,$str:path) }|] >>= ok
 
 set_pixel_sizes :: MonadIO m => Face -> Int -> Int -> m ()
 set_pixel_sizes face (fromIntegral -> pixel_width) (fromIntegral -> pixel_height) = liftIO $
@@ -203,26 +233,78 @@ load_char face char_code load_flags = liftIO $ [C.exp|FT_Error { FT_Load_Char($f
 load_glyph :: MonadIO m => Face -> Word32 -> Int32 -> m ()
 load_glyph face glyph_index load_flags = liftIO $ [C.exp|FT_Error { FT_Load_Glyph($face:face,$(FT_ULong glyph_index),$(FT_Int32 load_flags)) }|] >>= ok
 
+-- | Returns whether the face object contains kerning data that can be accessed with 'get_kerning'
+has_fixed_sizes :: MonadIO m => Face -> m Bool
+has_fixed_sizes face = liftIO $ do
+  [C.exp|int { FT_HAS_FIXED_SIZES($face:face) }|] <&> (/=0)
+
+--face_fixed_sizes :: MonadIO m => Face -> m (Maybe [BitmapSize])
+--face_fixed_sizes = liftIO $ withForeignPtr
+
+-- | Returns whether the face object contains kerning data that can be accessed with 'get_kerning'
+has_kerning :: MonadIO m => Face -> m Bool
+has_kerning face = liftIO $ [C.exp|int { FT_HAS_KERNING($face:face) }|] <&> (/=0)
+
+get_kerning :: MonadIO m => Face -> Word32 -> Word32 -> KerningMode -> m Vector
+get_kerning face left_glyph right_glyph (KerningMode kern_mode) = liftIO $
+  alloca $ \v -> do
+    [C.exp|FT_Error {
+      FT_Get_Kerning(
+        $face:face,
+        $(FT_UInt left_glyph),
+        $(FT_UInt right_glyph),
+        $(FT_UInt kern_mode),
+        $(FT_Vector * v)
+      )
+    }|] >>= ok
+    peek v
+
 face_glyph :: MonadIO m => Face -> m GlyphSlot
 face_glyph face = liftIO $ childPtr face <$> [C.exp|FT_GlyphSlot { $face:face->glyph }|]
 
-glyph_slot_face :: MonadIO m => GlyphSlot -> m Face
-glyph_slot_face slot = liftIO $ childPtr slot <$> [C.exp|FT_Face { $glyph-slot:slot->face }|]
+glyphslot_face :: MonadIO m => GlyphSlot -> m Face
+glyphslot_face slot = liftIO $ childPtr slot <$> [C.exp|FT_Face { $glyph-slot:slot->face }|]
 
-#let diff hsFrom, cTy, hsName, cField, hsTo = "%s :: Diff %s %s\n%s = Diff %lu\n{-# inline %s #-}", #hsName, #hsFrom, #hsTo, #hsName, (long) offsetof(cTy,cField), #hsName
+#diff FaceRec, FT_FaceRec, face_num_faces, num_faces, Int32
+#diff FaceRec, FT_FaceRec, face_index, face_index, Int32
+#diff FaceRec, FT_FaceRec, face_flags, face_flags, Int32
+#diff FaceRec, FT_FaceRec, face_style_flags, style_flags, Int32
+#diff FaceRec, FT_FaceRec, face_num_glyphs, num_glyphs, Int32
+#diff FaceRec, FT_FaceRec, face_num_fixed_sizes, num_fixed_sizes, Int32
+#diff FaceRec, FT_FaceRec, face_num_charmaps, num_charmaps, Int32
+#diff FaceRec, FT_FaceRec, face_ascender, ascender, Int16
+#diff FaceRec, FT_FaceRec, face_descender, descender, Int16
+#diff FaceRec, FT_FaceRec, face_height, height, Int16
+#diff FaceRec, FT_FaceRec, face_units_per_EM, units_per_EM, Int16
+#diff FaceRec, FT_FaceRec, face_max_advance_width, max_advance_width, Int16
+#diff FaceRec, FT_FaceRec, face_max_advance_height, max_advance_height, Int16
+#diff FaceRec, FT_FaceRec, face_underline_position, underline_position, Int16
+#diff FaceRec, FT_FaceRec, face_underline_thickness, underline_thickness, Int16
+#diff FaceRec, FT_FaceRec, face_size, size, Size
+--diff FaceRec, FT_RaceRec, face_available_sizes, available_sizes, Ptr BitmapSize
+-- FT_GlyphSlot      glyph;
+-- FT_CharMap        charmap;
 
-#diff GlyphSlotRec, FT_GlyphSlotRec, glyph_slot_glyph_index, glyph_index, Word32
-#diff GlyphSlotRec, FT_GlyphSlotRec, glyph_slot_generic, generic, Generic
---diff GlyphSlotRec, FT_GlyphSlotRec, glyph_slot_metrics, metrics, GlyphMetrics
-#diff GlyphSlotRec, FT_GlyphSlotRec, glyph_slot_linearHoriAdvance, linearHoriAdvance, Fixed
-#diff GlyphSlotRec, FT_GlyphSlotRec, glyph_slot_linearVertAdvance, linearVertAdvance, Fixed
---diff GlyphSlotRec, FT_GlyphSlotRec, glyph_slot_format, format, GlyphFormat
---diff GlyphSlotRec, FT_GlyphSlotRec, glyph_slot_bitmap, bitmap, Bitmap
-#diff GlyphSlotRec, FT_GlyphSlotRec, glyph_slot_bitmap_left, bitmap_left, Int32
-#diff GlyphSlotRec, FT_GlyphSlotRec, glyph_slot_bitmap_top, bitmap_top, Int32
---diff GlyphSlotRec, FT_GlyphSlotRec, glyph_slot_outline, outline, Outline
-#diff GlyphSlotRec, FT_GlyphSlotRec, glyph_slot_num_subglyphs, num_subglyphs, Word32
---diff GlyphSlotRec, FT_GlyphSlotRec, glyph_slot_subglyphs, subglyphs, SubGlyph
+#diff FaceRec, FT_FaceRec, face_generic, generic, Generic
+
+face_family_name :: MonadIO m => Face -> m String
+face_family_name face = liftIO $ [C.exp|const char * { $face:face->family_name }|] >>= peekCString
+
+face_style_name :: MonadIO m => Face -> m String
+face_style_name face = liftIO $ [C.exp|const char * { $face:face->style_name }|] >>= peekCString
+
+#diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_glyph_index, glyph_index, Word32
+#diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_generic, generic, Generic
+--diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_metrics, metrics, GlyphMetrics
+#diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_linearHoriAdvance, linearHoriAdvance, Fixed
+#diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_linearVertAdvance, linearVertAdvance, Fixed
+--diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_format, format, GlyphFormat
+--diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_bitmap, bitmap, Bitmap
+#diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_bitmap_left, bitmap_left, Int32
+#diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_bitmap_top, bitmap_top, Int32
+--diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_outline, outline, Outline
+#diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_num_subglyphs, num_subglyphs, Word32
+--diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_subglyphs, subglyphs, SubGlyph
 
 -- | This is a suitable form for use as an X11 @FONT_PROPERTY@.
 --
@@ -295,3 +377,5 @@ property_get :: MonadIO m => Library -> ByteString -> ByteString -> Ptr a -> m (
 property_get library module_name property_name (castPtr -> value) = liftIO $
   [C.exp|FT_Error { FT_Property_Get($fptr-ptr:(FT_Library library),$bs-cstr:module_name,$bs-cstr:property_name,$(void * value))}|] >>= ok
 
+render_glyph :: MonadIO m => GlyphSlot -> RenderMode -> m ()
+render_glyph slot render_mode = liftIO $ [C.exp|FT_Error { FT_Render_Glyph($glyph-slot:slot,$(FT_Render_Mode render_mode)) }|] >>= ok
