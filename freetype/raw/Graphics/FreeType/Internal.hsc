@@ -81,6 +81,7 @@ module Graphics.FreeType.Internal
 , Library
 , LibraryRec
 , foreignLibrary
+, finalizeLibrary
 , pattern FREETYPE_MAJOR
 , pattern FREETYPE_MINOR
 , pattern FREETYPE_PATCH
@@ -363,11 +364,30 @@ instance Default Vector where
   def = Vector 0 0
 
 foreignFace :: Ptr FaceRec -> IO Face
-foreignFace = newForeignPtr [C.funPtr|void free_face(FT_Face f) { FT_Done_Face(f); }|]
+foreignFace = newForeignPtr
+  [C.funPtr|
+    void free_face(FT_Face f) {
+      puts("freeing face");
+      FT_Done_Face(f);
+      puts("freed face");
+    }
+  |]
 
 -- | Assumes we are using @FT_New_Library@ management rather than @FT_Init_FreeType@ management
 foreignLibrary :: Ptr LibraryRec -> IO Library
-foreignLibrary = newForeignPtr [C.funPtr|void free_library(FT_Library l) { FT_Done_Library(l); }|]
+foreignLibrary = newForeignPtr
+  [C.funPtr| void free_library(FT_Library l) {
+    puts("freeing library");
+    FT_Done_Library(l);
+    puts("freed library");
+  }|]
+
+finalizeLibrary :: FinalizerPtr ()
+finalizeLibrary = [C.funPtr| void finalize_library(void * l) {
+    puts("finalizing library");
+    FT_Done_Library((FT_Library)l);
+    puts("finalized library");
+  }|]
 
 freeTypeCtx :: C.Context
 freeTypeCtx = mempty
@@ -376,6 +396,7 @@ freeTypeCtx = mempty
     , (C.TypeName "FT_Face",               [t|Ptr FaceRec|])
     , (C.TypeName "FT_FaceRec_",           [t|FaceRec|])
     , (C.TypeName "FT_Generic",            [t|Generic|])
+    , (C.TypeName "FT_Generic_Finalizer",  [t|FinalizerPtr ()|])
     , (C.TypeName "FT_GlyphSlot",          [t|Ptr GlyphSlotRec|])
     , (C.TypeName "FT_GlyphSlotRec",       [t|GlyphSlotRec|])
     , (C.Struct   "FT_GlyphSlotRec_",      [t|GlyphSlotRec|])

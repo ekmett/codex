@@ -190,17 +190,44 @@ C.include "ft.h"
 
 --part :: ForeignPtr a => Diff a b
 
--- this will use fixed memory allocation functions, but allows us to avoid the FT_Init_FreeType and FT_Done_FreeType global mess.
+-- | Uses the generic data facility to hold on to a reference to the library.
+--
+-- This ensures that we can free things in order.
 new_face :: MonadIO m => Library -> FilePath -> Int -> m Face
 new_face library path (fromIntegral -> i) = liftIO $
   alloca $ \p -> do
-    [C.exp|FT_Error { FT_New_Face($library:library,$str:path,$(FT_Long i),$(FT_Face * p))}|] >>= ok
+    [C.block|FT_Error { 
+      FT_Library lib = $library:library;
+      FT_Face * p = $(FT_Face * p);
+      FT_Error error = FT_New_Face($library:library,$str:path,$(FT_Long i),p);
+      if (!error) {
+        FT_Face f = *p;
+        f->generic.data = lib;
+        f->generic.finalizer = $(FT_Generic_Finalizer finalizeLibrary);
+        puts("referencing library");
+        FT_Reference_Library(lib);
+      }
+      return error;
+    }|] >>= ok
     peek p >>= foreignFace
 
+-- | Uses the generic data facility to hold on to a reference to the library.
 new_memory_face :: MonadIO m => Library -> ByteString -> Int -> m Face
 new_memory_face library base (fromIntegral -> i) = liftIO $
   alloca $ \p -> do
-    [C.exp|FT_Error { FT_New_Memory_Face($library:library,$bs-ptr:base,$bs-len:base,$(FT_Long i),$(FT_Face * p))}|] >>= ok
+    [C.block|FT_Error {
+      FT_Library lib = $library:library;
+      FT_Face * p = $(FT_Face * p);
+      FT_Error error = FT_New_Memory_Face(lib,$bs-ptr:base,$bs-len:base,$(FT_Long i),p);
+      if (!error) {
+        FT_Face f = *p;
+        f->generic.data = lib;
+        f->generic.finalizer = $(FT_Generic_Finalizer finalizeLibrary);
+        puts("referencing library");
+        FT_Reference_Library(lib);
+      }
+      return error;
+    }|] >>= ok
     peek p >>= foreignFace
 
 -- | Add a reference to a face
