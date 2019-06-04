@@ -15,6 +15,7 @@ extra-source-files:
   cbits/*.h
   test/fonts/*.ttf
   test/fonts/*.otf
+  test/golden/*.golden.png
 
 source-repository head
   type: git
@@ -72,7 +73,9 @@ test-suite spec
   build-depends:
     freetype,
     hspec,
+    JuicyPixels,
     tasty,
+    tasty-golden,
     tasty-hspec
 
 executable example
