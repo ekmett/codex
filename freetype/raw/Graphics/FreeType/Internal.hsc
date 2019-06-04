@@ -52,6 +52,7 @@ module Graphics.FreeType.Internal
 , pattern ANGLE_PI4
 , angleDiff
 
+, Bitmap(..)
 , BitmapSize(..)
 
 , Error
@@ -164,19 +165,7 @@ pattern ANGLE_2PI = Fixed (#const FT_ANGLE_2PI)
 pattern ANGLE_PI2 = Fixed (#const FT_ANGLE_PI2)
 pattern ANGLE_PI4 = Fixed (#const FT_ANGLE_PI4)
 
-{-
-data Bitmap = Bitmap
-  { bitmap_rows
-  , bitmap_width
-  , bitmap_pitch
-  , bitmap_buffer
-  , bitmap_num_grays
-  , bitmap_pixel_mode
-  , bitmap_palette_mode
-  , bitmap_palette
-  } deriving (Eq,Show)
--}
-
+#struct bitmap,Bitmap,FT_Bitmap,rows,Word32,width,Word32,pitch,Int32,buffer,Ptr Word8,num_grays,Word16,pixel_mode,Word8,palette_mode,Word8,palette,Ptr()
 #struct bitmapsize,BitmapSize,FT_Bitmap_Size,height,Int16,width,Int16,size,Pos,x_ppem,Pos,y_ppem,Pos
 #struct generic,Generic,FT_Generic,data,Ptr (),finalizer,FinalizerPtr ()
 #struct matrix,Matrix,FT_Matrix,xx,Fixed,xy,Fixed,yx,Fixed,yy,Fixed
