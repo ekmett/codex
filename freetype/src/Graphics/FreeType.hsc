@@ -218,7 +218,9 @@ new_memory_face library base (fromIntegral -> i) = liftIO $
     [C.block|FT_Error {
       FT_Library lib = $library:library;
       FT_Face * p = $(FT_Face * p);
-      FT_Error error = FT_New_Memory_Face(lib,$bs-ptr:base,$bs-len:base,$(FT_Long i),p);
+      int len = $bs-len:base;
+      const char * bs = strndup($bs-ptr:base,len); /* we leak this forever. TODO: fix generic.data */
+      FT_Error error = FT_New_Memory_Face(lib,bs,len,$(FT_Long i),p);
       if (!error) {
         FT_Face f = *p;
         f->generic.data = lib;
