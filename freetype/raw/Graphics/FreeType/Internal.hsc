@@ -37,6 +37,7 @@
 #include FT_SYSTEM_H
 #include FT_TYPES_H
 #include FT_TRIGONOMETRY_H
+#include "ft.h"
 #include "hsc-err.h"
 #include "hsc-struct.h"
 #let pattern n,t = "pattern %s = %s (%d)",#n,#t,(int)(FT_ ## n)
@@ -367,7 +368,9 @@ foreignFace :: Ptr FaceRec -> IO Face
 foreignFace = newForeignPtr
   [C.funPtr|
     void free_face(FT_Face f) {
+      void * d = f->generic.data;
       FT_Done_Face(f);
+      finalize_memory_face_data(d); // we have to clean ourselves after freetype has let go of the face =(
     }
   |]
 

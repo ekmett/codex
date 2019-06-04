@@ -202,8 +202,11 @@ new_face library path (fromIntegral -> i) = liftIO $
       FT_Error error = FT_New_Face($library:library,$str:path,$(FT_Long i),p);
       if (!error) {
         FT_Face f = *p;
-        f->generic.data = lib;
-        f->generic.finalizer = $(FT_Generic_Finalizer finalizeLibrary);
+        memory_face_data * d = (memory_face_data*)malloc(sizeof(memory_face_data));
+        d->lib = lib;
+        d->data = NULL;
+        f->generic.data = d;
+        f->generic.finalizer = NULL; // finalize_memory_face_data;
         FT_Reference_Library(lib);
       }
       return error;
@@ -226,7 +229,7 @@ new_memory_face library base (fromIntegral -> i) = liftIO $
         d->lib = lib;
         d->data = bs;
         f->generic.data = d;
-        f->generic.finalizer = finalize_memory_face_data;
+        f->generic.finalizer = NULL; // finalize_memory_face_data;
         FT_Reference_Library(lib);
       }
       return error;
