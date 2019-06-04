@@ -89,6 +89,8 @@ module Graphics.FreeType
 , get_name_index
 , set_pixel_sizes
 , set_transform
+
+, LoadFlags(..)
 , load_char
 , load_glyph
 
@@ -242,11 +244,11 @@ set_pixel_sizes face (fromIntegral -> pixel_width) (fromIntegral -> pixel_height
 get_name_index :: MonadIO m => Face -> ByteString -> m Word32
 get_name_index face name = liftIO [C.exp|FT_UInt { FT_Get_Name_Index($face:face,$bs-cstr:name) }|]
 
-load_char :: MonadIO m => Face -> Word32 -> Int32 -> m ()
-load_char face char_code load_flags = liftIO $ [C.exp|FT_Error { FT_Load_Char($face:face,$(FT_ULong char_code),$(FT_Int32 load_flags)) }|] >>= ok
+load_char :: MonadIO m => Face -> Word32 -> LoadFlags -> m ()
+load_char face char_code (LoadFlags load_flags) = liftIO $ [C.exp|FT_Error { FT_Load_Char($face:face,$(FT_ULong char_code),$(FT_Int32 load_flags)) }|] >>= ok
 
-load_glyph :: MonadIO m => Face -> Word32 -> Int32 -> m ()
-load_glyph face glyph_index load_flags = liftIO $ [C.exp|FT_Error { FT_Load_Glyph($face:face,$(FT_ULong glyph_index),$(FT_Int32 load_flags)) }|] >>= ok
+load_glyph :: MonadIO m => Face -> Word32 -> LoadFlags -> m ()
+load_glyph face glyph_index (LoadFlags load_flags) = liftIO $ [C.exp|FT_Error { FT_Load_Glyph($face:face,$(FT_ULong glyph_index),$(FT_Int32 load_flags)) }|] >>= ok
 
 -- | Returns whether the face object contains kerning data that can be accessed with 'get_kerning'
 has_fixed_sizes :: MonadIO m => Face -> m Bool

@@ -8,7 +8,7 @@ install:
 	cabal v2-install
 
 run:
-	cabal v2-run $(LIBRARY)
+	cabal v2-run example
 
 repl:
 	@cabal v2-repl $(LIBRARY) --repl-options=-fobject-code --repl-options=-v1 --repl-options=-ferror-spans --repl-options=-j

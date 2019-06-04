@@ -85,6 +85,28 @@ module Graphics.FreeType.Internal
 , pattern FREETYPE_MINOR
 , pattern FREETYPE_PATCH
 
+, LoadFlags
+  ( LoadFlags
+  , LOAD_DEFAULT
+  , LOAD_NO_SCALE
+  , LOAD_NO_HINTING
+  , LOAD_RENDER
+  , LOAD_NO_BITMAP
+  , LOAD_VERTICAL_LAYOUT
+  , LOAD_FORCE_AUTOHINT
+  , LOAD_CROP_BITMAP
+  , LOAD_PEDANTIC
+  , LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH
+  , LOAD_NO_RECURSE
+  , LOAD_IGNORE_TRANSFORM
+  , LOAD_MONOCHROME
+  , LOAD_LINEAR_DESIGN
+  , LOAD_NO_AUTOHINT
+  , LOAD_COLOR
+  , LOAD_COMPUTE_METRICS
+  , LOAD_BITMAP_METRICS_ONLY
+  )
+
 , Matrix(..)
 , matrixInvert, matrixMultiply
 
@@ -140,6 +162,7 @@ module Graphics.FreeType.Internal
 ) where
 
 import Control.Exception
+import Data.Bits
 import Data.Default
 import Data.Int
 import qualified Data.Map as Map
@@ -243,12 +266,34 @@ newtype SizeRequestType = SizeRequestType Int32 deriving newtype (Eq,Show,Storab
 #pattern SIZE_REQUEST_TYPE_CELL, SizeRequestType
 #pattern SIZE_REQUEST_TYPE_SCALES, SizeRequestType
 
+newtype LoadFlags = LoadFlags Int32 deriving newtype (Eq,Show,Storable,Bits)
+#pattern LOAD_DEFAULT, LoadFlags
+#pattern LOAD_NO_SCALE, LoadFlags
+#pattern LOAD_NO_HINTING, LoadFlags
+#pattern LOAD_RENDER, LoadFlags
+#pattern LOAD_NO_BITMAP, LoadFlags
+#pattern LOAD_VERTICAL_LAYOUT, LoadFlags
+#pattern LOAD_FORCE_AUTOHINT, LoadFlags
+#pattern LOAD_CROP_BITMAP, LoadFlags
+#pattern LOAD_PEDANTIC, LoadFlags
+#pattern LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH, LoadFlags
+#pattern LOAD_NO_RECURSE, LoadFlags
+#pattern LOAD_IGNORE_TRANSFORM, LoadFlags
+#pattern LOAD_MONOCHROME, LoadFlags
+#pattern LOAD_LINEAR_DESIGN, LoadFlags
+#pattern LOAD_NO_AUTOHINT, LoadFlags
+#pattern LOAD_COLOR, LoadFlags
+#pattern LOAD_COMPUTE_METRICS, LoadFlags
+#pattern LOAD_BITMAP_METRICS_ONLY, LoadFlags
+instance Default LoadFlags where def = LOAD_DEFAULT
+
 newtype RenderMode = RenderMode Int32 deriving newtype (Eq,Show,Storable,Prim)
 #pattern RENDER_MODE_NORMAL, RenderMode
 #pattern RENDER_MODE_LIGHT, RenderMode
 #pattern RENDER_MODE_MONO, RenderMode
 #pattern RENDER_MODE_LCD, RenderMode
 #pattern RENDER_MODE_LCD_V, RenderMode
+instance Default RenderMode where def = RENDER_MODE_NORMAL
 
 newtype PixelMode = PixelMode Int32 deriving newtype (Eq,Show,Storable,Prim)
 #pattern PIXEL_MODE_NONE, PixelMode
