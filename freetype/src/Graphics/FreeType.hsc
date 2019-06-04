@@ -119,9 +119,12 @@ module Graphics.FreeType
 , glyphslot_generic
 , glyphslot_linearHoriAdvance
 , glyphslot_linearVertAdvance
+, glyphslot_bitmap
 , glyphslot_bitmap_left
 , glyphslot_bitmap_top
 , glyphslot_num_subglyphs
+
+, Bitmap(..)
 
 , RenderMode(..)
 , render_glyph
@@ -343,7 +346,7 @@ face_style_name face = liftIO $ [C.exp|const char * { $face:face->style_name }|]
 #diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_linearHoriAdvance, linearHoriAdvance, Fixed
 #diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_linearVertAdvance, linearVertAdvance, Fixed
 --diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_format, format, GlyphFormat
---diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_bitmap, bitmap, Bitmap
+#diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_bitmap, bitmap, Bitmap
 #diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_bitmap_left, bitmap_left, Int32
 #diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_bitmap_top, bitmap_top, Int32
 --diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_outline, outline, Outline

@@ -1,5 +1,10 @@
+{-# language RecordWildCards #-}
 
---import Codec.Picture
+import Codec.Picture
+import Foreign.ForeignPtr
+import Foreign.Ptr
+import Foreign.Ptr.Diff
+import Foreign.Storable
 import Graphics.FreeType
 
 main :: IO ()
@@ -12,4 +17,7 @@ main = do
   load_glyph face glyph_index 0
   glyphslot <- face_glyph face
   render_glyph glyphslot RENDER_MODE_NORMAL
-  pure ()
+  Bitmap{..} <- withForeignPtr (act glyphslot glyphslot_bitmap) peek
+  result <- withImage (fromIntegral bitmap_width) (fromIntegral bitmap_rows) $ \x y ->
+    peek $ bitmap_buffer `plusPtr` (x + y * fromIntegral bitmap_pitch)
+  writePng "example_a.png" (result :: Image Pixel8)
