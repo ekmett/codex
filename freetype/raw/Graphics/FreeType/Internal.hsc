@@ -38,6 +38,7 @@
 #include FT_TYPES_H
 #include FT_TRIGONOMETRY_H
 #include "hsc-err.h"
+#include "hsc-struct.h"
 #let pattern n,t = "pattern %s = %s (%d)",#n,#t,(int)(FT_ ## n)
 #endif
 
@@ -176,29 +177,14 @@ data Bitmap = Bitmap
   } deriving (Eq,Show)
 -}
 
-data BitmapSize = BitmapSize
-  { bitmapsize_height
-  , bitmapsize_width :: Int16
-  , bitmapsize_size
-  , bitmapsize_x_ppem
-  , bitmapsize_y_ppem :: Pos
-  } deriving (Eq,Show)
-
-instance Storable BitmapSize where
-  sizeOf _ = #size FT_Bitmap_Size
-  alignment _ = #alignment FT_Bitmap_Size
-  peek p = BitmapSize
-    <$> (#peek FT_Bitmap_Size, height) p
-    <*> (#peek FT_Bitmap_Size, width) p
-    <*> (#peek FT_Bitmap_Size, size) p
-    <*> (#peek FT_Bitmap_Size, x_ppem) p
-    <*> (#peek FT_Bitmap_Size, y_ppem) p
-  poke p BitmapSize{..} = do
-    (#poke FT_Bitmap_Size, height) p bitmapsize_height
-    (#poke FT_Bitmap_Size, width) p bitmapsize_width
-    (#poke FT_Bitmap_Size, size) p bitmapsize_size
-    (#poke FT_Bitmap_Size, x_ppem) p bitmapsize_x_ppem
-    (#poke FT_Bitmap_Size, y_ppem) p bitmapsize_y_ppem
+#struct bitmapsize,BitmapSize,FT_Bitmap_Size,height,Int16,width,Int16,size,Pos,x_ppem,Pos,y_ppem,Pos
+#struct generic,Generic,FT_Generic,data,Ptr (),finalizer,FinalizerPtr ()
+#struct matrix,Matrix,FT_Matrix,xx,Fixed,xy,Fixed,yx,Fixed,yy,Fixed
+#struct memory,MemoryRec,struct FT_MemoryRec_,user,Ptr(),alloc,FunPtr AllocFunc,free,FunPtr FreeFunc,realloc,FunPtr ReallocFunc
+#struct sizemetrics,SizeMetrics,FT_Size_Metrics,x_ppem,Word16,y_ppem,Word16,x_scale,Fixed,y_scale,Fixed,ascender,Pos,descender,Pos,height,Pos,max_advance,Pos
+#struct size,SizeRec,FT_SizeRec,face,Ptr FaceRec,generic,Generic,metrics,SizeMetrics,internal,Ptr SizeInternalRec
+#struct sizerequest,SizeRequestRec,FT_Size_RequestRec,type,SizeRequestType,width,Int32,height,Int32,horiResolution,Word32,vertResolution,Word32
+#struct vector,Vector,FT_Vector,x,Pos,y,Pos
 
 -- | Given a foreign ptr and a ptr, produces a foreign ptr that has the same finalizers as the first, but now
 -- pointing at the target value. Holding this foreign ptr will keep the original alive and vice versa.
@@ -233,39 +219,6 @@ pattern FREETYPE_MINOR = (#const FREETYPE_MINOR) :: Int
 pattern FREETYPE_PATCH = (#const FREETYPE_PATCH) :: Int
 #endif
 
-data Generic = Generic
-  { generic_data      :: Ptr ()
-  , generic_finalizer :: FinalizerPtr ()
-  } deriving (Eq,Show)
-
-instance Storable Generic where
-  sizeOf _ = #size FT_Generic
-  alignment _ = #alignment FT_Generic
-  peek p = Generic
-    <$> (#peek FT_Generic, data) p
-    <*> (#peek FT_Generic, finalizer) p
-  poke p Generic{..} = do
-    (#poke FT_Generic, data) p generic_data
-    (#poke FT_Generic, finalizer) p generic_finalizer
-
-data Matrix = Matrix
-  { matrix_xx, matrix_xy
-  , matrix_yx, matrix_yy :: Fixed
-  } deriving (Eq,Show)
-
-instance Storable Matrix where
-  sizeOf _    = #size FT_Matrix
-  alignment _ = #alignment FT_Matrix
-  peek ptr = Matrix
-    <$> (#peek FT_Matrix, xx) ptr
-    <*> (#peek FT_Matrix, xy) ptr
-    <*> (#peek FT_Matrix, yx) ptr
-    <*> (#peek FT_Matrix, yy) ptr
-  poke ptr Matrix{..} = do
-    (#poke FT_Matrix, xx) ptr matrix_xx
-    (#poke FT_Matrix, xy) ptr matrix_xy
-    (#poke FT_Matrix, yx) ptr matrix_yx
-    (#poke FT_Matrix, yy) ptr matrix_yy
 
 type GlyphSlot = ForeignPtr GlyphSlotRec
 data GlyphSlotRec
@@ -286,85 +239,12 @@ type FreeFunc = Memory -> Ptr () -> IO ()
 type ReallocFunc = Memory -> CLong -> CLong -> Ptr () -> IO (Ptr ())
 
 type Memory = ForeignPtr MemoryRec
-data MemoryRec = MemoryRec
-  { memory_user :: Ptr ()
-  , memory_alloc :: FunPtr AllocFunc
-  , memory_free :: FunPtr FreeFunc
-  , memory_realloc :: FunPtr ReallocFunc
-  } deriving (Eq,Show)
 
-instance Storable MemoryRec where
-  sizeOf _ = #size struct FT_MemoryRec_
-  alignment _ = #alignment struct FT_MemoryRec_
-  peek p = MemoryRec
-    <$> (#peek struct FT_MemoryRec_, user) p
-    <*> (#peek struct FT_MemoryRec_, alloc) p
-    <*> (#peek struct FT_MemoryRec_, free) p
-    <*> (#peek struct FT_MemoryRec_, realloc) p
-  poke p MemoryRec{..} = do
-    (#poke struct FT_MemoryRec_, user) p memory_user
-    (#poke struct FT_MemoryRec_, alloc) p memory_alloc
-    (#poke struct FT_MemoryRec_, free) p memory_free
-    (#poke struct FT_MemoryRec_, realloc) p memory_realloc
-
-data SizeMetrics = SizeMetrics
-  { sizemetrics_x_ppem
-  , sizemetrics_y_ppem :: Word16
-  , sizemetrics_x_scale
-  , sizemetrics_y_scale :: Fixed
-  , sizemetrics_ascender
-  , sizemetrics_descender
-  , sizemetrics_height
-  , sizemetrics_max_advance :: Pos
-  } deriving (Eq,Show)
-
-instance Storable SizeMetrics where
-  sizeOf _ = #size FT_Size_Metrics
-  alignment _ = #alignment FT_Size_Metrics
-  peek p = SizeMetrics
-    <$> (#peek FT_Size_Metrics, x_ppem) p
-    <*> (#peek FT_Size_Metrics, y_ppem) p
-    <*> (#peek FT_Size_Metrics, x_scale) p
-    <*> (#peek FT_Size_Metrics, y_scale) p
-    <*> (#peek FT_Size_Metrics, ascender) p
-    <*> (#peek FT_Size_Metrics, descender) p
-    <*> (#peek FT_Size_Metrics, height) p
-    <*> (#peek FT_Size_Metrics, max_advance) p
-  poke p SizeMetrics{..} = do
-    (#poke FT_Size_Metrics, x_ppem) p sizemetrics_x_ppem
-    (#poke FT_Size_Metrics, y_ppem) p sizemetrics_y_ppem
-    (#poke FT_Size_Metrics, x_scale) p sizemetrics_x_scale
-    (#poke FT_Size_Metrics, y_scale) p sizemetrics_y_scale
-    (#poke FT_Size_Metrics, ascender) p sizemetrics_ascender
-    (#poke FT_Size_Metrics, descender) p sizemetrics_descender
-    (#poke FT_Size_Metrics, height) p sizemetrics_height
-    (#poke FT_Size_Metrics, max_advance) p sizemetrics_max_advance
 
 data SizeInternalRec
+type Size = ForeignPtr SizeRec
 
 type Pos = Int32
-
-type Size = ForeignPtr SizeRec
-data SizeRec = SizeRec
-  { size_face     :: Ptr FaceRec
-  , size_generic  :: Generic
-  , size_metrics  :: SizeMetrics
-  , size_internal :: Ptr SizeInternalRec
-  } deriving (Eq,Show)
-
-instance Storable SizeRec where
-  sizeOf _ = #size FT_SizeRec
-  alignment _ = #alignment FT_SizeRec
-  peek p = SizeRec
-    <$> (#peek FT_SizeRec, face) p
-    <*> (#peek FT_SizeRec, generic) p
-    <*> (#peek FT_SizeRec, metrics) p
-    <*> (#peek FT_SizeRec, internal) p
-  poke p SizeRec{..} = do
-    (#poke FT_SizeRec, face) p size_face
-    (#poke FT_SizeRec, generic) p size_generic
-    (#poke FT_SizeRec, metrics) p size_metrics
-    (#poke FT_SizeRec, internal) p size_internal
 
 newtype SizeRequestType = SizeRequestType Int32 deriving newtype (Eq,Show,Storable,Prim)
 
@@ -393,43 +273,6 @@ newtype PixelMode = PixelMode Int32 deriving newtype (Eq,Show,Storable,Prim)
 
 type SizeRequest = Ptr SizeRequestRec
 
-data SizeRequestRec = SizeRequestRec
-  { sizerequest_type  :: SizeRequestType
-  , sizerequest_width
-  , sizerequest_height :: Int32
-  , sizerequest_horiResolution
-  , sizerequest_vertResolution :: Word32
-  } deriving (Eq,Show)
-
-instance Storable SizeRequestRec where
-  sizeOf    _ = #size FT_Size_RequestRec
-  alignment _ = #alignment FT_Size_RequestRec
-  peek ptr = SizeRequestRec
-    <$> (#peek FT_Size_RequestRec, type) ptr
-    <*> (#peek FT_Size_RequestRec, width) ptr
-    <*> (#peek FT_Size_RequestRec, height) ptr
-    <*> (#peek FT_Size_RequestRec, horiResolution) ptr
-    <*> (#peek FT_Size_RequestRec, vertResolution) ptr
-  poke ptr SizeRequestRec{..} = do
-    (#poke FT_Size_RequestRec, type) ptr sizerequest_type
-    (#poke FT_Size_RequestRec, width) ptr sizerequest_width
-    (#poke FT_Size_RequestRec, height) ptr sizerequest_height
-    (#poke FT_Size_RequestRec, horiResolution) ptr sizerequest_horiResolution
-    (#poke FT_Size_RequestRec, vertResolution) ptr sizerequest_vertResolution
-
-data Vector = Vector
-  { vector_x, vector_y :: Pos
-  } deriving (Eq, Show)
-
-instance Storable Vector where
-  sizeOf _    = #size FT_Vector
-  alignment _ = #alignment FT_Vector
-  peek ptr = Vector
-    <$> (#peek FT_Vector, x) ptr
-    <*> (#peek FT_Vector, y) ptr
-  poke ptr Vector{..} = do
-    (#poke FT_Vector, x) ptr vector_x
-    (#poke FT_Vector, y) ptr vector_y
 
 C.context $ C.baseCtx <> mempty
   { C.ctxTypesTable = Map.fromList
