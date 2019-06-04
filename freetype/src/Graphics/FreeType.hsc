@@ -96,7 +96,19 @@ module Graphics.FreeType
 , get_kerning
 
 , has_fixed_sizes
+, has_color
 , has_multiple_masters
+, has_horizontal
+, has_vertical
+, has_glyph_names
+
+, is_sfnt
+, is_scalable
+, is_fixed_width
+, is_cid_keyed
+, is_tricky
+, is_named_instance
+, is_variation
 
 -- ** GlyphSlots
 , GlyphSlot
@@ -235,8 +247,7 @@ load_glyph face glyph_index load_flags = liftIO $ [C.exp|FT_Error { FT_Load_Glyp
 
 -- | Returns whether the face object contains kerning data that can be accessed with 'get_kerning'
 has_fixed_sizes :: MonadIO m => Face -> m Bool
-has_fixed_sizes face = liftIO $ do
-  [C.exp|int { FT_HAS_FIXED_SIZES($face:face) }|] <&> (/=0)
+has_fixed_sizes face = liftIO $ [C.exp|int { FT_HAS_FIXED_SIZES($face:face) }|] <&> (/=0)
 
 --face_fixed_sizes :: MonadIO m => Face -> m (Maybe [BitmapSize])
 --face_fixed_sizes = liftIO $ withForeignPtr
@@ -258,6 +269,39 @@ get_kerning face left_glyph right_glyph (KerningMode kern_mode) = liftIO $
       )
     }|] >>= ok
     peek v
+
+has_horizontal :: MonadIO m => Face -> m Bool
+has_horizontal face = liftIO $ [C.exp|int { FT_HAS_HORIZONTAL($face:face) }|] <&> (/=0)
+
+has_vertical :: MonadIO m => Face -> m Bool
+has_vertical face = liftIO $ [C.exp|int { FT_HAS_VERTICAL($face:face) }|] <&> (/=0)
+
+has_glyph_names :: MonadIO m => Face -> m Bool
+has_glyph_names face = liftIO $ [C.exp|int { FT_HAS_GLYPH_NAMES($face:face) }|] <&> (/=0)
+
+is_sfnt :: MonadIO m => Face -> m Bool
+is_sfnt face = liftIO $ [C.exp|int { FT_IS_SFNT($face:face) }|] <&> (/=0)
+
+is_scalable :: MonadIO m => Face -> m Bool
+is_scalable face = liftIO $ [C.exp|int { FT_IS_SCALABLE($face:face) }|] <&> (/=0)
+
+is_fixed_width :: MonadIO m => Face -> m Bool
+is_fixed_width face = liftIO $ [C.exp|int { FT_IS_FIXED_WIDTH($face:face) }|] <&> (/=0)
+
+is_cid_keyed :: MonadIO m => Face -> m Bool
+is_cid_keyed face = liftIO $ [C.exp|int { FT_IS_CID_KEYED($face:face) }|] <&> (/=0)
+
+is_tricky :: MonadIO m => Face -> m Bool
+is_tricky face = liftIO $ [C.exp|int { FT_IS_TRICKY($face:face) }|] <&> (/=0)
+
+is_named_instance :: MonadIO m => Face -> m Bool
+is_named_instance face = liftIO $ [C.exp|int { FT_IS_NAMED_INSTANCE($face:face) }|] <&> (/=0)
+
+is_variation :: MonadIO m => Face -> m Bool
+is_variation face = liftIO $ [C.exp|int { FT_IS_VARIATION($face:face) }|] <&> (/=0)
+
+has_color :: MonadIO m => Face -> m Bool
+has_color face = liftIO $ [C.exp|int { FT_HAS_COLOR($face:face) }|] <&> (/=0)
 
 face_glyph :: MonadIO m => Face -> m GlyphSlot
 face_glyph face = liftIO $ childPtr face <$> [C.exp|FT_GlyphSlot { $face:face->glyph }|]
