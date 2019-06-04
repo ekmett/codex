@@ -90,6 +90,18 @@ module Graphics.FreeType.Internal
 , MemoryRec(..)
 , AllocFunc, FreeFunc, ReallocFunc
 
+, PixelMode
+  ( PixelMode
+  , PIXEL_MODE_NONE
+  , PIXEL_MODE_MONO
+  , PIXEL_MODE_GRAY
+  , PIXEL_MODE_GRAY2
+  , PIXEL_MODE_GRAY4
+  , PIXEL_MODE_LCD
+  , PIXEL_MODE_LCD_V
+  , PIXEL_MODE_BGRA
+  )
+
 , Pos
 
 , RenderMode
@@ -150,6 +162,19 @@ pattern ANGLE_PI  = Fixed (#const FT_ANGLE_PI)
 pattern ANGLE_2PI = Fixed (#const FT_ANGLE_2PI)
 pattern ANGLE_PI2 = Fixed (#const FT_ANGLE_PI2)
 pattern ANGLE_PI4 = Fixed (#const FT_ANGLE_PI4)
+
+{-
+data Bitmap = Bitmap
+  { bitmap_rows
+  , bitmap_width
+  , bitmap_pitch
+  , bitmap_buffer
+  , bitmap_num_grays
+  , bitmap_pixel_mode
+  , bitmap_palette_mode
+  , bitmap_palette
+  } deriving (Eq,Show)
+-}
 
 data BitmapSize = BitmapSize
   { bitmapsize_height
@@ -355,6 +380,16 @@ newtype RenderMode = RenderMode Int32 deriving newtype (Eq,Show,Storable,Prim)
 #pattern RENDER_MODE_MONO, RenderMode
 #pattern RENDER_MODE_LCD, RenderMode
 #pattern RENDER_MODE_LCD_V, RenderMode
+
+newtype PixelMode = PixelMode Int32 deriving newtype (Eq,Show,Storable,Prim)
+#pattern PIXEL_MODE_NONE, PixelMode
+#pattern PIXEL_MODE_MONO, PixelMode
+#pattern PIXEL_MODE_GRAY, PixelMode
+#pattern PIXEL_MODE_GRAY2, PixelMode
+#pattern PIXEL_MODE_GRAY4, PixelMode
+#pattern PIXEL_MODE_LCD, PixelMode
+#pattern PIXEL_MODE_LCD_V, PixelMode
+#pattern PIXEL_MODE_BGRA, PixelMode
 
 type SizeRequest = Ptr SizeRequestRec
 
