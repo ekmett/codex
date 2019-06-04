@@ -17,7 +17,7 @@ static void * alloc_func(FT_Memory memory, long size) {
 }
 
 static void free_func(FT_Memory memory, void * block) {
-  free(block);
+  if (block != memory) free(block);
 }
 
 static void * realloc_func(FT_Memory memory, long cur_size, long new_size, void * block) {
@@ -30,3 +30,4 @@ struct FT_MemoryRec_ hs_memory = {
   free_func,
   realloc_func
 };
+
