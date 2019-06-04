@@ -367,9 +367,7 @@ foreignFace :: Ptr FaceRec -> IO Face
 foreignFace = newForeignPtr
   [C.funPtr|
     void free_face(FT_Face f) {
-      puts("freeing face");
       FT_Done_Face(f);
-      puts("freed face");
     }
   |]
 
@@ -377,16 +375,12 @@ foreignFace = newForeignPtr
 foreignLibrary :: Ptr LibraryRec -> IO Library
 foreignLibrary = newForeignPtr
   [C.funPtr| void free_library(FT_Library l) {
-    puts("freeing library");
     FT_Done_Library(l);
-    puts("freed library");
   }|]
 
 finalizeLibrary :: FinalizerPtr ()
 finalizeLibrary = [C.funPtr| void finalize_library(void * l) {
-    puts("finalizing library");
     FT_Done_Library((FT_Library)l);
-    puts("finalized library");
   }|]
 
 freeTypeCtx :: C.Context

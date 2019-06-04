@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <memory.h>
 #include "ft.h"
+#include FT_MODULE_H
 
 const char * hs_get_error_string(FT_Error e) {
 #undef FTERRORS_H_
@@ -31,3 +32,9 @@ struct FT_MemoryRec_ hs_memory = {
   realloc_func
 };
 
+void finalize_memory_face_data(void * l) {
+  memory_face_data * d = (memory_face_data*)l;
+  free((void*)(d->data));
+  FT_Done_Library(d->lib);
+  free(l);
+}

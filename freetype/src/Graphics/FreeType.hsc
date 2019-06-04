@@ -204,7 +204,6 @@ new_face library path (fromIntegral -> i) = liftIO $
         FT_Face f = *p;
         f->generic.data = lib;
         f->generic.finalizer = $(FT_Generic_Finalizer finalizeLibrary);
-        puts("referencing library");
         FT_Reference_Library(lib);
       }
       return error;
@@ -219,13 +218,15 @@ new_memory_face library base (fromIntegral -> i) = liftIO $
       FT_Library lib = $library:library;
       FT_Face * p = $(FT_Face * p);
       int len = $bs-len:base;
-      const char * bs = strndup($bs-ptr:base,len); /* we leak this forever. TODO: fix generic.data */
+      const char * bs = strndup($bs-ptr:base,len);
       FT_Error error = FT_New_Memory_Face(lib,bs,len,$(FT_Long i),p);
       if (!error) {
         FT_Face f = *p;
-        f->generic.data = lib;
-        f->generic.finalizer = $(FT_Generic_Finalizer finalizeLibrary);
-        puts("referencing library");
+        memory_face_data * d = (memory_face_data*)malloc(sizeof(memory_face_data));
+        d->lib = lib;
+        d->data = bs;
+        f->generic.data = d;
+        f->generic.finalizer = finalize_memory_face_data;
         FT_Reference_Library(lib);
       }
       return error;
