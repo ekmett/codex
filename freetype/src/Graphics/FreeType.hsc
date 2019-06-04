@@ -196,7 +196,7 @@ C.include "ft.h"
 new_face :: MonadIO m => Library -> FilePath -> Int -> m Face
 new_face library path (fromIntegral -> i) = liftIO $
   alloca $ \p -> do
-    [C.block|FT_Error { 
+    [C.block|FT_Error {
       FT_Library lib = $library:library;
       FT_Face * p = $(FT_Face * p);
       FT_Error error = FT_New_Face($library:library,$str:path,$(FT_Long i),p);
@@ -246,7 +246,7 @@ reference_face face = liftIO $
 -- For the most part this should already be done for you through the API provided in Haskell,
 -- but you may need this if you claim ownership of a face from another library.
 done_face :: MonadIO m => Face -> m ()
-done_face face = liftIO $ [C.exp|FT_Error { FT_Done_Face($face:face)}|] >>= ok
+done_face face = liftIO $ [C.exp|FT_Error { FT_Done_Face($face:face) }|] >>= ok
 
 get_char_index :: MonadIO m => Face -> Word32 -> m Word32
 get_char_index face c = liftIO [C.exp|FT_UInt { FT_Get_Char_Index($face:face,$(FT_ULong c)) }|]
