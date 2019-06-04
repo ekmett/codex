@@ -179,6 +179,7 @@ import Foreign.Storable
 import Graphics.FreeType.Internal
 import qualified Language.C.Inline as C
 import Numeric.Fixed
+import System.Mem.Weak.ForeignPtr
 
 C.context $ C.baseCtx <> C.bsCtx <> C.fptrCtx <> freeTypeCtx
 C.include "<ft2build.h>"
@@ -196,45 +197,24 @@ C.include "ft.h"
 new_face :: MonadIO m => Library -> FilePath -> Int -> m Face
 new_face library path (fromIntegral -> i) = liftIO $
   alloca $ \p -> do
-    [C.block|FT_Error {
-      FT_Library lib = $library:library;
-      FT_Face * p = $(FT_Face * p);
-      FT_Error error = FT_New_Face($library:library,$str:path,$(FT_Long i),p);
-      if (!error) {
-        FT_Face f = *p;
-        memory_face_data * d = (memory_face_data*)malloc(sizeof(memory_face_data));
-        d->lib = lib;
-        d->data = NULL;
-        f->generic.data = d;
-        f->generic.finalizer = NULL; // finalize_memory_face_data;
-        FT_Reference_Library(lib);
-      }
-      return error;
+    [C.exp|FT_Error {
+      FT_New_Face($library:library,$str:path,$(FT_Long i),$(FT_Face * p))
     }|] >>= ok
-    peek p >>= foreignFace
+    reference_library library
+    face <- peek p >>= foreignFace
+    face <$ mkWeakForeignPtrPtr face (Just $ done_library library)
+
 
 -- | Uses the generic data facility to hold on to a reference to the library.
 new_memory_face :: MonadIO m => Library -> ByteString -> Int -> m Face
 new_memory_face library base (fromIntegral -> i) = liftIO $
   alloca $ \p -> do
-    [C.block|FT_Error {
-      FT_Library lib = $library:library;
-      FT_Face * p = $(FT_Face * p);
-      int len = $bs-len:base;
-      const char * bs = strndup($bs-ptr:base,len);
-      FT_Error error = FT_New_Memory_Face(lib,bs,len,$(FT_Long i),p);
-      if (!error) {
-        FT_Face f = *p;
-        memory_face_data * d = (memory_face_data*)malloc(sizeof(memory_face_data));
-        d->lib = lib;
-        d->data = bs;
-        f->generic.data = d;
-        f->generic.finalizer = NULL; // finalize_memory_face_data;
-        FT_Reference_Library(lib);
-      }
-      return error;
+    [C.exp|FT_Error {
+      FT_New_Memory_Face($library:library,$bs-ptr:base,$bs-len:base,$(FT_Long i),$(FT_Face * p))
     }|] >>= ok
-    peek p >>= foreignFace
+    reference_library library
+    face <- peek p >>= foreignFace
+    face <$ mkWeakForeignPtr face base (Just $ done_library library)
 
 -- | Add a reference to a face
 --

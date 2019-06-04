@@ -82,7 +82,6 @@ module Graphics.FreeType.Internal
 , Library
 , LibraryRec
 , foreignLibrary
-, finalizeLibrary
 , pattern FREETYPE_MAJOR
 , pattern FREETYPE_MINOR
 , pattern FREETYPE_PATCH
@@ -365,26 +364,10 @@ instance Default Vector where
   def = Vector 0 0
 
 foreignFace :: Ptr FaceRec -> IO Face
-foreignFace = newForeignPtr
-  [C.funPtr|
-    void free_face(FT_Face f) {
-      void * d = f->generic.data;
-      FT_Done_Face(f);
-      finalize_memory_face_data(d); // we have to clean ourselves after freetype has let go of the face =(
-    }
-  |]
+foreignFace = newForeignPtr [C.funPtr| void free_face(FT_Face f) { FT_Done_Face(f); } |] 
 
--- | Assumes we are using @FT_New_Library@ management rather than @FT_Init_FreeType@ management
 foreignLibrary :: Ptr LibraryRec -> IO Library
-foreignLibrary = newForeignPtr
-  [C.funPtr| void free_library(FT_Library l) {
-    FT_Done_Library(l);
-  }|]
-
-finalizeLibrary :: FinalizerPtr ()
-finalizeLibrary = [C.funPtr| void finalize_library(void * l) {
-    FT_Done_Library((FT_Library)l);
-  }|]
+foreignLibrary = newForeignPtr [C.funPtr| void free_library(FT_Library l) { FT_Done_Library(l); }|]
 
 freeTypeCtx :: C.Context
 freeTypeCtx = mempty
