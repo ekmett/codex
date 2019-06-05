@@ -57,7 +57,7 @@ main = do
 
   library <- init_library
   face <- new_face library "test/fonts/Sanskrit2003.ttf" 0
-  font <- hb_ft_font_create_referenced face
+  font <- hb_ft_font_create face
 
   ta <- new_texture_atlas 1024 1024
 
