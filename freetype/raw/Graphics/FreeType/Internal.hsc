@@ -30,18 +30,17 @@
 -- Portability: non-portable
 --
 
-#ifndef HLINT
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include FT_MODULE_H
 #include FT_SYSTEM_H
+#include FT_GLYPH_H
 #include FT_TYPES_H
 #include FT_TRIGONOMETRY_H
 #include "ft.h"
 #include "hsc-err.h"
 #include "hsc-struct.h"
 #let pattern n,t = "pattern %s = %s (%d)",#n,#t,(int)(FT_ ## n)
-#endif
 
 module Graphics.FreeType.Internal
 (
@@ -54,22 +53,40 @@ module Graphics.FreeType.Internal
 , angleDiff
 
 , Bitmap(..)
+, BitmapGlyph
+, BitmapGlyphRec(..)
 , BitmapSize(..)
 
 , Error
   ( Error
-#ifndef HLINT
 #err_exports
-#endif
   )
 , ok
 
-, Face
-, FaceRec
+, Face, FaceRec
 , foreignFace
 
 , Generic(..)
 
+, Glyph, GlyphRec(..)
+
+, GlyphBBoxMode
+  ( GlyphBBoxMode
+  , GLYPH_BBOX_UNSCALED
+  , GLYPH_BBOX_SUBPIXELS
+  , GLYPH_BBOX_GRIDFIT
+  , GLYPH_BBOX_TRUNCATE
+  , GLYPH_BBOX_PIXELS
+  )
+, GlyphClass
+, GlyphFormat
+  ( GlyphFormat
+  , GLYPH_FORMAT_NONE
+  , GLYPH_FORMAT_COMPOSITE
+  , GLYPH_FORMAT_BITMAP
+  , GLYPH_FORMAT_OUTLINE
+  , GLYPH_FORMAT_PLOTTER
+  )
 , GlyphSlot
 , GlyphSlotRec
 
@@ -79,8 +96,7 @@ module Graphics.FreeType.Internal
   , KERNING_UNFITTED
   , KERNING_UNSCALED
   )
-, Library
-, LibraryRec
+, Library, LibraryRec
 , foreignLibrary
 , pattern FREETYPE_MAJOR
 , pattern FREETYPE_MINOR
@@ -115,6 +131,22 @@ module Graphics.FreeType.Internal
 , MemoryRec(..)
 , AllocFunc, FreeFunc, ReallocFunc
 
+
+, Outline(..)
+, OutlineFlags
+  ( OutlineFlags
+  , OUTLINE_NONE
+  , OUTLINE_OWNER
+  , OUTLINE_EVEN_ODD_FILL
+  , OUTLINE_REVERSE_FILL
+  , OUTLINE_IGNORE_DROPOUTS
+  , OUTLINE_SMART_DROPOUTS
+  , OUTLINE_INCLUDE_STUBS
+  , OUTLINE_HIGH_PRECISION
+  , OUTLINE_SINGLE_PASS
+  )
+, OutlineGlyph, OutlineGlyphRec(..)
+
 , PixelMode
   ( PixelMode
   , PIXEL_MODE_NONE
@@ -138,13 +170,11 @@ module Graphics.FreeType.Internal
   , RENDER_MODE_LCD_V
   )
 
-, Size
-, SizeRec(..)
+, Size, SizeRec(..)
 , SizeMetrics(..)
 , SizeInternalRec
 
-, SizeRequest
-, SizeRequestRec(..)
+, SizeRequest, SizeRequestRec(..)
 , SizeRequestType
   ( SizeRequestType
   , SIZE_REQUEST_TYPE_NOMINAL
@@ -189,11 +219,19 @@ pattern ANGLE_2PI = Fixed (#const FT_ANGLE_2PI)
 pattern ANGLE_PI2 = Fixed (#const FT_ANGLE_PI2)
 pattern ANGLE_PI4 = Fixed (#const FT_ANGLE_PI4)
 
+type Glyph = ForeignPtr GlyphRec
+type BitmapGlyph = ForeignPtr BitmapGlyphRec
+type OutlineGlyph = ForeignPtr OutlineGlyphRec
+
 #struct bitmap,Bitmap,FT_Bitmap,rows,Word32,width,Word32,pitch,Int32,buffer,Ptr Word8,num_grays,Word16,pixel_mode,Word8,palette_mode,Word8,palette,Ptr()
+#struct bitmapglyph,BitmapGlyphRec,FT_BitmapGlyphRec, root,GlyphRec,left,Int32,top,Int32,bitmap,Bitmap
 #struct bitmapsize,BitmapSize,FT_Bitmap_Size,height,Int16,width,Int16,size,Pos,x_ppem,Pos,y_ppem,Pos
 #struct generic,Generic,FT_Generic,data,Ptr (),finalizer,FinalizerPtr ()
+#struct glyph,GlyphRec,FT_GlyphRec,library,Ptr Library,clazz,Ptr GlyphClass,format,GlyphFormat,advance,Vector
 #struct matrix,Matrix,FT_Matrix,xx,Fixed,xy,Fixed,yx,Fixed,yy,Fixed
 #struct memory,MemoryRec,struct FT_MemoryRec_,user,Ptr(),alloc,FunPtr AllocFunc,free,FunPtr FreeFunc,realloc,FunPtr ReallocFunc
+#struct outline,Outline,FT_Outline,n_contours,Word16,n_points,Word16,points,Ptr Vector,tags,Ptr Word8,contours,Ptr Word16,flags,Int32
+#struct outlineglyph,OutlineGlyphRec,FT_OutlineGlyphRec, root,GlyphRec,outline,Outline
 #struct sizemetrics,SizeMetrics,FT_Size_Metrics,x_ppem,Word16,y_ppem,Word16,x_scale,Fixed,y_scale,Fixed,ascender,Pos,descender,Pos,height,Pos,max_advance,Pos
 #struct size,SizeRec,FT_SizeRec,face,Ptr FaceRec,generic,Generic,metrics,SizeMetrics,internal,Ptr SizeInternalRec
 #struct sizerequest,SizeRequestRec,FT_Size_RequestRec,type,SizeRequestType,width,Int32,height,Int32,horiResolution,Word32,vertResolution,Word32
@@ -209,9 +247,7 @@ childPtr fp p = fp `plusForeignPtr` minusPtr p (unsafeForeignPtrToPtr fp)
 -- | By convention the library will throw any non-0 FT_Error encountered.
 newtype Error = Error CInt deriving newtype (Eq,Ord,Show,Storable)
 
-#ifndef HLINT
 #err_patterns
-#endif
 
 foreign import ccall unsafe "ft.h" hs_get_error_string :: Error -> CString
 
@@ -226,12 +262,9 @@ ok e = throwIO e
 type Face = ForeignPtr FaceRec
 data FaceRec
 
-#ifndef HLINT
 pattern FREETYPE_MAJOR = (#const FREETYPE_MAJOR) :: Int
 pattern FREETYPE_MINOR = (#const FREETYPE_MINOR) :: Int
 pattern FREETYPE_PATCH = (#const FREETYPE_PATCH) :: Int
-#endif
-
 
 type GlyphSlot = ForeignPtr GlyphSlotRec
 data GlyphSlotRec
@@ -243,6 +276,17 @@ newtype KerningMode = KerningMode Word32 deriving (Eq,Ord,Show)
 #pattern KERNING_DEFAULT, KerningMode
 #pattern KERNING_UNFITTED, KerningMode
 #pattern KERNING_UNSCALED, KerningMode
+
+data GlyphClass
+newtype GlyphFormat = GlyphFormat Int32
+  deriving Show
+  deriving newtype (Eq,Ord,Storable)
+
+#pattern GLYPH_FORMAT_NONE, GlyphFormat
+#pattern GLYPH_FORMAT_COMPOSITE, GlyphFormat
+#pattern GLYPH_FORMAT_BITMAP, GlyphFormat
+#pattern GLYPH_FORMAT_OUTLINE, GlyphFormat
+#pattern GLYPH_FORMAT_PLOTTER, GlyphFormat
 
 type Library = ForeignPtr LibraryRec
 data LibraryRec
@@ -267,7 +311,7 @@ newtype SizeRequestType = SizeRequestType Int32 deriving newtype (Eq,Show,Storab
 #pattern SIZE_REQUEST_TYPE_CELL, SizeRequestType
 #pattern SIZE_REQUEST_TYPE_SCALES, SizeRequestType
 
-newtype LoadFlags = LoadFlags Int32 deriving newtype (Eq,Show,Storable,Bits)
+newtype LoadFlags = LoadFlags Int32 deriving newtype (Eq,Show,Storable,Prim,Bits)
 #pattern LOAD_DEFAULT, LoadFlags
 #pattern LOAD_NO_SCALE, LoadFlags
 #pattern LOAD_NO_HINTING, LoadFlags
@@ -288,6 +332,17 @@ newtype LoadFlags = LoadFlags Int32 deriving newtype (Eq,Show,Storable,Bits)
 #pattern LOAD_BITMAP_METRICS_ONLY, LoadFlags
 instance Default LoadFlags where def = LOAD_DEFAULT
 
+newtype OutlineFlags = OutlineFlags Int32 deriving newtype (Eq,Show,Storable,Prim,Bits)
+#pattern OUTLINE_NONE, OutlineFlags
+#pattern OUTLINE_OWNER, OutlineFlags
+#pattern OUTLINE_EVEN_ODD_FILL, OutlineFlags
+#pattern OUTLINE_REVERSE_FILL, OutlineFlags
+#pattern OUTLINE_IGNORE_DROPOUTS, OutlineFlags
+#pattern OUTLINE_SMART_DROPOUTS, OutlineFlags
+#pattern OUTLINE_INCLUDE_STUBS, OutlineFlags
+#pattern OUTLINE_HIGH_PRECISION, OutlineFlags
+#pattern OUTLINE_SINGLE_PASS, OutlineFlags
+
 newtype RenderMode = RenderMode Int32 deriving newtype (Eq,Show,Storable,Prim)
 #pattern RENDER_MODE_NORMAL, RenderMode
 #pattern RENDER_MODE_LIGHT, RenderMode
@@ -305,6 +360,13 @@ newtype PixelMode = PixelMode Int32 deriving newtype (Eq,Show,Storable,Prim)
 #pattern PIXEL_MODE_LCD, PixelMode
 #pattern PIXEL_MODE_LCD_V, PixelMode
 #pattern PIXEL_MODE_BGRA, PixelMode
+
+newtype GlyphBBoxMode = GlyphBBoxMode Int32 deriving newtype (Eq,Show,Storable,Prim)
+#pattern GLYPH_BBOX_UNSCALED, GlyphBBoxMode
+#pattern GLYPH_BBOX_SUBPIXELS, GlyphBBoxMode
+#pattern GLYPH_BBOX_GRIDFIT, GlyphBBoxMode
+#pattern GLYPH_BBOX_TRUNCATE, GlyphBBoxMode
+#pattern GLYPH_BBOX_PIXELS, GlyphBBoxMode
 
 type SizeRequest = Ptr SizeRequestRec
 
@@ -372,11 +434,20 @@ foreignLibrary = newForeignPtr [C.funPtr| void free_library(FT_Library l) { FT_D
 freeTypeCtx :: C.Context
 freeTypeCtx = mempty
   { C.ctxTypesTable = Map.fromList
-    [ (C.TypeName "FT_Error",              [t|Error|])
+    [ (C.TypeName "FT_Bitmap",             [t|Bitmap|])
+    , (C.TypeName "FT_BitmapGlyph",        [t|Ptr BitmapGlyphRec|])
+    , (C.TypeName "FT_BitmapGlyphRec",     [t|BitmapGlyphRec|])
+    , (C.Struct   "FT_BitmapGlyphRec",     [t|BitmapGlyphRec|])
+    , (C.TypeName "FT_Error",              [t|Error|])
     , (C.TypeName "FT_Face",               [t|Ptr FaceRec|])
     , (C.TypeName "FT_FaceRec_",           [t|FaceRec|])
     , (C.TypeName "FT_Generic",            [t|Generic|])
     , (C.TypeName "FT_Generic_Finalizer",  [t|FinalizerPtr ()|])
+    , (C.TypeName "FT_Glyph",              [t|Ptr GlyphRec|])
+    , (C.TypeName "FT_GlyphRec",           [t|GlyphRec|])
+    , (C.Struct   "FT_GlyphRec_",          [t|GlyphRec|])
+    , (C.TypeName "FT_Glyph_Format",       [t|GlyphFormat|])
+    , (C.Enum     "FT_Glyph_Format_",      [t|GlyphFormat|])
     , (C.TypeName "FT_GlyphSlot",          [t|Ptr GlyphSlotRec|])
     , (C.TypeName "FT_GlyphSlotRec",       [t|GlyphSlotRec|])
     , (C.Struct   "FT_GlyphSlotRec_",      [t|GlyphSlotRec|])
@@ -391,6 +462,10 @@ freeTypeCtx = mempty
     , (C.Struct   "FT_Matrix_",            [t|Matrix|])
     , (C.TypeName "FT_Memory",             [t|Ptr MemoryRec|])
     , (C.TypeName "FT_MemoryRec_",         [t|MemoryRec|])
+    , (C.TypeName "FT_Outline",            [t|Outline|])
+    , (C.TypeName "FT_OutlineGlyph",       [t|Ptr OutlineGlyphRec|])
+    , (C.TypeName "FT_OutlineGlyphRec",    [t|OutlineGlyphRec|])
+    , (C.Struct   "FT_OutlineGlyphRec",    [t|OutlineGlyphRec|])
     , (C.TypeName "FT_Render_Mode",        [t|RenderMode|])
     , (C.Enum     "FT_Render_Mode_",       [t|RenderMode|])
     , (C.TypeName "FT_Size_Internal",      [t|Ptr SizeInternalRec|])

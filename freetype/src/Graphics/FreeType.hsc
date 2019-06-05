@@ -29,7 +29,7 @@ module Graphics.FreeType
 (
 -- * Library
 
-  Library
+  Library, LibraryRec
 
 , init_library
 
@@ -56,7 +56,7 @@ module Graphics.FreeType
 
 -- * Faces
 
-, Face
+, Face, FaceRec
 , new_face
 , new_memory_face
 
@@ -118,8 +118,21 @@ module Graphics.FreeType
 , is_named_instance
 , is_variation
 
+-- * Glyphs
+, Glyph
+, GlyphRec(..)
+, GlyphFormat(..)
+, new_glyph
+-- * Bitmap Glyphs
+, BitmapGlyph
+, BitmapGlyphRec(..)
+-- * Outline Glyphs
+, Outline(..)
+, OutlineGlyph
+, OutlineGlyphRec(..)
+
 -- ** GlyphSlots
-, GlyphSlot
+, GlyphSlot, GlyphSlotRec
 , face_glyph
 , glyphslot_face
 -- diffs
@@ -130,7 +143,7 @@ module Graphics.FreeType
 , glyphslot_bitmap
 , glyphslot_bitmap_left
 , glyphslot_bitmap_top
-, glyphslot_num_subglyphs
+-- , glyphslot_num_subglyphs
 
 , Bitmap(..)
 
@@ -169,7 +182,7 @@ module Graphics.FreeType
 -- , vectorPolarize
 -- , vectorFromPolar
 
-, Generic
+, Generic(..)
 ) where
 
 import Control.Monad.IO.Class
@@ -206,11 +219,30 @@ C.context $ C.baseCtx <> C.bsCtx <> C.fptrCtx <> freeTypeCtx <> mempty
   }
 C.include "<ft2build.h>"
 C.verbatim "#include FT_FREETYPE_H"
+C.verbatim "#include FT_GLYPH_H"
 C.verbatim "#include FT_MODULE_H"
 C.verbatim "#include FT_TYPES_H"
 C.verbatim "#include FT_FONT_FORMATS_H"
 C.include "ft.h"
 C.include "HsFFI.h"
+
+finalize_glyph :: FinalizerEnvPtr LibraryRec GlyphRec
+finalize_glyph = [C.funPtr|void finalize_face(FT_Library l, FT_Glyph f) {
+  FT_Done_Glyph(f);
+  FT_Done_Library(l);
+}|]
+
+-- you should use new_bitmap_glyph or new_outline_glyph, etc.
+new_glyph :: MonadIO m => Library -> GlyphFormat -> m Glyph
+new_glyph library format = liftIO $ do
+  alloca $ \p -> do
+    [C.exp|FT_Error {
+      FT_New_Glyph($library:library,$(FT_Glyph_Format format),$(FT_Glyph * p))
+    }|] >>= ok
+    reference_library library
+    peek p >>= newForeignPtrEnv finalize_glyph (unsafeForeignPtrToPtr library)
+
+-- get_glyph :: MonadIO m => 
 
 finalize_face :: FinalizerEnvPtr LibraryRec FaceRec
 finalize_face = [C.funPtr|void finalize_face(FT_Library l, FT_Face f) {
@@ -408,8 +440,8 @@ face_style_name face = liftIO $ [C.exp|const char * { $face:face->style_name }|]
 #diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_bitmap_left, bitmap_left, Int32
 #diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_bitmap_top, bitmap_top, Int32
 --diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_outline, outline, Outline
-#diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_num_subglyphs, num_subglyphs, Word32
---diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_subglyphs, subglyphs, SubGlyph
+-- #diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_num_subglyphs, num_subglyphs, Word32
+--diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_subglyphs, subglyphs, SubGlyph -- "currently internal to freetype"
 
 -- | This is a suitable form for use as an X11 @FONT_PROPERTY@.
 --
