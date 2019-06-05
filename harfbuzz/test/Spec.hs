@@ -167,7 +167,7 @@ spec = Hspec.after_ performMajorGC $ do
       buffer_script buffer $= SCRIPT_DEVANAGARI
       let text = "हालाँकि प्रचलित रूप पूजा"
       buffer_add_text buffer text 0 (lengthWord16 text)
-      shape font buffer []
+      shape font buffer mempty
       gis <- buffer_get_glyph_infos buffer
       map glyph_info_codepoint gis `shouldBe` [199,548,193,548,559,454,166,2,0,0]
       -- gps <- buffer_get_glyph_positions buffer
