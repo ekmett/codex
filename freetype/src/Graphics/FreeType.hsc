@@ -170,7 +170,6 @@ module Graphics.FreeType
 -- , vectorFromPolar
 
 , Generic
-, stable_generic
 ) where
 
 import Control.Monad.IO.Class
@@ -238,10 +237,6 @@ new_face library path (fromIntegral -> i) = liftIO $
     }|] >>= ok
     reference_library library
     peek p >>= newForeignPtrEnv finalize_face (unsafeForeignPtrToPtr library)
-
--- | make a generic out of a haskell data type such that the haskell data type is kept alive and is freed by the generic
-stable_generic :: MonadIO m => a -> m Generic
-stable_generic a = liftIO $ newStablePtr a <&> \sp -> Generic (castStablePtrToPtr sp) nullFunPtr -- hs_free_stable_ptr
 
 new_memory_face :: MonadIO m => Library -> ByteString -> Int -> m Face
 new_memory_face library bs@(PS bsfp _ _) (fromIntegral -> i) = liftIO $
