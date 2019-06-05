@@ -301,18 +301,19 @@ glyph_copy (act glyph_root -> glyph) = liftIO $
 
 -- get_glyph :: MonadIO m => 
 
-finalize_face :: FinalizerEnvPtr LibraryRec FaceRec
-finalize_face = [C.funPtr|void finalize_face(FT_Library l, FT_Face f) {
+finalize_face :: FinalizerPtr FaceRec
+finalize_face = [C.funPtr|void finalize_face(FT_Face f) {
+  FT_Library lib = f->glyph.library;
   FT_Done_Face(f);
-  FT_Done_Library(l);
+  FT_Done_Library(lib);
 }|]
 
-finalize_memory_face :: FinalizerEnvPtr MemoryFaceEnv FaceRec
-finalize_memory_face = [C.funPtr|void finalize_face(memory_face_env * mfe, FT_Face f) {
+finalize_memory_face :: FinalizerEnvPtr (Ptr ()) FaceRec
+finalize_memory_face = [C.funPtr|void finalize_memory_face(void * stable_ptr, FT_Face f) {
+  FT_Library lib = f->glyph.library;
   FT_Done_Face(f);
-  FT_Done_Library(mfe->lib);
-  hs_free_stable_ptr(mfe->data);
-  free(mfe);
+  hs_free_stable_ptr(stable_ptr);
+  FT_Done_Library(lib);
 }|]
 
 -- | Uses the generic data facility to hold on to a reference to the library.
@@ -325,7 +326,7 @@ new_face library path (fromIntegral -> i) = liftIO $
       FT_New_Face($library:library,$str:path,$(FT_Long i),$(FT_Face * p))
     }|] >>= ok
     reference_library library
-    peek p >>= newForeignPtrEnv finalize_face (unsafeForeignPtrToPtr library)
+    peek p >>= newForeignPtr finalize_face
 
 new_memory_face :: MonadIO m => Library -> ByteString -> Int -> m Face
 new_memory_face library bs@(PS bsfp _ _) (fromIntegral -> i) = liftIO $
@@ -339,14 +340,13 @@ new_memory_face library bs@(PS bsfp _ _) (fromIntegral -> i) = liftIO $
       -- 'fast' path
       ForeignPtr _ (PlainPtr mba) -> do
         -- hack together a MallocPtr that shares our MutableByteArray#
-        newForeignPtrEnv finalize_face (unsafeForeignPtrToPtr library) facePtr <&> \case
+        newForeignPtr finalize_face facePtr <&> \case
           ForeignPtr addr (PlainForeignPtr finalizers) -> ForeignPtr addr (MallocPtr mba finalizers)
           _ -> error "new_memory_face: the impossible happened. newForeignPtr did not return a PlainForeignPtr"
       -- 'sane' path
       _ -> do
         stable <- newStablePtr bsfp
-        env <- new $ MemoryFaceEnv (unsafeForeignPtrToPtr library) (castStablePtrToPtr stable)
-        newForeignPtrEnv finalize_memory_face env facePtr
+        newForeignPtrEnv finalize_memory_face (castStablePtrToPtr stable) facePtr
 
 -- | Add a reference to a face
 --

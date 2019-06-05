@@ -35,7 +35,7 @@ module Data.Atlas.Internal
 , sizeOfRect
 , Pt(..), HasPt(..)
 , peekWH, peekXY
-, pokePts
+, pokeWH, peekMaybeXY
 , boxMaybe
 ) where
 
@@ -112,22 +112,17 @@ peekWH p = (\(w :: Coord) (h :: Coord) -> Pt (fromIntegral w) (fromIntegral h))
   <$> (#peek stbrp_rect, w) p
   <*> (#peek stbrp_rect, h) p
 
+pokeWH :: Ptr Rect -> Pt -> IO ()
+pokeWH p (Pt w h) = do
+  (#poke stbrp_rect, w) p (fromIntegral w :: Coord)
+  (#poke stbrp_rect, h) p (fromIntegral h :: Coord)
+
 peekXY :: Ptr Rect -> IO Pt
 peekXY p = (\(w :: Coord) (h :: Coord) -> Pt (fromIntegral w) (fromIntegral h))
   <$> (#peek stbrp_rect, x) p
   <*> (#peek stbrp_rect, y) p
 
-pokePts :: (a -> Pt) -> Ptr Rect -> [a] -> IO ()
-pokePts f ptr vals0 = go vals0 0 where
-  go ((f -> Pt w h):vals) !i = do
-    let p = plusPtr ptr (i*sizeOfRect)
-    (#poke stbrp_rect, w) p (fromIntegral w :: Coord)
-    (#poke stbrp_rect, h) p (fromIntegral h :: Coord)
-    go vals (i + 1)
-  go []  _ = pure ()
-{-# inline pokePts #-}
-
-boxMaybe :: Ptr Rect -> IO (Maybe Pt)
-boxMaybe p = (#peek stbrp_rect, was_packed) p >>= \case
+peekMaybeXY :: Ptr Rect -> IO (Maybe Pt)
+peekMaybeXY p = (#peek stbrp_rect, was_packed) p >>= \case
   (0 :: CInt) -> pure Nothing
   _ -> Just <$> peekXY p

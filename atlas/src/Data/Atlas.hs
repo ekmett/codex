@@ -21,6 +21,7 @@ module Data.Atlas
 , allowOOM
 -- * Using a context
 , pack
+, pack1
 , Pt(..), HasPt(..)
 ) where
 
@@ -29,6 +30,7 @@ import Control.Monad.Primitive
 import Control.Monad.Trans.State.Strict
 import Data.Atlas.Internal
 import Data.Foldable (toList)
+import Data.Functor.Identity
 import Data.Maybe (fromMaybe)
 import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
@@ -59,9 +61,9 @@ allowOOM :: PrimMonad m => Atlas (PrimState m) -> Bool -> m ()
 allowOOM fp b = unsafeIOToPrim $ withAtlas fp $ \p -> stbrp_setup_allow_out_of_mem p $ fromIntegral $ fromEnum b
 
 pack
-  :: (PrimMonad m, Traversable f)
+  :: (PrimBase m, Traversable f)
   => Atlas (PrimState m)
-  -> (a -> Pt) -- extract extents
+  -> (a -> m Pt) -- extract extents
   -> (a -> Maybe Pt -> b) -- report a mix of successful and unsuccessful packings
   -> (a -> Pt -> c) -- report uniformly successful packings
   -> f a
@@ -69,12 +71,17 @@ pack
 pack fc f g h as = unsafeIOToPrim $ do
     let n = length as
     allocaBytes (n*sizeOfRect) $ \ rs -> do
-      pokePts f rs (toList as)
+      ifor as $ \i a -> do
+        pt <- unsafePrimToIO $ f a
+        pokeWH (plusPtr (i*sizeOfRect)) pt
       withAtlas fc $ \c ->
         stbrp_pack_rects c rs (fromIntegral n) >>= \res -> if res == 0
-          then Left  <$> evalStateT (traverse (go boxMaybe g) as) rs -- partial
+          then Left  <$> evalStateT (traverse (go peekMaybeXY g) as) rs -- partial
           else Right <$> evalStateT (traverse (go peekXY h) as) rs -- all allocated
   where
     go :: (Ptr Rect -> IO u) -> (a -> u -> d) -> a -> StateT (Ptr Rect) IO d
     go k gh a = StateT $ \p -> (\b -> (,) (gh a b) $! plusPtr p sizeOfRect) <$> k p
     {-# inline go #-}
+
+pack1 :: PrimMonad m => Atlas (PrimState m) -> Pt -> m (Maybe Pt)
+pack1 atlas p = either runIdentity runIdentity <$> pack atlas id (const pure ) (const (pure . Just)) (Identity p)

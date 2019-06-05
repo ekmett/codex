@@ -59,4 +59,5 @@ executable example
     linear,
     ptrdiff,
     sdl2 >= 2.4.1,
-    StateVar
+    StateVar,
+    text

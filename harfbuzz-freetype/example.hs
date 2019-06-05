@@ -12,11 +12,15 @@ import Data.Atlas (Atlas,Box(..),Pt(..))
 import qualified Data.Atlas as Atlas
 import Data.Map (Map)
 import Data.IORef
+import Data.Text.Foreign (lengthWord16)
 import Data.Foldable (for_)
 import Data.Functor.Identity
+import Data.Proxy
 import Data.StateVar
 import Data.Vector.Generic.Lens
+import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
+import Foreign.Marshal.Utils
 import Foreign.Ptr
 import Foreign.Ptr.Diff
 import GHC.Conc (setUncaughtExceptionHandler)
@@ -30,22 +34,80 @@ import qualified SDL
 import System.Exit
 import System.IO
 
-data TextureAtlas = TextureAtlas
+data TextureAtlas k = TextureAtlas
   { ta_texture :: Texture
   , ta_atlas   :: Atlas RealWorld
   , ta_buffer  :: Ptr ()
   , ta_width   :: Int
   , ta_height  :: Int
   , ta_dirty   :: IORef Bool
-  , ta_glyphs  :: IORef (Map (FT.Face,Codepoint) TextureGlyph)
+  , ta_glyphs  :: IORef (Map k TextureGlyph)
   }
 
 data TextureGlyph = TextureGlyph
   { tg_w, tg_h, tg_x, tg_y, tg_bx, tg_by :: Int
   } deriving (Eq,Show)
 
-find_glyph :: TextureAtlas -> FT.Face -> Codepoint -> IO TextureGlyph
-find_glyph TextureAtlas{..} face codepoint = do
+-- | Assumes GL_TEXTURE_2D is bound to the atlas texture and that scratch is large enough to handle the bitmap glyph
+upload :: BitmapGlyph -> Pt -> Ptr () -> IO TextureGlyph
+upload bg (Pt x y) scratch = do
+  withForeignPtr bg $ \p ->
+    Bitmap{..} <- _bitmapglyph_bitmap
+    let w = fromIntegral bitmap_width
+        h = fromIntegral bitmap_rows
+        p = fromIntegral bitmap_pitch
+    target <- if w == p
+      then pure bitmap_buffer -- usable directly
+      else scratch <$ do for_ [0..h-1] $ \ y -> copyBytes (plusPtr ta_buffer (y*w)) (plusPtr bitmap_buffer (y*p)) w -- messy, pack into scratch
+    glTexSubImage2D GL_TEXTURE_2D 0 x y w h GL_RED GL_UNSIGNED_BYTE target
+    bx <- fromIntegral <$> peekDiff p _bitmapglyph_left
+    by <- fromIntegral <$> peekDiff p _bitmapglyph_left
+    pure $ TextureGlyph w h x y bx by
+  
+-- | render a single glyph
+render :: (FT.Face, Codepoint) -> IO BitmapGlyph
+render (face,codepoint) = do
+  load_glyph face codepoint LOAD_RENDER
+  glyphslot <- face_glyph face
+  glyph <- get_glyph glyphslot
+  glyph_to_bitmap glyph RENDER_MODE_NORMAL def False
+
+size :: BitmapGlyph -> IO Pt
+size bmg = withForeignPtr (act _bitmap_glyph_bitmap bmg) $ \bp ->
+    Pt <$> do fromIntegral <$> peekDiff bp _bitmap_glyph_width
+       <*> do fromIntegral <$> peekDiff bp _btimap_glyph_rows
+
+-- | Assumes Texture atlas is currently bound to GL_TEXTURE_2D
+-- This should batch the requests using @Atlas.pack@, trying to cache an entire list of codepoints
+-- and taking a many as it can get.
+batch
+  :: (Traversable f, Ord k)
+  => TextureAtlas k
+  -> (a -> k) -- feature extraction
+  -> (k -> (FT.Face,Codepoint))
+  -> (a -> TextureGlyph -> IO ()) -- callback
+  -> [a]
+  -> IO ()
+batch TextureAtlas{..} key keyinfo callback as = do
+  known <- readIORef ta_glyphs -- known :: Map k TextureGlyph
+  distinct <- toList <$> setOf (traverse.to key.filter (\k -> hasn't (ix k) known)) as -- distinct :: [k]
+  fresh <- for distinct $ \k -> (k,) <$> render (info k) -- fresh :: [(k,BitmapGlyph)]
+  Atlas.pack ta_atlas (size.snd) (,) (,) ks >>= \case
+    Right xs -> do -- xs :: [((k,BitmapGlyph),Pt)]
+      uploaded <- do for xs $ \((k,bmg),xy) -> (k,) <$> upload bmg xy ta_buffer
+      writeIORef ta_glyphs $ known <> Map.fromList uploaded
+      for ks $ 
+      traverse (uncurry callback) uploaded
+    Left ys -> do -- ys :: [((k,BitmapGlyph),Maybe Pt)]
+      uploaded <- do for xs $ \(k,bm
+       
+      
+      
+  
+    
+
+  
+  
   gs <- readIORef ta_glyphs
   case gs^.at (face,codepoint) of
     Just tg -> return tg
@@ -53,21 +115,18 @@ find_glyph TextureAtlas{..} face codepoint = do
       load_glyph face codepoint LOAD_RENDER
       glyphslot <- face_glyph face
       withForeignPtr glyphslot $ \slot -> do
-        Bitmap{..} <- peekDiff p glyphslot_bitmap
+        Bitmap{..} <- peekDiffOff slot glyphslot_bitmap
         let w = fromIntegral bitmap_width
             h = fromIntegral bitmap_rows
-        bx <- peekDiff slot glyphslot_bearing_x
-        by <- peekDiff slot glyphslot_bearing_x
-        pack ta_atlas id (const id) (const id) (Identity (boxy (Pt w h))) >>= \case
-          Right (Box (Identity (Pt x y)) _) -> do
-            let tg = TextureGlyph bitmap_width bitmap_rows x y bx by
+        bx <- fromIntegral <$> peekDiffOff slot glyphslot_bitmap_left
+        by <- fromIntegral <$> peekDiffOff slot glyphslot_bitmap_top
+        Atlas.pack1 ta_atlas (Pt w h) >>= \case
+          Just (Pt x y) -> do
+            let tg = TextureGlyph (fromIntegral bitmap_width) (fromIntegral bitmap_rows) x y bx by
             writeIORef $ gs & at (face,codepoint) ?~ tg
-            let p = fromIntegral bitmap_pitch
-            -- now to copy
-            bmp <- if p == w
-              then pure bitmap_data -- we can use it directly
-              else ta_buffer <$ do for [0..h-1] $ \ y -> copyBytes (plusPtr ta_buffer (y*w)) (plusPtr src (y*p)) width -- copy line by line
-            tg <$ glTexSubImage2D GL_TEXTURE_2D 0 x y w h GL_RED GL_UNSIGNED_BYTE bmp
+            -- copy, relatively unnecessary for now, but when we batch these up, it will be
+            for_ [0..h-1] $ \ y -> copyBytes (plusPtr ta_buffer (y*w)) (plusPtr bitmap_buffer (y*p)) w -- pack line by line into the scratch pad
+            tg <$ glTexSubImage2D GL_TEXTURE_2D 0 x y w h GL_RED GL_UNSIGNED_BYTE ta_buffer
           Left _ -> error "out of room" -- TODO: empty and retry
 
 new_texture_atlas :: Int -> Int -> IO TextureAtlas

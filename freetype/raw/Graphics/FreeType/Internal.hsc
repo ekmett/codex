@@ -40,7 +40,7 @@
 #include "ft.h"
 #include "hsc-err.h"
 #include "hsc-struct.h"
-#let pattern n,t = "pattern %s = %s (%d)",#n,#t,(int)(FT_ ## n)
+#let pattern n,t = "pattern %s :: %s\npattern %s = %s (%d)",#n,#t,#n,#t,(int)(FT_ ## n)
 
 module Graphics.FreeType.Internal
 (
