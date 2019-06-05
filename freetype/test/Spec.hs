@@ -49,9 +49,8 @@ spec = testSpec "spec" $ do -- Hspec.after_ performMajorGC $ do
       get_font_format face `shouldReturn` "CFF"
     it "can load a variable otf font (from memory)" $ do
       lib <- init_library
-      -- blob <- ByteString.readFile "test/fonts/SourceCodeVariable-Roman.otf"
-      -- face <- new_memory_face lib blob 0
-      face <- new_face lib "test/fonts/SourceCodeVariable-Roman.otf" 0
+      blob <- ByteString.readFile "test/fonts/SourceCodeVariable-Roman.otf"
+      face <- new_memory_face lib blob 0
       has_multiple_masters face `shouldReturn` True
       get_char_index face (c2w 'a') `shouldReturn` 28 -- mined from the font itself
       get_font_format face `shouldReturn` "CFF"
