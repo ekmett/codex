@@ -3,6 +3,10 @@
 }:
 let
   overlay = self: super: {
+    # Minimum version of freetype2 is required
+    freetype = super.callPackage ./.nix/freetype {};
+    freetype2 = self.freetype;
+
     # We require a minimum version of fontconfig lib for specific functionality.
     # This is a version that should be equialent for some macs, so pin it.
     fontconfig = super.fontconfig.overrideAttrs (oldAttrs: rec {
@@ -29,9 +33,9 @@ let
 
     # Flip the ICU bit.
     harfbuzz-icu = self.harfbuzz.override { withIcu = true; };
+    harfbuzz-subset = self.harfbuzz;
 
     # some renames to keep cabal & pkg-config happy
-    freetype2 = super.freetype;
     icu-uc = super.icu;
   };
 
@@ -49,7 +53,6 @@ let
     bidi-icu            = ./bidi-icu;
     const               = ./const;
     freetype            = ./freetype;
-    harfbuzz-freetype   = ./harfbuzz-freetype;
     harfbuzz-opentype   = ./harfbuzz-opentype;
     hkd                 = ./hkd;
     primitive-ffi       = ./primitive-ffi;
@@ -60,7 +63,7 @@ let
 
   # Basic overrides to include our packages
   modHaskPkgs = haskellPackages.override {
-    overrides = hself: hsuper: pkgs.lib.mapAttrs (n: p: hsuper.callCabal2nix n p {}) sources;
+    overrides = hself: hsuper: pkgs.lib.mapAttrs (n: p: hself.callCabal2nix n p {}) sources;
   };
 
   # Move sources to here if we find they're triggering 'infinite
@@ -72,13 +75,15 @@ let
   recursiveSrcs = rec {
     fontconfig          = modHaskPkgs.callCabal2nix "fontconfig" ./fontconfig {};
     fontconfig-freetype = modHaskPkgs.callCabal2nix "fontconfig-freetype" ./fontconfig-freetype {};
+    glow                = modHaskPkgs.callCabal2nix "glow" ./glow {};
+
     harfbuzz            = modHaskPkgs.callCabal2nix "harfbuzz" ./harfbuzz {};
     harfbuzz-icu        = modHaskPkgs.callCabal2nix "harfbuzz-icu" ./harfbuzz-icu { harfbuzz = harfbuzz; };
-    glow                = modHaskPkgs.callCabal2nix "glow" ./glow {};
+    harfbuzz-subset     = modHaskPkgs.callCabal2nix "harfbuzz-subset" ./harfbuzz-subset { harfbuzz = harfbuzz; };
+    harfbuzz-freetype   = modHaskPkgs.callCabal2nix "harfbuzz-freetype" ./harfbuzz-freetype { harfbuzz = harfbuzz; };
+
     ui                  = modHaskPkgs.callCabal2nix "ui" ./ui {
       fontconfig   = fontconfig;
-      harfbuzz     = harfbuzz;
-      harfbuzz-icu = harfbuzz-icu;
       glow         = glow;
     };
   };

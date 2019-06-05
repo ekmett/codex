@@ -34,7 +34,7 @@ import Foreign.Storable
 import Graphics.Fontconfig
 import Graphics.Fontconfig.Internal
 import Graphics.Fontconfig.Private (withCUString)
-import Graphics.FreeType.Internal (Face(..), FaceRec, foreignFace, freeTypeCtx)
+import Graphics.FreeType.Internal (Face, FaceRec, foreignFace, freeTypeCtx)
 import qualified Language.C.Inline as C
 
 C.context $ C.baseCtx <> C.fptrCtx <> fontconfigCtx <> freeTypeCtx
@@ -81,7 +81,7 @@ pattern TypeFace :: Type (Ptr FaceRec)
 pattern TypeFace = #const FcTypeFTFace
 
 withFaceValue :: Face -> (Ptr Value -> IO r) -> IO r
-withFaceValue (Face face) f = withForeignPtr face $ \p -> withValue TypeFace p f
+withFaceValue face f = withForeignPtr face $ \p -> withValue TypeFace p f
 
 -- note this will be an immutable face you should not edit!
 matchFaceValue :: MonadIO m => Ptr Value -> m (Maybe Face)
