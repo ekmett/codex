@@ -163,23 +163,25 @@ module Graphics.FreeType
 -- , vectorLength
 -- , vectorPolarize
 -- , vectorFromPolar
+
+, Generic
+, stable_generic
 ) where
 
 import Control.Monad.IO.Class
 import Data.ByteString as ByteString
-import Data.ByteString.Internal as ByteString
 import Data.Functor ((<&>))
 import Data.Int
 import Data.Version
 import Data.Word
 import Foreign.C.String
-import Foreign.Concurrent as Concurrent
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
 import Foreign.ForeignPtr
 import Foreign.ForeignPtr.Unsafe
 import Foreign.Ptr
 import Foreign.Ptr.Diff
+import Foreign.StablePtr
 import Foreign.Storable
 import Graphics.FreeType.Internal
 import qualified Language.C.Inline as C
@@ -199,6 +201,8 @@ finalize_face = [C.funPtr|void finalize_face(FT_Library l, FT_Face f) {
   FT_Done_Library(l);
 }|]
 
+foreign import ccall "&" hs_free_stable_ptr :: FunPtr (Ptr () -> IO ())
+
 -- | Uses the generic data facility to hold on to a reference to the library.
 --
 -- This ensures that we can free things in order.
@@ -211,20 +215,21 @@ new_face library path (fromIntegral -> i) = liftIO $
     reference_library library
     peek p >>= newForeignPtrEnv finalize_face (unsafeForeignPtrToPtr library)
 
+-- | make a generic out of a haskell data type such that the haskell data type is kept alive and is freed by the generic
+stable_generic :: MonadIO m => a -> m Generic
+stable_generic a = liftIO $ newStablePtr a <&> \sp -> Generic (castStablePtrToPtr sp) hs_free_stable_ptr
+
+
 new_memory_face :: MonadIO m => Library -> ByteString -> Int -> m Face
-new_memory_face library bs@(PS fp _ _) (fromIntegral -> i) = liftIO $
+new_memory_face library bs (fromIntegral -> i) = liftIO $
   alloca $ \p -> do
     [C.exp|FT_Error {
       FT_New_Memory_Face($library:library,$bs-ptr:bs,$bs-len:bs,$(FT_Long i),$(FT_Face * p))
     }|] >>= ok
     reference_library library
     facePtr <- peek p
-    Concurrent.newForeignPtr facePtr $ do
-      [C.block|void {
-        FT_Done_Face($(FT_Face facePtr));
-        FT_Done_Library($library:library);
-      }|]
-      touchForeignPtr fp
+    stable_generic bs >>= poke (act facePtr face_generic) -- keep bytestring alive
+    newForeignPtrEnv finalize_face (unsafeForeignPtrToPtr library) facePtr
 
 -- | Add a reference to a face
 --
