@@ -44,7 +44,8 @@ common lib
     inline-c,
     primitive,
     template-haskell,
-    transformers
+    transformers,
+    vector
 
 library raw
   import: lib
