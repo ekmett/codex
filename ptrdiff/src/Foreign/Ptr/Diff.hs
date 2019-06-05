@@ -16,9 +16,12 @@ module Foreign.Ptr.Diff
 , (.*)
 , advance
 , DiffTorsor(..)
+, peekDiffOff
+, pokeDiffOff
 ) where
 
 import Control.Category
+import Control.Monad.IO.Class
 import Data.Coerce
 import Data.Data (Data)
 import Foreign.ForeignPtr
@@ -55,19 +58,25 @@ advance :: Storable a => Int -> Diff a a
 advance n = n .* next
 
 class DiffTorsor t where
-  act :: t a -> Diff a b -> t b
+  act :: Diff a b -> t a -> t b
   diff :: t b -> t a -> Diff a b
 
 -- Ptr is a Torsor w/ structure category Diff
 instance DiffTorsor Ptr where
-  act = coerce plusPtr
+  act = coerce (flip plusPtr)
   diff = coerce minusPtr
 
 instance DiffTorsor FunPtr where
-  act p d = castPtrToFunPtr $ act (castFunPtrToPtr p) d
+  act d p = castPtrToFunPtr $ act d (castFunPtrToPtr p)
   diff p q = diff (castFunPtrToPtr p) (castFunPtrToPtr q)
 
 -- | due to finalizers this doesn't _quite_ satisfy ForeignPtr a * Diff a b <-> ForeignPtr a * ForeignPtr b
 instance DiffTorsor ForeignPtr where
-  act = coerce plusForeignPtr
+  act = coerce (flip plusForeignPtr)
   diff p q = diff (unsafeForeignPtrToPtr p) (unsafeForeignPtrToPtr q)
+
+peekDiffOff :: (MonadIO m, Storable b) => Ptr a -> Diff a b -> m b
+peekDiffOff p (Diff d) = liftIO $ peekByteOff p d
+
+pokeDiffOff :: (MonadIO m, Storable b) => Ptr a -> Diff a b -> b -> m ()
+pokeDiffOff p (Diff d) a = liftIO $ pokeByteOff p d a

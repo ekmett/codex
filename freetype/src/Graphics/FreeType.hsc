@@ -219,7 +219,6 @@ new_face library path (fromIntegral -> i) = liftIO $
 stable_generic :: MonadIO m => a -> m Generic
 stable_generic a = liftIO $ newStablePtr a <&> \sp -> Generic (castStablePtrToPtr sp) hs_free_stable_ptr
 
-
 new_memory_face :: MonadIO m => Library -> ByteString -> Int -> m Face
 new_memory_face library bs (fromIntegral -> i) = liftIO $
   alloca $ \p -> do
@@ -228,7 +227,7 @@ new_memory_face library bs (fromIntegral -> i) = liftIO $
     }|] >>= ok
     reference_library library
     facePtr <- peek p
-    stable_generic bs >>= poke (act facePtr face_generic) -- keep bytestring alive
+    stable_generic bs >>= poke (act face_generic facePtr) -- keep bytestring alive
     newForeignPtrEnv finalize_face (unsafeForeignPtrToPtr library) facePtr
 
 -- | Add a reference to a face
