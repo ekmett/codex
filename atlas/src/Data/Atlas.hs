@@ -22,19 +22,14 @@ module Data.Atlas
 -- * Using a context
 , pack
 , Pt(..), HasPt(..)
-, Box(..), HasBox(..)
--- * Convenience
-, boxy
 ) where
 
-import Control.Lens
 import Control.Monad
 import Control.Monad.Primitive
 import Control.Monad.Trans.State.Strict
 import Data.Atlas.Internal
 import Data.Foldable (toList)
 import Data.Maybe (fromMaybe)
-import Data.Proxy
 import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
 import Foreign.Ptr
@@ -63,22 +58,12 @@ heuristic fp h = unsafeIOToPrim $ withAtlas fp $ \p -> stbrp_setup_heuristic p (
 allowOOM :: PrimMonad m => Atlas (PrimState m) -> Bool -> m ()
 allowOOM fp b = unsafeIOToPrim $ withAtlas fp $ \p -> stbrp_setup_allow_out_of_mem p $ fromIntegral $ fromEnum b
 
-peekBox :: (Ptr Rect -> IO (f Pt)) -> Ptr Rect -> IO (Box f)
-peekBox k p = Box <$> k p <*> peekWH p
-{-# inline peekBox #-}
-
-boxy :: Pt -> Box Proxy
-boxy = Box Proxy
-
-boxId :: Ptr Rect -> IO (Identity Pt)
-boxId = fmap Identity . peekXY
-
 pack
   :: (PrimMonad m, Traversable f)
   => Atlas (PrimState m)
-  -> (a -> Box t)             -- extract extents
-  -> (a -> Box Maybe -> b)    -- report a mix of successful and unsuccessful packings
-  -> (a -> Box Identity -> c) -- report uniformly successful packings
+  -> (a -> Pt) -- extract extents
+  -> (a -> Maybe Pt -> b) -- report a mix of successful and unsuccessful packings
+  -> (a -> Pt -> c) -- report uniformly successful packings
   -> f a
   -> m (Either (f b) (f c))
 pack fc f g h as = unsafeIOToPrim $ do
@@ -88,8 +73,8 @@ pack fc f g h as = unsafeIOToPrim $ do
       withAtlas fc $ \c ->
         stbrp_pack_rects c rs (fromIntegral n) >>= \res -> if res == 0
           then Left  <$> evalStateT (traverse (go boxMaybe g) as) rs -- partial
-          else Right <$> evalStateT (traverse (go boxId h) as) rs -- all allocated
+          else Right <$> evalStateT (traverse (go peekXY h) as) rs -- all allocated
   where
-    go :: (Ptr Rect -> IO (u Pt)) -> (a -> Box u -> d) -> a -> StateT (Ptr Rect) IO d
-    go k gh a = StateT $ \p -> (\b -> (,) (gh a b) $! plusPtr p sizeOfRect) <$> peekBox k p
+    go :: (Ptr Rect -> IO u) -> (a -> u -> d) -> a -> StateT (Ptr Rect) IO d
+    go k gh a = StateT $ \p -> (\b -> (,) (gh a b) $! plusPtr p sizeOfRect) <$> k p
     {-# inline go #-}
