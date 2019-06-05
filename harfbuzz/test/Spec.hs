@@ -1,4 +1,5 @@
 {-# language OverloadedStrings #-}
+{-# language OverloadedLists #-}
 
 import Data.Char
 import Data.Const.ByteString
@@ -6,6 +7,7 @@ import Data.Default
 import Data.Functor
 import Data.Primitive.StateVar
 import Data.Text.Foreign (lengthWord16)
+import Data.Vector.Storable as Vector
 import Graphics.Harfbuzz
 import System.Mem
 import Test.Hspec as Hspec
@@ -169,7 +171,7 @@ spec = Hspec.after_ performMajorGC $ do
       buffer_add_text buffer text 0 (lengthWord16 text)
       shape font buffer []
       gis <- buffer_get_glyph_infos buffer
-      map glyph_info_codepoint gis `shouldBe` [199,548,193,548,559,454,166,2,0,0]
+      Vector.map glyph_info_codepoint gis `shouldBe` [199,548,193,548,559,454,166,2,0,0]
       -- gps <- buffer_get_glyph_positions buffer
 
 main :: IO ()

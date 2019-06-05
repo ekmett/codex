@@ -1,24 +1,31 @@
 {-# language LambdaCase #-}
 {-# language FlexibleContexts #-}
+{-# language TypeApplications #-}
+{-# language ScopedTypeVariables #-}
 module Graphics.Harfbuzz.Private
 ( getHsVariable
 , hs_free_stable_ptr
 , cbool, boolc, w2c, c2w
 , newByteStringCStringLen
 , unsafeStateVar
+, peekVector
 ) where
 
 import Control.Monad.ST.Unsafe
 import qualified Data.ByteString as Strict
 import qualified Data.ByteString.Internal as Strict
 import Data.Primitive.StateVar
+import Data.Vector.Storable (Vector)
+import qualified Data.Vector.Storable as Vector
 import Data.Word
 import Foreign.C.Types
 import Foreign.C.String
 import Foreign.ForeignPtr
 import Foreign.Ptr
 import Foreign.Marshal.Alloc
+import Foreign.Marshal.Utils
 import Foreign.Storable
+import GHC.ForeignPtr (mallocPlainForeignPtrBytes)
 import qualified Language.C.Inline.HaskellIdentifier as C
 import qualified Language.Haskell.TH as TH
 
@@ -53,3 +60,10 @@ newByteStringCStringLen (Strict.PS fp o l) = do
 
 unsafeStateVar :: IO a -> (a -> IO ()) -> StateVar s a
 unsafeStateVar g s = StateVar (unsafeIOToST g) (unsafeIOToST . s)
+
+peekVector :: forall a. Storable a => Int -> Ptr a -> IO (Vector a)
+peekVector n src = do
+  let bytes = n * sizeOf @a undefined
+  dest <- mallocPlainForeignPtrBytes bytes
+  withForeignPtr dest (\ dp -> copyBytes dp src bytes)
+  pure $ Vector.unsafeFromForeignPtr0 dest n

@@ -27,7 +27,8 @@ common base
     const,
     data-default,
     primitive-statevar,
-    text
+    text,
+    vector
   ghc-options:
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
     -Wredundant-constraints -Widentities -Wmissing-export-lists
@@ -45,7 +46,6 @@ common lib
     primitive,
     template-haskell,
     transformers,
-    vector
 
 library raw
   import: lib

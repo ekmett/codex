@@ -82,10 +82,10 @@ import Data.Functor ((<&>))
 import Data.Primitive.StateVar
 import Data.Text (Text)
 import qualified Data.Text.Foreign as Text
+import Data.Vector.Storable
 import Foreign.C.String
 import Foreign.C.Types
 import Foreign.Marshal.Alloc
-import Foreign.Marshal.Array
 import Foreign.Marshal.Utils
 import Foreign.Ptr
 import Foreign.Storable
@@ -178,19 +178,19 @@ buffer_append :: PrimMonad m => Buffer (PrimState m) -> Buffer (PrimState m) -> 
 buffer_append buffer source (fromIntegral -> start) (fromIntegral -> end) = unsafeIOToPrim
   [C.block|void { hb_buffer_append($buffer:buffer,$buffer:source,$(unsigned int start),$(unsigned int end)); }|]
 
-buffer_get_glyph_positions :: PrimMonad m => Buffer (PrimState m) -> m [GlyphPosition]
+buffer_get_glyph_positions :: PrimMonad m => Buffer (PrimState m) -> m (Vector GlyphPosition)
 buffer_get_glyph_positions b = unsafeIOToPrim $ alloca $ \plen -> do
   positions <- [C.exp|hb_glyph_position_t * { hb_buffer_get_glyph_positions($buffer:b,$(unsigned int * plen)) }|]
   len <- peek plen
-  peekArray (fromIntegral len) positions -- we don't own the array, its valid as long as the buffer is unmodified, so don't deallocate
+  peekVector (fromIntegral len) positions -- we don't own the array, its valid as long as the buffer is unmodified, so don't deallocate
 
 -- @hb_buffer_get_glyph_infos@ only gives us access to @hb_glyph_info_glyph_flags@, so just map
 -- that over the list rather than trying to deal with memory management on an opaque object we know nothing about.
-buffer_get_glyph_infos :: PrimMonad m => Buffer (PrimState m) -> m [GlyphInfo]
+buffer_get_glyph_infos :: PrimMonad m => Buffer (PrimState m) -> m (Vector GlyphInfo)
 buffer_get_glyph_infos b = unsafeIOToPrim $ alloca $ \plen -> do
   pinfos <- [C.exp|hb_glyph_info_t * { hb_buffer_get_glyph_infos($buffer:b,$(unsigned int * plen)) }|]
   len <- peek plen
-  peekArray (fromIntegral len) pinfos
+  peekVector (fromIntegral len) pinfos
 
 glyph_info_get_glyph_flags :: GlyphInfo -> GlyphFlags
 glyph_info_get_glyph_flags info = [C.pure|hb_glyph_flags_t { hb_glyph_info_get_glyph_flags($glyph-info:info) }|]
