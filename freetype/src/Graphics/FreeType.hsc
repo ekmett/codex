@@ -2,6 +2,7 @@
 {-# language QuasiQuotes #-}
 {-# language TemplateHaskell #-}
 {-# language ViewPatterns #-}
+{-# language ForeignFunctionInterface #-}
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -166,20 +167,23 @@ module Graphics.FreeType
 
 import Control.Monad.IO.Class
 import Data.ByteString as ByteString
+import Data.ByteString.Internal as ByteString
 import Data.Functor ((<&>))
 import Data.Int
 import Data.Version
 import Data.Word
 import Foreign.C.String
+import Foreign.Concurrent as Concurrent
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
+import Foreign.ForeignPtr
+import Foreign.ForeignPtr.Unsafe
 import Foreign.Ptr
 import Foreign.Ptr.Diff
 import Foreign.Storable
 import Graphics.FreeType.Internal
 import qualified Language.C.Inline as C
 import Numeric.Fixed
-import System.Mem.Weak.ForeignPtr
 
 C.context $ C.baseCtx <> C.bsCtx <> C.fptrCtx <> freeTypeCtx
 C.include "<ft2build.h>"
@@ -189,7 +193,11 @@ C.verbatim "#include FT_TYPES_H"
 C.verbatim "#include FT_FONT_FORMATS_H"
 C.include "ft.h"
 
---part :: ForeignPtr a => Diff a b
+finalize_face :: FinalizerEnvPtr LibraryRec FaceRec
+finalize_face = [C.funPtr|void finalize_face(FT_Library l, FT_Face f) {
+  FT_Done_Face(f);
+  FT_Done_Library(l);
+}|]
 
 -- | Uses the generic data facility to hold on to a reference to the library.
 --
@@ -201,20 +209,22 @@ new_face library path (fromIntegral -> i) = liftIO $
       FT_New_Face($library:library,$str:path,$(FT_Long i),$(FT_Face * p))
     }|] >>= ok
     reference_library library
-    face <- peek p >>= foreignFace
-    face <$ mkWeakForeignPtrPtr face (Just $ done_library library)
+    peek p >>= newForeignPtrEnv finalize_face (unsafeForeignPtrToPtr library)
 
-
--- | Uses the generic data facility to hold on to a reference to the library.
 new_memory_face :: MonadIO m => Library -> ByteString -> Int -> m Face
-new_memory_face library base (fromIntegral -> i) = liftIO $
+new_memory_face library bs@(PS fp _ _) (fromIntegral -> i) = liftIO $
   alloca $ \p -> do
     [C.exp|FT_Error {
-      FT_New_Memory_Face($library:library,$bs-ptr:base,$bs-len:base,$(FT_Long i),$(FT_Face * p))
+      FT_New_Memory_Face($library:library,$bs-ptr:bs,$bs-len:bs,$(FT_Long i),$(FT_Face * p))
     }|] >>= ok
     reference_library library
-    face <- peek p >>= foreignFace
-    face <$ mkWeakForeignPtr face base (Just $ done_library library)
+    facePtr <- peek p
+    Concurrent.newForeignPtr facePtr $ do
+      [C.block|void {
+        FT_Done_Face($(FT_Face facePtr));
+        FT_Done_Library($library:library);
+      }|]
+      touchForeignPtr fp
 
 -- | Add a reference to a face
 --
