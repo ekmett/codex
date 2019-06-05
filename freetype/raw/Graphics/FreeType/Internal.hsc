@@ -364,7 +364,7 @@ instance Default Vector where
   def = Vector 0 0
 
 foreignFace :: Ptr FaceRec -> IO Face
-foreignFace = newForeignPtr [C.funPtr| void free_face(FT_Face f) { FT_Done_Face(f); } |] 
+foreignFace = newForeignPtr [C.funPtr| void free_face(FT_Face f) { FT_Done_Face(f); } |]
 
 foreignLibrary :: Ptr LibraryRec -> IO Library
 foreignLibrary = newForeignPtr [C.funPtr| void free_library(FT_Library l) { FT_Done_Library(l); }|]

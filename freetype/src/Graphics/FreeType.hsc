@@ -3,12 +3,17 @@
 {-# language TemplateHaskell #-}
 {-# language ViewPatterns #-}
 {-# language ForeignFunctionInterface #-}
+{-# language RecordWildCards #-}
+{-# language OverloadedStrings #-}
+{-# language LambdaCase #-}
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include FT_MODULE_H
 #include FT_TYPES_H
 #include FT_FONT_FORMATS_H
+#include "hsc-struct.h"
+#include "ft.h"
 #let diff hsFrom, cTy, hsName, cField, hsTo = "%s :: Diff %s %s\n%s = Diff %lu\n{-# inline %s #-}", #hsName, #hsFrom, #hsTo, #hsName, (long) offsetof(cTy,cField), #hsName
 
 
@@ -170,13 +175,16 @@ module Graphics.FreeType
 
 import Control.Monad.IO.Class
 import Data.ByteString as ByteString
+import Data.ByteString.Internal as ByteString
 import Data.Functor ((<&>))
 import Data.Int
+import qualified Data.Map as Map
 import Data.Version
 import Data.Word
 import Foreign.C.String
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
+import Foreign.Marshal.Utils
 import Foreign.ForeignPtr
 import Foreign.ForeignPtr.Unsafe
 import Foreign.Ptr
@@ -184,16 +192,26 @@ import Foreign.Ptr.Diff
 import Foreign.StablePtr
 import Foreign.Storable
 import Graphics.FreeType.Internal
+import GHC.ForeignPtr
 import qualified Language.C.Inline as C
+import qualified Language.C.Inline.Context as C
+import qualified Language.C.Types as C
 import Numeric.Fixed
 
-C.context $ C.baseCtx <> C.bsCtx <> C.fptrCtx <> freeTypeCtx
+#struct mfe,MemoryFaceEnv,memory_face_env,lib,Ptr LibraryRec,data,Ptr ()
+
+C.context $ C.baseCtx <> C.bsCtx <> C.fptrCtx <> freeTypeCtx <> mempty
+  { C.ctxTypesTable = Map.fromList
+    [ (C.TypeName "memory_face_env",[t|MemoryFaceEnv|])
+    ]
+  }
 C.include "<ft2build.h>"
 C.verbatim "#include FT_FREETYPE_H"
 C.verbatim "#include FT_MODULE_H"
 C.verbatim "#include FT_TYPES_H"
 C.verbatim "#include FT_FONT_FORMATS_H"
 C.include "ft.h"
+C.include "HsFFI.h"
 
 finalize_face :: FinalizerEnvPtr LibraryRec FaceRec
 finalize_face = [C.funPtr|void finalize_face(FT_Library l, FT_Face f) {
@@ -201,7 +219,13 @@ finalize_face = [C.funPtr|void finalize_face(FT_Library l, FT_Face f) {
   FT_Done_Library(l);
 }|]
 
-foreign import ccall "&" hs_free_stable_ptr :: FunPtr (Ptr () -> IO ())
+finalize_memory_face :: FinalizerEnvPtr MemoryFaceEnv FaceRec
+finalize_memory_face = [C.funPtr|void finalize_face(memory_face_env * mfe, FT_Face f) {
+  FT_Done_Face(f);
+  FT_Done_Library(mfe->lib);
+  hs_free_stable_ptr(mfe->data);
+  free(mfe);
+}|]
 
 -- | Uses the generic data facility to hold on to a reference to the library.
 --
@@ -217,18 +241,28 @@ new_face library path (fromIntegral -> i) = liftIO $
 
 -- | make a generic out of a haskell data type such that the haskell data type is kept alive and is freed by the generic
 stable_generic :: MonadIO m => a -> m Generic
-stable_generic a = liftIO $ newStablePtr a <&> \sp -> Generic (castStablePtrToPtr sp) hs_free_stable_ptr
+stable_generic a = liftIO $ newStablePtr a <&> \sp -> Generic (castStablePtrToPtr sp) nullFunPtr -- hs_free_stable_ptr
 
 new_memory_face :: MonadIO m => Library -> ByteString -> Int -> m Face
-new_memory_face library bs (fromIntegral -> i) = liftIO $
+new_memory_face library bs@(PS bsfp _ _) (fromIntegral -> i) = liftIO $
   alloca $ \p -> do
     [C.exp|FT_Error {
       FT_New_Memory_Face($library:library,$bs-ptr:bs,$bs-len:bs,$(FT_Long i),$(FT_Face * p))
     }|] >>= ok
     reference_library library
     facePtr <- peek p
-    stable_generic bs >>= poke (act face_generic facePtr) -- keep bytestring alive
-    newForeignPtrEnv finalize_face (unsafeForeignPtrToPtr library) facePtr
+    case bsfp of
+      -- 'fast' path
+      ForeignPtr _ (PlainPtr mba) -> do
+        -- hack together a MallocPtr that shares our MutableByteArray#
+        newForeignPtrEnv finalize_face (unsafeForeignPtrToPtr library) facePtr <&> \case
+          ForeignPtr addr (PlainForeignPtr finalizers) -> ForeignPtr addr (MallocPtr mba finalizers)
+          _ -> error "new_memory_face: the impossible happened. newForeignPtr did not return a PlainForeignPtr"
+      -- 'sane' path
+      _ -> do
+        stable <- newStablePtr bsfp
+        env <- new $ MemoryFaceEnv (unsafeForeignPtrToPtr library) (castStablePtrToPtr stable)
+        newForeignPtrEnv finalize_memory_face env facePtr
 
 -- | Add a reference to a face
 --
