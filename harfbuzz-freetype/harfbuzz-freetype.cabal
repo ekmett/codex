@@ -55,5 +55,5 @@ executable example
     glow,
     harfbuzz-freetype,
     linear,
-    sdl2,
+    sdl2 >= 2.4.1,
     StateVar

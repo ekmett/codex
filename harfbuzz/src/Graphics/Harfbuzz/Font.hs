@@ -62,39 +62,52 @@ module Graphics.Harfbuzz.Font
 
 import Control.Monad.Primitive
 import Data.Coerce
+import Data.Foldable (for_)
 import Data.Functor ((<&>))
+import Data.Maybe
 import Data.Primitive.StateVar
 import Foreign.C.Types
 import Foreign.C.String
 import Foreign.ForeignPtr
 import Foreign.Marshal.Array
 import Foreign.Marshal.Alloc
+import Foreign.Marshal.Unsafe
 import Foreign.Ptr
 import Foreign.Storable
 import qualified Language.C.Inline as C
 
-import Graphics.Harfbuzz.Private
 import Graphics.Harfbuzz.Internal
+import Graphics.Harfbuzz.Object
+import Graphics.Harfbuzz.Private
 
 C.context $ C.baseCtx <> harfbuzzCtx
 C.include "<hb.h>"
 C.include "HsFFI.h"
+C.verbatim "static hb_user_data_key_t face_key;"
+
+face_key :: Key (Face m)
+face_key = unsafeLocalState $ Key <$> newForeignPtr_ [C.pure|hb_user_data_key_t * { &face_key }|]
+{-# NOINLINE face_key #-}
 
 font_create :: PrimMonad m => Face (PrimState m) -> m (Font (PrimState m))
-font_create face = unsafeIOToPrim $ [C.exp|hb_font_t * { hb_font_create($face:face) }|] >>= foreignFont
+font_create face = unsafeSTToPrim $ do
+  font <- unsafeIOToPrim $ [C.exp|hb_font_t * { hb_font_create($face:face) }|] >>= foreignFont
+  font <$ object_set_user_data font face_key face True
 
 font_create_sub_font :: PrimMonad m => Font (PrimState m) -> m (Font (PrimState m))
-font_create_sub_font parent = unsafeIOToPrim $ [C.exp|hb_font_t * {
+font_create_sub_font parent = unsafeSTToPrim $ do
+  font <- unsafeIOToPrim $ [C.exp|hb_font_t * {
     hb_font_create_sub_font(hb_font_reference($font:parent))
   }|] >>= foreignFont
-
--- font_get_face :: PrimMonad m => Font -> m Face
--- font_get_face font = unsafeIOToPrim $ [C.exp|hb_face_t * { hb_face_reference(hb_font_get_face($font:font)) }|] >>= foreignFace
+  mface <- object_get_user_data parent face_key
+  font <$ for_ mface (\face -> object_set_user_data font face_key face True)
 
 font_face :: Font s -> StateVar s (Face s)
-font_face font = unsafeStateVar g s where
-  g = [C.exp|hb_face_t * { hb_face_reference(hb_font_get_face($font:font)) }|] >>= foreignFace
-  s face = [C.block|void { hb_font_set_face($font:font,hb_face_reference($face:face)); }|]
+font_face font = StateVar g s where
+  g = fromMaybe (error "font_face: missing face key") <$> object_get_user_data font face_key
+  s face = do
+      unsafeIOToPrim $ [C.block|void { hb_font_set_face($font:font,hb_face_reference($face:face)); }|]
+      () <$ object_set_user_data font face_key face True
 
 font_get_glyph :: PrimMonad m => Font (PrimState m) -> Codepoint -> Codepoint -> m (Maybe Codepoint)
 font_get_glyph font unicode variation_selector = unsafeIOToPrim $ alloca $ \pglyph -> do
