@@ -57,5 +57,6 @@ executable example
     harfbuzz-freetype,
     lens,
     linear,
+    ptrdiff,
     sdl2 >= 2.4.1,
     StateVar
