@@ -6,15 +6,17 @@ import Control.Monad.ST (RealWorld)
 import Control.Monad
 import Data.Atlas (Atlas)
 import qualified Data.Atlas as Atlas
+import Data.Map (Map)
 import Data.IORef
 import Data.Foldable (for_)
+import Data.Functor.Identity
 import Data.StateVar
 import Foreign.Marshal.Alloc
 import GHC.Conc (setUncaughtExceptionHandler)
 import Graphics.FreeType as FT
 import Graphics.GL.Compatibility32
 import Graphics.Glow
-import Graphics.Harfbuzz
+import Graphics.Harfbuzz hiding (Map)
 import Graphics.Harfbuzz.FreeType
 import Linear
 import qualified SDL
@@ -27,6 +29,7 @@ data TextureAtlas = TextureAtlas
   , ta_width   :: Int
   , ta_height  :: Int
   , ta_dirty   :: IORef Bool
+  , ta_glyphs  :: IORef (Map (FT.Face,Codepoint) (Atlas.Box Identity))
   }
 
 new_texture_atlas :: Int -> Int -> IO TextureAtlas
@@ -38,7 +41,23 @@ new_texture_atlas w h = do
     atlas_data <- mallocBytes (w * h)
     glTexImage2D GL_TEXTURE_2D 0 GL_LUMINANCE (fromIntegral w) (fromIntegral h) 0 GL_LUMINANCE GL_UNSIGNED_BYTE atlas_data
     atlas <- Atlas.new w h Nothing
-    TextureAtlas tex atlas w h <$> newIORef False
+    TextureAtlas tex atlas w h <$> newIORef False <*> newIORef mempty
+
+{-
+
+batch :: TextureAtlas -> Face -> [(GlyphInfo,GlyphPosition)] -> (Codepoint -> Box Identity -> IO ()) -> IO ()
+batch TextureAtlas{..} face gs k = do
+  glyphs <- readIORef ta_glyphs
+  missing <- setOf (traverse._1.to glyph_info_codepoint.filter (\cp -> hasn't (ix c) glyphs)) gs
+  glyphslot <- face_glyph
+  for_ missing $ \c -> do
+    load_glyph face c LOAD_DEFAULT -- just dimensions
+    ...
+    
+  -- go look up the bounding box sizes for those glyphs
+-}  
+
+
 
 main :: IO ()
 main = do

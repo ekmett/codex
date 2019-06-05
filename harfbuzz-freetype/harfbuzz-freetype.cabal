@@ -51,9 +51,11 @@ executable example
   ghc-options: -O2 -threaded -rtsopts -with-rtsopts=-N
   build-depends:
     atlas,
+    containers,
     gl,
     glow,
     harfbuzz-freetype,
+    lens,
     linear,
     sdl2 >= 2.4.1,
     StateVar
