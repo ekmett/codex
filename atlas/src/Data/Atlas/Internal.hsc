@@ -36,7 +36,6 @@ module Data.Atlas.Internal
 , Pt(..), HasPt(..)
 , peekWH, peekXY
 , pokeWH, peekMaybeXY
-, boxMaybe
 ) where
 
 import Control.Lens

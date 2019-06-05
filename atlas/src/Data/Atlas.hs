@@ -25,12 +25,11 @@ module Data.Atlas
 , Pt(..), HasPt(..)
 ) where
 
+import Control.Lens
 import Control.Monad
 import Control.Monad.Primitive
 import Control.Monad.Trans.State.Strict
 import Data.Atlas.Internal
-import Data.Foldable (toList)
-import Data.Functor.Identity
 import Data.Maybe (fromMaybe)
 import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
@@ -71,9 +70,9 @@ pack
 pack fc f g h as = unsafeIOToPrim $ do
     let n = length as
     allocaBytes (n*sizeOfRect) $ \ rs -> do
-      ifor as $ \i a -> do
-        pt <- unsafePrimToIO $ f a
-        pokeWH (plusPtr (i*sizeOfRect)) pt
+      iforOf_ folded as $ \i a -> do
+        p <- unsafePrimToIO $ f a
+        pokeWH (plusPtr rs (i*sizeOfRect)) p
       withAtlas fc $ \c ->
         stbrp_pack_rects c rs (fromIntegral n) >>= \res -> if res == 0
           then Left  <$> evalStateT (traverse (go peekMaybeXY g) as) rs -- partial
@@ -84,4 +83,4 @@ pack fc f g h as = unsafeIOToPrim $ do
     {-# inline go #-}
 
 pack1 :: PrimMonad m => Atlas (PrimState m) -> Pt -> m (Maybe Pt)
-pack1 atlas p = either runIdentity runIdentity <$> pack atlas id (const pure ) (const (pure . Just)) (Identity p)
+pack1 atlas p = unsafeSTToPrim $ either runIdentity runIdentity <$> pack atlas pure (const id) (const Just) (Identity p)
