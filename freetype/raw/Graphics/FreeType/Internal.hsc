@@ -52,6 +52,8 @@ module Graphics.FreeType.Internal
 , pattern ANGLE_PI4
 , angleDiff
 
+, BBox(..)
+
 , Bitmap(..)
 , BitmapGlyph
 , BitmapGlyphRec(..)
@@ -223,15 +225,16 @@ type Glyph = ForeignPtr GlyphRec
 type BitmapGlyph = ForeignPtr BitmapGlyphRec
 type OutlineGlyph = ForeignPtr OutlineGlyphRec
 
+#struct bbox,BBox,FT_BBox,xMin,Pos,yMin,Pos,xMax,Pos,yMax,Pos
 #struct bitmap,Bitmap,FT_Bitmap,rows,Word32,width,Word32,pitch,Int32,buffer,Ptr Word8,num_grays,Word16,pixel_mode,Word8,palette_mode,Word8,palette,Ptr()
-#struct bitmapglyph,BitmapGlyphRec,FT_BitmapGlyphRec, root,GlyphRec,left,Int32,top,Int32,bitmap,Bitmap
+#struct _bitmapglyph,BitmapGlyphRec,FT_BitmapGlyphRec,root,GlyphRec,left,Int32,top,Int32,bitmap,Bitmap
 #struct bitmapsize,BitmapSize,FT_Bitmap_Size,height,Int16,width,Int16,size,Pos,x_ppem,Pos,y_ppem,Pos
 #struct generic,Generic,FT_Generic,data,Ptr (),finalizer,FinalizerPtr ()
 #struct glyph,GlyphRec,FT_GlyphRec,library,Ptr Library,clazz,Ptr GlyphClass,format,GlyphFormat,advance,Vector
 #struct matrix,Matrix,FT_Matrix,xx,Fixed,xy,Fixed,yx,Fixed,yy,Fixed
 #struct memory,MemoryRec,struct FT_MemoryRec_,user,Ptr(),alloc,FunPtr AllocFunc,free,FunPtr FreeFunc,realloc,FunPtr ReallocFunc
 #struct outline,Outline,FT_Outline,n_contours,Word16,n_points,Word16,points,Ptr Vector,tags,Ptr Word8,contours,Ptr Word16,flags,Int32
-#struct outlineglyph,OutlineGlyphRec,FT_OutlineGlyphRec, root,GlyphRec,outline,Outline
+#struct _outlineglyph,OutlineGlyphRec,FT_OutlineGlyphRec, root,GlyphRec,outline,Outline
 #struct sizemetrics,SizeMetrics,FT_Size_Metrics,x_ppem,Word16,y_ppem,Word16,x_scale,Fixed,y_scale,Fixed,ascender,Pos,descender,Pos,height,Pos,max_advance,Pos
 #struct size,SizeRec,FT_SizeRec,face,Ptr FaceRec,generic,Generic,metrics,SizeMetrics,internal,Ptr SizeInternalRec
 #struct sizerequest,SizeRequestRec,FT_Size_RequestRec,type,SizeRequestType,width,Int32,height,Int32,horiResolution,Word32,vertResolution,Word32
@@ -361,7 +364,8 @@ newtype PixelMode = PixelMode Int32 deriving newtype (Eq,Show,Storable,Prim)
 #pattern PIXEL_MODE_LCD_V, PixelMode
 #pattern PIXEL_MODE_BGRA, PixelMode
 
-newtype GlyphBBoxMode = GlyphBBoxMode Int32 deriving newtype (Eq,Show,Storable,Prim)
+-- inconsistently used as signed and unsigned in the library, choosing
+newtype GlyphBBoxMode = GlyphBBoxMode Word32 deriving newtype (Eq,Show,Storable,Prim)
 #pattern GLYPH_BBOX_UNSCALED, GlyphBBoxMode
 #pattern GLYPH_BBOX_SUBPIXELS, GlyphBBoxMode
 #pattern GLYPH_BBOX_GRIDFIT, GlyphBBoxMode
@@ -434,10 +438,12 @@ foreignLibrary = newForeignPtr [C.funPtr| void free_library(FT_Library l) { FT_D
 freeTypeCtx :: C.Context
 freeTypeCtx = mempty
   { C.ctxTypesTable = Map.fromList
-    [ (C.TypeName "FT_Bitmap",             [t|Bitmap|])
+    [ (C.TypeName "FT_BBox",               [t|BBox|])
+    , (C.TypeName "FT_Bitmap",             [t|Bitmap|])
     , (C.TypeName "FT_BitmapGlyph",        [t|Ptr BitmapGlyphRec|])
     , (C.TypeName "FT_BitmapGlyphRec",     [t|BitmapGlyphRec|])
     , (C.Struct   "FT_BitmapGlyphRec",     [t|BitmapGlyphRec|])
+    , (C.TypeName "FT_Bool",               [t|Word8|])
     , (C.TypeName "FT_Error",              [t|Error|])
     , (C.TypeName "FT_Face",               [t|Ptr FaceRec|])
     , (C.TypeName "FT_FaceRec_",           [t|FaceRec|])
@@ -487,13 +493,17 @@ freeTypeCtx = mempty
     , (C.Struct   "FT_Vector_",            [t|Vector|])
     ]
   , C.ctxAntiQuoters = Map.fromList
-    [ ("ustr", anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char (Just C.Unsigned))) [t|Ptr CUChar|] [|withCUString|])
-    , ("str", anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char Nothing)) [t|Ptr CChar|] [|withCString|])
-    , ("face", anti (C.TypeSpecifier mempty $ C.TypeName "FT_Face") [t|Ptr FaceRec|] [|withForeignPtr|])
-    , ("library", anti (C.TypeSpecifier mempty $ C.TypeName "FT_Library") [t|Ptr LibraryRec|] [|withForeignPtr|])
-    , ("glyph-slot", anti (C.TypeSpecifier mempty $ C.TypeName "FT_GlyphSlot") [t|Ptr GlyphSlotRec|] [|withForeignPtr|])
-    , ("generic", anti (ptr $ C.TypeName "FT_Generic") [t|Ptr Generic|] [|with|])
-    , ("matrix",  anti (ptr $ C.TypeName "FT_Matrix") [t|Ptr Matrix|] [|with|])
-    , ("vector",  anti (ptr $ C.TypeName "FT_Vector") [t|Ptr Vector|] [|with|])
+    [ ("ustr",         anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char (Just C.Unsigned))) [t|Ptr CUChar|] [|withCUString|])
+    , ("str",          anti (C.Ptr [C.CONST] $ C.TypeSpecifier mempty (C.Char Nothing)) [t|Ptr CChar|] [|withCString|])
+    , ("bbox",         anti (ptr $ C.TypeName "FT_BBox") [t|Ptr BBox|] [|with|])
+    , ("bitmapglyph",  anti (C.TypeSpecifier mempty $ C.TypeName "FT_BitmapGlyph") [t|Ptr BitmapGlyph|] [|withForeignPtr|])
+    , ("face",         anti (C.TypeSpecifier mempty $ C.TypeName "FT_Face") [t|Ptr FaceRec|] [|withForeignPtr|])
+    , ("glyph",        anti (C.TypeSpecifier mempty $ C.TypeName "FT_Glyph") [t|Ptr Glyph|] [|withForeignPtr|])
+    , ("glyph-slot",   anti (C.TypeSpecifier mempty $ C.TypeName "FT_GlyphSlot") [t|Ptr GlyphSlotRec|] [|withForeignPtr|])
+    , ("generic",      anti (ptr $ C.TypeName "FT_Generic") [t|Ptr Generic|] [|with|])
+    , ("library",      anti (C.TypeSpecifier mempty $ C.TypeName "FT_Library") [t|Ptr LibraryRec|] [|withForeignPtr|])
+    , ("matrix",       anti (ptr $ C.TypeName "FT_Matrix") [t|Ptr Matrix|] [|with|])
+    , ("outlineglyph", anti (C.TypeSpecifier mempty $ C.TypeName "FT_OutlineGlyph") [t|Ptr OutlineGlyph|] [|withForeignPtr|])
+    , ("vector",       anti (ptr $ C.TypeName "FT_Vector") [t|Ptr Vector|] [|with|])
     ]
   } where ptr = C.Ptr [] . C.TypeSpecifier mempty

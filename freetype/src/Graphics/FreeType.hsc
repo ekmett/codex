@@ -6,6 +6,7 @@
 {-# language RecordWildCards #-}
 {-# language OverloadedStrings #-}
 {-# language LambdaCase #-}
+{-# options_ghc -Wno-redundant-constraints #-}
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -123,13 +124,20 @@ module Graphics.FreeType
 , GlyphRec(..)
 , GlyphFormat(..)
 , new_glyph
+, IsGlyphRec, glyph_root
+, glyph_copy
+, glyph_transform
+, glyph_get_cbox
+, glyph_to_bitmap
 -- * Bitmap Glyphs
 , BitmapGlyph
 , BitmapGlyphRec(..)
+, new_bitmapglyph
 -- * Outline Glyphs
 , Outline(..)
 , OutlineGlyph
 , OutlineGlyphRec(..)
+, new_outlineglyph
 
 -- ** GlyphSlots
 , GlyphSlot, GlyphSlotRec
@@ -226,9 +234,10 @@ C.verbatim "#include FT_FONT_FORMATS_H"
 C.include "ft.h"
 C.include "HsFFI.h"
 
-finalize_glyph :: FinalizerEnvPtr LibraryRec GlyphRec
-finalize_glyph = [C.funPtr|void finalize_face(FT_Library l, FT_Glyph f) {
-  FT_Done_Glyph(f);
+finalize_glyph :: FinalizerPtr GlyphRec
+finalize_glyph = [C.funPtr|void finalize_face(FT_Glyph g) {
+  FT_Library l = g->library;
+  FT_Done_Glyph(g);
   FT_Done_Library(l);
 }|]
 
@@ -240,7 +249,55 @@ new_glyph library format = liftIO $ do
       FT_New_Glyph($library:library,$(FT_Glyph_Format format),$(FT_Glyph * p))
     }|] >>= ok
     reference_library library
-    peek p >>= newForeignPtrEnv finalize_glyph (unsafeForeignPtrToPtr library)
+    peek p >>= newForeignPtr finalize_glyph
+
+new_bitmapglyph :: MonadIO m => Library -> m BitmapGlyph
+new_bitmapglyph library = act (inv glyph_root) <$> new_glyph library GLYPH_FORMAT_BITMAP
+
+new_outlineglyph :: MonadIO m => Library -> m OutlineGlyph
+new_outlineglyph library = act (inv glyph_root) <$> new_glyph library GLYPH_FORMAT_OUTLINE
+
+class IsGlyphRec t where
+instance IsGlyphRec BitmapGlyphRec
+instance IsGlyphRec GlyphRec
+instance IsGlyphRec OutlineGlyphRec
+
+glyph_get_cbox :: (MonadIO m, IsGlyphRec t) => ForeignPtr t -> GlyphBBoxMode -> m BBox
+glyph_get_cbox (act glyph_root -> glyph) (GlyphBBoxMode mode) = liftIO $
+  alloca $ \p ->
+    [C.block|void {
+      FT_Glyph_Get_CBox($glyph:glyph,$(uint32_t mode),$(FT_BBox * p));
+    }|] *> peek p
+
+glyph_root :: IsGlyphRec t => Diff t GlyphRec
+glyph_root = Diff 0
+
+glyph_transform :: (MonadIO m, IsGlyphRec t) => ForeignPtr t -> Matrix -> Vector -> m ()
+glyph_transform (act glyph_root -> glyph) m v = liftIO $
+  [C.exp|FT_Error { FT_Glyph_Transform($glyph:glyph,$matrix:m,$vector:v) }|] >>= ok
+
+glyph_to_bitmap :: (MonadIO m, IsGlyphRec t) => ForeignPtr t -> RenderMode -> Vector -> Bool -> m BitmapGlyph
+glyph_to_bitmap (act glyph_root -> glyph) mode origin (fromIntegral . fromEnum -> destroy) = liftIO $ 
+  withForeignPtr glyph $ \pgr ->
+    with pgr $ \pglyph -> do
+      [C.exp|FT_Error { FT_Glyph_To_Bitmap($(FT_Glyph * pglyph),$(FT_Render_Mode mode),$vector:origin,$(FT_Bool destroy)) }|] >>= ok
+      ngr <- peek pglyph
+      act (inv glyph_root) <$>
+        if pgr == ngr
+        then pure glyph -- this is the old glyph
+        else [C.block|void { FT_Reference_Library($(FT_Glyph ngr)->library); }|] *> newForeignPtr finalize_glyph ngr
+
+glyph_copy :: (MonadIO m, IsGlyphRec t) => ForeignPtr t -> m (ForeignPtr t)
+glyph_copy (act glyph_root -> glyph) = liftIO $
+  alloca $ \p -> do
+    [C.block|FT_Error {
+      FT_Glyph g = $glyph:glyph;
+      FT_Error error = FT_Glyph_Copy(g,$(FT_Glyph * p));
+      if (!error) FT_Reference_Library(g->library);
+      return error;
+    }|] >>= ok
+    result <- peek p
+    act (inv glyph_root) <$> newForeignPtr finalize_glyph result
 
 -- get_glyph :: MonadIO m => 
 
