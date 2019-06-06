@@ -45,6 +45,17 @@ void show_struct(const char * hsPrefix, const char * hsTyName, const char * cTyN
     r = va_arg(args, const char *);
   }
   puts("\n");
+  va_start(args,cTyAlign);
+  p = va_arg(args, const char *);
+  q = va_arg(args, int);
+  r = va_arg(args, const char *);
+  while (p && r) {
+    printf("%s_%s_ :: Diff (%s) (%s)\n%s_%s_ = Diff %d\n",hsPrefix,p,hsTyName,r,hsPrefix,p,q);
+    p = va_arg(args, const char *);
+    q = va_arg(args, int);
+    r = va_arg(args, const char *);
+  }
+  puts("\n");
 }
 
 #define loop0(x, s,t,dummy)

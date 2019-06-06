@@ -15,7 +15,7 @@
 #include FT_FONT_FORMATS_H
 #include "hsc-struct.h"
 #include "ft.h"
-#let diff hsFrom, cTy, hsName, cField, hsTo = "%s :: Diff %s %s\n%s = Diff %lu\n{-# inline %s #-}", #hsName, #hsFrom, #hsTo, #hsName, (long) offsetof(cTy,cField), #hsName
+#let diff hsFrom, cTy, hsName, cField, hsTo = "%s_ :: Diff (%s) (%s)\n%s_ = Diff %lu\n{-# inline %s_ #-}", #hsName, #hsFrom, #hsTo, #hsName, (long) offsetof(cTy,cField), #hsName
 
 
 -- |
@@ -30,62 +30,59 @@ module Graphics.FreeType
 (
 -- * Library
 
-  Library, LibraryRec
-
+  Library
+, LibraryRec
 , init_library
-
--- ** reference counting
 , reference_library
 , done_library
-
--- ** properties
 , property_set
 , property_get
-
--- ** raw library initialization
 , new_uninitialized_library -- name mangled to keep users from reaching for it
 , add_default_modules
 , set_default_properties
-
-
--- ** library version
 , library_version
 , library_version_string
 , pattern FREETYPE_MAJOR
 , pattern FREETYPE_MINOR
 , pattern FREETYPE_PATCH
 
+, Memory
+, MemoryRec(..)
+, AllocFunc, FreeFunc, ReallocFunc
+, memory_user_
+, memory_alloc_
+, memory_free_
+, memory_realloc_
+
 -- * Faces
 
-, Face, FaceRec
+, Face
+, FaceRec
 , new_face
 , new_memory_face
-
--- slots
-, face_num_faces
-, face_index
-, face_flags
-, face_style_flags
-, face_num_glyphs
-, face_num_fixed_sizes
-, face_num_charmaps
-, face_ascender
-, face_descender
-, face_height
-, face_generic
-, face_units_per_EM
-, face_max_advance_width
-, face_max_advance_height
-, face_underline_position
-, face_underline_thickness
-, face_size
-
 , face_family_name
 , face_style_name
-
--- ** manual reference counting
 , reference_face
 , done_face
+
+-- ** Slots
+, face_num_faces_
+, face_index_
+, face_flags_
+, face_style_flags_
+, face_num_glyphs_
+, face_num_fixed_sizes_
+, face_num_charmaps_
+, face_ascender_
+, face_descender_
+, face_height_
+, face_generic_
+, face_units_per_EM_
+, face_max_advance_width_
+, face_max_advance_height_
+, face_underline_position_
+, face_underline_thickness_
+, face_size_
 
 -- ** Using the face
 , get_font_format
@@ -102,6 +99,7 @@ module Graphics.FreeType
 , load_glyph
 
 , has_kerning
+, KerningMode(..)
 , get_kerning
 
 , has_fixed_sizes
@@ -122,42 +120,110 @@ module Graphics.FreeType
 -- * Glyphs
 , Glyph
 , GlyphRec(..)
+, glyph_advance_
+, glyph_format_
+, glyph_clazz_
+, glyph_library_
+
 , GlyphFormat(..)
 , new_glyph
 , get_glyph
+
 , IsGlyphRec, glyph_root
 , glyph_copy
 , glyph_transform
-, glyph_get_cbox
 , glyph_to_bitmap
--- * Bitmap Glyphs
+
+, GlyphBBoxMode(..)
+, glyph_get_cbox
+
+-- ** Bitmap Glyphs
 , BitmapGlyph
 , BitmapGlyphRec(..)
+, bitmapglyph_root_
+, bitmapglyph_top_
+, bitmapglyph_left_
+, bitmapglyph_bitmap_
+
 , new_bitmapglyph
--- * Outline Glyphs
+-- ** Outline Glyphs
 , Outline(..)
+, outline_contours_
+, outline_flags_
+, outline_points_
+, outline_tags_
+, outline_n_points_
+, outline_n_contours_
+, OutlineFlags(..)
 , OutlineGlyph
 , OutlineGlyphRec(..)
+, outlineglyph_root_
+, outlineglyph_outline_
 , new_outlineglyph
 
--- ** GlyphSlots
-, GlyphSlot, GlyphSlotRec
+-- * GlyphSlots
+, GlyphSlot
+, GlyphSlotRec
 , face_glyph
 , glyphslot_face
 -- diffs
-, glyphslot_glyph_index
-, glyphslot_generic
-, glyphslot_linearHoriAdvance
-, glyphslot_linearVertAdvance
-, glyphslot_bitmap
-, glyphslot_bitmap_left
-, glyphslot_bitmap_top
+, glyphslot_glyph_index_
+, glyphslot_generic_
+, glyphslot_linearHoriAdvance_
+, glyphslot_linearVertAdvance_
+, glyphslot_bitmap_
+, glyphslot_bitmap_left_
+, glyphslot_bitmap_top_
 -- , glyphslot_num_subglyphs
 
 , Bitmap(..)
+, bitmap_width_
+, bitmap_rows_
+, bitmap_buffer_
+, bitmap_pitch_
+, bitmap_pixel_mode_
+, bitmap_num_grays_
+, bitmap_palette_mode_
+, bitmap_palette_
+
+, BitmapSize(..)
+, bitmapsize_size_
+, bitmapsize_height_
+, bitmapsize_width_
+, bitmapsize_x_ppem_
+, bitmapsize_y_ppem_
+
+, PixelMode(..)
+, Pos
 
 , RenderMode(..)
 , render_glyph
+
+, Size
+, SizeRec(..)
+, size_face_
+, size_generic_
+, size_metrics_
+, size_internal_
+, SizeMetrics(..)
+, sizemetrics_ascender_
+, sizemetrics_descender_
+, sizemetrics_height_
+, sizemetrics_x_scale_
+, sizemetrics_y_scale_
+, sizemetrics_x_ppem_
+, sizemetrics_y_ppem_
+, sizemetrics_max_advance_
+, SizeInternalRec
+
+, SizeRequest
+, SizeRequestRec(..)
+, sizerequest_type_
+, sizerequest_width_
+, sizerequest_height_
+, sizerequest_vertResolution_
+, sizerequest_horiResolution_
+, SizeRequestType(..)
 
 -- * Math
 -- ** angles
@@ -168,6 +234,13 @@ module Graphics.FreeType
 , pattern ANGLE_PI2
 , pattern ANGLE_PI4
 , angleDiff
+
+-- ** bounding boxes
+, BBox(..)
+, bbox_xMin_
+, bbox_yMin_
+, bbox_xMax_
+, bbox_yMax_
 
 -- ** fixed point
 
@@ -192,6 +265,8 @@ module Graphics.FreeType
 -- , vectorFromPolar
 
 , Generic(..)
+, generic_data_
+, generic_finalizer_
 ) where
 
 import Control.Monad.IO.Class

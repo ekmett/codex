@@ -19,8 +19,8 @@
 {-# language DataKinds #-}
 {-# language UnboxedTuples #-}
 {-# language CPP #-}
-{-# options_ghc -Wno-missing-pattern-synonym-signatures #-}
 {-# options_ghc -funbox-strict-fields #-}
+{-# options_ghc -Wno-missing-export-lists #-}
 
 -- |
 -- Copyright :  (c) 2019 Edward Kmett
@@ -53,11 +53,34 @@ module Graphics.FreeType.Internal
 , angleDiff
 
 , BBox(..)
+, bbox_xMin_
+, bbox_yMin_
+, bbox_xMax_
+, bbox_yMax_
 
 , Bitmap(..)
+, bitmap_width_
+, bitmap_rows_
+, bitmap_buffer_
+, bitmap_pitch_
+, bitmap_pixel_mode_
+, bitmap_num_grays_
+, bitmap_palette_mode_
+, bitmap_palette_
+
 , BitmapGlyph
 , BitmapGlyphRec(..)
+, bitmapglyph_root_
+, bitmapglyph_top_
+, bitmapglyph_left_
+, bitmapglyph_bitmap_
+
 , BitmapSize(..)
+, bitmapsize_size_
+, bitmapsize_height_
+, bitmapsize_width_
+, bitmapsize_x_ppem_
+, bitmapsize_y_ppem_
 
 , Error
   ( Error
@@ -69,8 +92,15 @@ module Graphics.FreeType.Internal
 , foreignFace
 
 , Generic(..)
+, generic_data_
+, generic_finalizer_
 
-, Glyph, GlyphRec(..)
+, Glyph
+, GlyphRec(..)
+, glyph_advance_
+, glyph_format_
+, glyph_clazz_
+, glyph_library_
 
 , GlyphBBoxMode
   ( GlyphBBoxMode
@@ -127,14 +157,28 @@ module Graphics.FreeType.Internal
   )
 
 , Matrix(..)
-, matrixInvert, matrixMultiply
+, matrixInvert
+, matrixMultiply
+, matrix_xx_
+, matrix_xy_
+, matrix_yx_
+, matrix_yy_
 
 , Memory
 , MemoryRec(..)
 , AllocFunc, FreeFunc, ReallocFunc
-
+, memory_user_
+, memory_alloc_
+, memory_free_
+, memory_realloc_
 
 , Outline(..)
+, outline_contours_
+, outline_flags_
+, outline_points_
+, outline_tags_
+, outline_n_points_
+, outline_n_contours_
 , OutlineFlags
   ( OutlineFlags
   , OUTLINE_NONE
@@ -147,7 +191,10 @@ module Graphics.FreeType.Internal
   , OUTLINE_HIGH_PRECISION
   , OUTLINE_SINGLE_PASS
   )
-, OutlineGlyph, OutlineGlyphRec(..)
+, OutlineGlyph
+, OutlineGlyphRec(..)
+, outlineglyph_root_
+, outlineglyph_outline_
 
 , PixelMode
   ( PixelMode
@@ -172,11 +219,30 @@ module Graphics.FreeType.Internal
   , RENDER_MODE_LCD_V
   )
 
-, Size, SizeRec(..)
+, Size
+, SizeRec(..)
+, size_face_
+, size_generic_
+, size_metrics_
+, size_internal_
 , SizeMetrics(..)
+, sizemetrics_ascender_
+, sizemetrics_descender_
+, sizemetrics_height_
+, sizemetrics_x_scale_
+, sizemetrics_y_scale_
+, sizemetrics_x_ppem_
+, sizemetrics_y_ppem_
+, sizemetrics_max_advance_
 , SizeInternalRec
 
-, SizeRequest, SizeRequestRec(..)
+, SizeRequest
+, SizeRequestRec(..)
+, sizerequest_type_
+, sizerequest_width_
+, sizerequest_height_
+, sizerequest_vertResolution_
+, sizerequest_horiResolution_
 , SizeRequestType
   ( SizeRequestType
   , SIZE_REQUEST_TYPE_NOMINAL
@@ -188,6 +254,8 @@ module Graphics.FreeType.Internal
 
 , Vector(..)
 , vectorTransform
+, vector_x_
+, vector_y_
 
 -- * contexts
 , childPtr
@@ -204,11 +272,12 @@ import Data.Word
 import Foreign.C.String
 import Foreign.C.Types
 import Foreign.ForeignPtr
-import Foreign.ForeignPtr.Unsafe
 import Foreign.Marshal.Unsafe
 import Foreign.Marshal.Utils
 import Foreign.Ptr
+import Foreign.Ptr.Diff
 import Foreign.Storable
+import GHC.ForeignPtr
 import Numeric.Fixed
 import qualified Language.C.Inline as C
 import qualified Language.C.Inline.Context as C
@@ -216,9 +285,17 @@ import qualified Language.C.Types as C
 import Graphics.FreeType.Private
 
 type Angle = Fixed
+
+pattern ANGLE_PI :: Angle
 pattern ANGLE_PI  = Fixed (#const FT_ANGLE_PI)
+
+pattern ANGLE_2PI :: Angle
 pattern ANGLE_2PI = Fixed (#const FT_ANGLE_2PI)
+
+pattern ANGLE_PI2 :: Angle
 pattern ANGLE_PI2 = Fixed (#const FT_ANGLE_PI2)
+
+pattern ANGLE_PI4 :: Angle
 pattern ANGLE_PI4 = Fixed (#const FT_ANGLE_PI4)
 
 type Glyph = ForeignPtr GlyphRec
@@ -227,14 +304,14 @@ type OutlineGlyph = ForeignPtr OutlineGlyphRec
 
 #struct bbox,BBox,FT_BBox,xMin,Pos,yMin,Pos,xMax,Pos,yMax,Pos
 #struct bitmap,Bitmap,FT_Bitmap,rows,Word32,width,Word32,pitch,Int32,buffer,Ptr Word8,num_grays,Word16,pixel_mode,Word8,palette_mode,Word8,palette,Ptr()
-#struct _bitmapglyph,BitmapGlyphRec,FT_BitmapGlyphRec,root,GlyphRec,left,Int32,top,Int32,bitmap,Bitmap
+#struct bitmapglyph,BitmapGlyphRec,FT_BitmapGlyphRec,root,GlyphRec,left,Int32,top,Int32,bitmap,Bitmap
 #struct bitmapsize,BitmapSize,FT_Bitmap_Size,height,Int16,width,Int16,size,Pos,x_ppem,Pos,y_ppem,Pos
 #struct generic,Generic,FT_Generic,data,Ptr (),finalizer,FinalizerPtr ()
 #struct glyph,GlyphRec,FT_GlyphRec,library,Ptr Library,clazz,Ptr GlyphClass,format,GlyphFormat,advance,Vector
 #struct matrix,Matrix,FT_Matrix,xx,Fixed,xy,Fixed,yx,Fixed,yy,Fixed
 #struct memory,MemoryRec,struct FT_MemoryRec_,user,Ptr(),alloc,FunPtr AllocFunc,free,FunPtr FreeFunc,realloc,FunPtr ReallocFunc
 #struct outline,Outline,FT_Outline,n_contours,Word16,n_points,Word16,points,Ptr Vector,tags,Ptr Word8,contours,Ptr Word16,flags,Int32
-#struct _outlineglyph,OutlineGlyphRec,FT_OutlineGlyphRec, root,GlyphRec,outline,Outline
+#struct outlineglyph,OutlineGlyphRec,FT_OutlineGlyphRec, root,GlyphRec,outline,Outline
 #struct sizemetrics,SizeMetrics,FT_Size_Metrics,x_ppem,Word16,y_ppem,Word16,x_scale,Fixed,y_scale,Fixed,ascender,Pos,descender,Pos,height,Pos,max_advance,Pos
 #struct size,SizeRec,FT_SizeRec,face,Ptr FaceRec,generic,Generic,metrics,SizeMetrics,internal,Ptr SizeInternalRec
 #struct sizerequest,SizeRequestRec,FT_Size_RequestRec,type,SizeRequestType,width,Int32,height,Int32,horiResolution,Word32,vertResolution,Word32
@@ -245,7 +322,7 @@ type OutlineGlyph = ForeignPtr OutlineGlyphRec
 --
 -- This can be used when accessing, say, a part of a whole that has a shared lifetime.
 childPtr :: ForeignPtr a -> Ptr b -> ForeignPtr b
-childPtr fp p = fp `plusForeignPtr` minusPtr p (unsafeForeignPtrToPtr fp)
+childPtr (ForeignPtr _ guts) (Ptr p) = ForeignPtr p guts
 
 -- | By convention the library will throw any non-0 FT_Error encountered.
 newtype Error = Error CInt deriving newtype (Eq,Ord,Show,Storable)
@@ -265,9 +342,14 @@ ok e = throwIO e
 type Face = ForeignPtr FaceRec
 data FaceRec
 
-pattern FREETYPE_MAJOR = (#const FREETYPE_MAJOR) :: Int
-pattern FREETYPE_MINOR = (#const FREETYPE_MINOR) :: Int
-pattern FREETYPE_PATCH = (#const FREETYPE_PATCH) :: Int
+pattern FREETYPE_MAJOR :: Int
+pattern FREETYPE_MAJOR = #const FREETYPE_MAJOR
+
+pattern FREETYPE_MINOR :: Int
+pattern FREETYPE_MINOR = #const FREETYPE_MINOR
+
+pattern FREETYPE_PATCH :: Int
+pattern FREETYPE_PATCH = #const FREETYPE_PATCH
 
 type GlyphSlot = ForeignPtr GlyphSlotRec
 data GlyphSlotRec

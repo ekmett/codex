@@ -73,7 +73,7 @@ golden = do
   lib <- init_library
   face <- new_face lib "test/fonts/SourceCodePro-Regular.otf" 0
   set_pixel_sizes face 0 64
-  bitmap <- act glyphslot_bitmap <$> face_glyph face
+  bitmap <- act glyphslot_bitmap_ <$> face_glyph face
   let goldenChar :: Char -> TestTree
       goldenChar c = goldenVsFile g g a $ do
           load_char face (fromIntegral $ fromEnum c) LOAD_RENDER
