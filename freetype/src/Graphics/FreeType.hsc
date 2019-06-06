@@ -198,7 +198,6 @@ import Data.ByteString as ByteString
 import Data.ByteString.Internal as ByteString
 import Data.Functor ((<&>))
 import Data.Int
-import qualified Data.Map as Map
 import Data.Version
 import Data.Word
 import Foreign.C.String
@@ -206,7 +205,6 @@ import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
 import Foreign.Marshal.Utils
 import Foreign.ForeignPtr
-import Foreign.ForeignPtr.Unsafe
 import Foreign.Ptr
 import Foreign.Ptr.Diff
 import Foreign.StablePtr
@@ -214,17 +212,9 @@ import Foreign.Storable
 import Graphics.FreeType.Internal
 import GHC.ForeignPtr
 import qualified Language.C.Inline as C
-import qualified Language.C.Inline.Context as C
-import qualified Language.C.Types as C
 import Numeric.Fixed
 
-#struct mfe,MemoryFaceEnv,memory_face_env,lib,Ptr LibraryRec,data,Ptr ()
-
-C.context $ C.baseCtx <> C.bsCtx <> C.fptrCtx <> freeTypeCtx <> mempty
-  { C.ctxTypesTable = Map.fromList
-    [ (C.TypeName "memory_face_env",[t|MemoryFaceEnv|])
-    ]
-  }
+C.context $ C.baseCtx <> C.bsCtx <> C.fptrCtx <> freeTypeCtx
 C.include "<ft2build.h>"
 C.verbatim "#include FT_FREETYPE_H"
 C.verbatim "#include FT_GLYPH_H"
@@ -303,14 +293,14 @@ glyph_copy (act glyph_root -> glyph) = liftIO $
 
 finalize_face :: FinalizerPtr FaceRec
 finalize_face = [C.funPtr|void finalize_face(FT_Face f) {
-  FT_Library lib = f->glyph.library;
+  FT_Library lib = f->glyph->library;
   FT_Done_Face(f);
   FT_Done_Library(lib);
 }|]
 
-finalize_memory_face :: FinalizerEnvPtr (Ptr ()) FaceRec
+finalize_memory_face :: FinalizerEnvPtr () FaceRec
 finalize_memory_face = [C.funPtr|void finalize_memory_face(void * stable_ptr, FT_Face f) {
-  FT_Library lib = f->glyph.library;
+  FT_Library lib = f->glyph->library;
   FT_Done_Face(f);
   hs_free_stable_ptr(stable_ptr);
   FT_Done_Library(lib);
