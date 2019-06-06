@@ -124,6 +124,7 @@ module Graphics.FreeType
 , GlyphRec(..)
 , GlyphFormat(..)
 , new_glyph
+, get_glyph
 , IsGlyphRec, glyph_root
 , glyph_copy
 , glyph_transform
@@ -266,8 +267,19 @@ glyph_transform :: (MonadIO m, IsGlyphRec t) => ForeignPtr t -> Matrix -> Vector
 glyph_transform (act glyph_root -> glyph) m v = liftIO $
   [C.exp|FT_Error { FT_Glyph_Transform($glyph:glyph,$matrix:m,$vector:v) }|] >>= ok
 
+get_glyph :: MonadIO m => GlyphSlot -> m Glyph
+get_glyph slot = liftIO $
+  alloca $ \p -> do
+    [C.block|FT_Error {
+      FT_GlyphSlot g = $glyph-slot:slot;
+      FT_Error error = FT_Get_Glyph(g,$(FT_Glyph * p));
+      if (!error) FT_Reference_Library(g->library);
+      return error;
+    }|] >>= ok
+    peek p >>= newForeignPtr finalize_glyph
+
 glyph_to_bitmap :: (MonadIO m, IsGlyphRec t) => ForeignPtr t -> RenderMode -> Vector -> Bool -> m BitmapGlyph
-glyph_to_bitmap (act glyph_root -> glyph) mode origin (fromIntegral . fromEnum -> destroy) = liftIO $ 
+glyph_to_bitmap (act glyph_root -> glyph) mode origin (fromIntegral . fromEnum -> destroy) = liftIO $
   withForeignPtr glyph $ \pgr ->
     with pgr $ \pglyph -> do
       [C.exp|FT_Error { FT_Glyph_To_Bitmap($(FT_Glyph * pglyph),$(FT_Render_Mode mode),$vector:origin,$(FT_Bool destroy)) }|] >>= ok
@@ -289,7 +301,7 @@ glyph_copy (act glyph_root -> glyph) = liftIO $
     result <- peek p
     act (inv glyph_root) <$> newForeignPtr finalize_glyph result
 
--- get_glyph :: MonadIO m => 
+-- get_glyph :: MonadIO m =>
 
 finalize_face :: FinalizerPtr FaceRec
 finalize_face = [C.funPtr|void finalize_face(FT_Face f) {
