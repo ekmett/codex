@@ -3,6 +3,9 @@
 {-# language UndecidableInstances #-}
 {-# language MultiParamTypeClasses #-}
 {-# language FlexibleInstances #-}
+{-# language TemplateHaskell #-}
+{-# language QuasiQuotes #-}
+{-# language ViewPatterns #-}
 -- |
 -- Copyright :  (c) 2019 Edward Kmett
 -- License   :  BSD-2-Clause OR Apache-2.0
@@ -13,16 +16,17 @@
 -- skyline packing using @stb_rect_pack.h@
 module Data.Atlas
 ( Atlas
-, new
-, new_
+, atlas_create
+, atlas_create_explicit
+, atlas_reset
 -- * Setup
 , Heuristic(..)
-, heuristic
-, allowOOM
+, atlas_set_heuristic
+, atlas_set_allow_out_of_mem
 -- * Using a context
-, pack
-, pack1
-, Pt(..), HasPt(..)
+, Pt(..)
+, atlas_pack
+, atlas_pack1
 ) where
 
 import Control.Lens
@@ -34,32 +38,48 @@ import Data.Maybe (fromMaybe)
 import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
 import Foreign.Ptr
+import qualified Language.C.Inline as C
 
--- | Create a packing context with an optional node count, when @node count < width@ is used this results in quantization unless allowOOM is set
--- when no value is supplied, it defaults to the width of the 'Atlas'.
---
--- Uses a 'ForeignPtr' behind the scenes, so there is no memory management to be done, it is handled by the garbage collector
-new :: PrimMonad m => Int -> Int -> Maybe Int -> m (Atlas (PrimState m))
-new width height mn = unsafeIOToPrim $ do
-  let nodes = fromMaybe width mn
-  unless (width < 0xffff && height < 0xffff) $ fail $ "Atlas.new " ++ show width ++ show height ++ ": atlas too large"
-  fp <- mallocForeignPtrBytes (sizeOfAtlas + sizeOfNode * nodes)
-  withForeignPtr fp $ \ p -> stbrp_init_target p (fromIntegral width) (fromIntegral height) (plusPtr p sizeOfAtlas) (fromIntegral nodes)
-  pure $ Atlas fp
+C.context $ C.baseCtx <> C.fptrCtx <> atlasCtx
+C.verbatim "#define STB_RECT_PACK_IMPLEMENTATION"
+C.include "stb_rect_pack.h"
 
-new_ :: PrimMonad m => Int -> Int -> m (Atlas (PrimState m))
-new_ w h = new w h Nothing
+-- | Create a packing context.
 
---reset :: PrimMonad m => Atlas (PrimState m) -> m ()
---reset atlas = withAtlas fp c_reset_atlas
+atlas_create :: PrimMonad m => Int -> Int -> m (Atlas (PrimState m))
+atlas_create w h = atlas_create_explicit w h Nothing
 
-heuristic :: PrimMonad m => Atlas (PrimState m) -> Heuristic -> m ()
-heuristic fp h = unsafeIOToPrim $ withAtlas fp $ \p -> stbrp_setup_heuristic p (heuristicId h)
+-- | Initialization with an optional node count, when @node count < width@ is used this results in quantization unless
+-- 'atlas_set_allow_out_of_mem' is enabled. When no value is supplied, it defaults to the width of the 'Atlas'.
+atlas_create_explicit :: PrimMonad m => Int -> Int -> Maybe Int -> m (Atlas (PrimState m))
+atlas_create_explicit width@(fromIntegral -> w) height@(fromIntegral -> h) mn = unsafeIOToPrim $ do
+  let nodes@(fromIntegral -> n) = fromMaybe width mn
+  unless (width < 0xffff && height < 0xffff) $ fail $ "Atlas.new " ++ show width ++ " " ++ show height ++ ": atlas too large"
+  fp <- mallocForeignPtrBytes (sizeOfAtlas + sizeOfNode * (2 + nodes)) -- i don't trust it not to overrun based on segfaults
+  Atlas fp <$ [C.block|void {
+    stbrp_context * p = $atlas:fp;
+    stbrp_init_target(p,$(int w),$(int h),(stbrp_node*)(p+sizeof(stbrp_context)),$(int n));
+  }|]
 
-allowOOM :: PrimMonad m => Atlas (PrimState m) -> Bool -> m ()
-allowOOM fp b = unsafeIOToPrim $ withAtlas fp $ \p -> stbrp_setup_allow_out_of_mem p $ fromIntegral $ fromEnum b
+-- | Reinitialize an atlas with the same parameters
+atlas_reset :: PrimMonad m => Atlas (PrimState m) -> m ()
+atlas_reset atlas = unsafeIOToPrim
+  [C.block| void {
+    stbrp_context * p = $atlas:atlas;
+    int heuristic = p->heuristic;
+    int align = p->align;
+    stbrp_init_target(p,p->width,p->height,(stbrp_node*)(p+sizeof(stbrp_context)),p->num_nodes);
+    p->heuristic = heuristic;
+    p->align = align;
+  }|]
 
-pack
+atlas_set_heuristic :: PrimMonad m => Atlas (PrimState m) -> Heuristic -> m ()
+atlas_set_heuristic fp (heuristicId -> h) = unsafeIOToPrim [C.block|void { stbrp_setup_heuristic($atlas:fp,$(int h)); }|]
+
+atlas_set_allow_out_of_mem :: PrimMonad m => Atlas (PrimState m) -> Bool -> m ()
+atlas_set_allow_out_of_mem fp (fromIntegral . fromEnum -> b) = unsafeIOToPrim [C.block|void { stbrp_setup_allow_out_of_mem($atlas:fp,$(int b)); }|]
+
+atlas_pack
   :: (PrimBase m, Traversable f)
   => Atlas (PrimState m)
   -> (a -> m Pt) -- extract extents
@@ -67,20 +87,21 @@ pack
   -> (a -> Pt -> c) -- report uniformly successful packings
   -> f a
   -> m (Either (f b) (f c))
-pack fc f g h as = unsafeIOToPrim $ do
-    let n = length as
-    allocaBytes (n*sizeOfRect) $ \ rs -> do
-      iforOf_ folded as $ \i a -> do
-        p <- unsafePrimToIO $ f a
-        pokeWH (plusPtr rs (i*sizeOfRect)) p
-      withAtlas fc $ \c ->
-        stbrp_pack_rects c rs (fromIntegral n) >>= \res -> if res == 0
-          then Left  <$> evalStateT (traverse (go peekMaybeXY g) as) rs -- partial
-          else Right <$> evalStateT (traverse (go peekXY h) as) rs -- all allocated
+atlas_pack fc f g h as = unsafeIOToPrim $ do
+  let n = length as
+  let cn = fromIntegral n
+  allocaBytes (n*sizeOfRect) $ \ rs -> do
+    iforOf_ folded as $ \i a -> do
+      p <- unsafePrimToIO $ f a
+      pokeWH (plusPtr rs (i*sizeOfRect)) p
+    res <- [C.exp|int { stbrp_pack_rects($atlas:fc,$(stbrp_rect *rs),$(int cn)) }|]
+    if res == 0
+    then Left  <$> evalStateT (traverse (go peekMaybeXY g) as) rs -- partial
+    else Right <$> evalStateT (traverse (go peekXY h) as) rs -- all allocated
   where
     go :: (Ptr Rect -> IO u) -> (a -> u -> d) -> a -> StateT (Ptr Rect) IO d
     go k gh a = StateT $ \p -> (\b -> (,) (gh a b) $! plusPtr p sizeOfRect) <$> k p
     {-# inline go #-}
 
-pack1 :: PrimMonad m => Atlas (PrimState m) -> Pt -> m (Maybe Pt)
-pack1 atlas p = unsafeSTToPrim $ either runIdentity runIdentity <$> pack atlas pure (const id) (const Just) (Identity p)
+atlas_pack1 :: PrimMonad m => Atlas (PrimState m) -> Pt -> m (Maybe Pt)
+atlas_pack1 atlas p = stToPrim $ either runIdentity runIdentity <$> atlas_pack atlas pure (const id) (const Just) (Identity p)

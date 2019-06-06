@@ -22,11 +22,14 @@ source-repository head
   location: https://github.com/ekmett/codex
 
 common base
-  build-depends: base >= 4.11 && < 5, primitive, transformers
   default-language: Haskell2010
   ghc-options:
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
     -Wredundant-constraints -Widentities -Wmissing-export-lists
+  build-depends:
+    base >= 4.11 && < 5,
+    primitive,
+    transformers
 
 library
   import: base
@@ -34,8 +37,12 @@ library
   include-dirs: cbits
   build-tool-depends: hsc2hs:hsc2hs
   cc-options: -g -Wall
-  c-sources: cbits/stb_rect_pack.c
-  build-depends: data-default, hkd, lens
+  build-depends:
+    containers,
+    data-default,
+    inline-c,
+    lens,
+    template-haskell
   exposed-modules:
     Data.Atlas
     Data.Atlas.Internal
@@ -45,4 +52,6 @@ test-suite atlas-test
   type: exitcode-stdio-1.0
   hs-source-dirs: test
   main-is: Spec.hs
-  build-depends: hspec, atlas
+  build-depends:
+    atlas,
+    hspec
