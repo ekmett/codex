@@ -17,7 +17,7 @@ import Data.IORef
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe
-import Data.List (partition)
+import Data.List (partition, scanl')
 import Data.Text.Foreign (lengthWord16)
 import qualified Data.Foldable as F
 import Data.Functor.Identity
@@ -106,31 +106,34 @@ splat = bimap (fmap (first fromJust)) (fmap snd) . partition (isJust.fst)
 data GlyphTooLarge = GlyphTooLarge deriving (Show,Exception)
 
 -- manages a texture atlas as a cache, grabbing as many items to draw as it can at a time
+-- harfbuzz agnostic, uses freetype
 batch
-  :: Ord k
-  => TextureAtlas k
-  -> [a]
-  -> (k -> (FT.Face,Codepoint))
-  -> (a -> k) -- feature extraction
-  -> ([(a,TextureGlyph)] -> IO ()) -- callback
+  :: (Ord k, Num n)
+  => TextureAtlas k -- the atlas to use
+  -> [a] -- the list of stuff to draw
+  -> V2 n -- a starting position
+  -> (a -> V2 n) -- compute an eadvance per item
+  -> (k -> (FT.Face,Codepoint)) -- face and codepoint for freetype from keys
+  -> (a -> k) -- key extraction
+  -> ([(V2 n,a,TextureGlyph)] -> IO ()) -- callback, fed accumulated advances, user values, and valid atlas positions.
   -> IO ()
-batch TextureAtlas{..} as0 keyinfo key callback = do
+batch TextureAtlas{..} as0 start advance keyinfo key callback = do
     known <- readIORef ta_glyphs
     let distinct = F.toList $ setOf (folded.to key.filtered (\k -> hasn't (ix k) known)) as0
     fresh <- for distinct $ \k -> (k,) <$> render (keyinfo k)
-    go False known fresh as0
+    go False known fresh $ scanl' (\p a -> p + advance a) start as0 `zip` as0 -- presum the advances
   where
     process known xs as = do
       uploaded <- for xs $ \(xy,(k,bmg)) -> (k,) <$> uploadGlyph bmg xy ta_buffer
       let all_glyphs = known <> Map.fromList uploaded
       writeIORef ta_glyphs all_glyphs
-      callback $ as <&> \a -> (a, all_glyphs ^?! ix (key a))
+      callback $ as <&> \(adv, a) -> (adv, a, all_glyphs ^?! ix (key a))
 
     go looped known fresh as = atlas_packM ta_atlas (size.snd) (,) (,) fresh >>= \case
       Right xs -> process known xs as
       Left (splat -> (successes, failures)) -> do
         let failureSet = setOf (folded._1) failures
-            (bs, cs) = partition (\a -> key a `elem` failureSet) as
+            (bs, cs) = partition (\a -> key (snd a) `elem` failureSet) as
         process known successes cs
         if null successes && looped
         then throwIO GlyphTooLarge
@@ -138,7 +141,14 @@ batch TextureAtlas{..} as0 keyinfo key callback = do
           atlas_reset ta_atlas
           writeIORef ta_glyphs Map.empty
           go True Map.empty failures bs
+
+fixed26 :: Integral a => a -> Float
+fixed26 x = fromIntegral x / 64
+
+gp_advance :: GlyphPosition -> V2 Float
+gp_advance gp = fixed26 <$> V2 (glyph_position_x_advance gp) (glyph_position_y_advance gp)
            
+-- A fairly minimal old-school fixed function pipeline demo
 main :: IO ()
 main = do
   setUncaughtExceptionHandler $ putStrLn . displayException
@@ -153,10 +163,12 @@ main = do
   _ <- SDL.glCreateContext window
   throwErrors
   library <- init_library
-  face <- new_face library "test/fonts/Sanskrit2003.ttf" 0
+  ta@TextureAtlas{..} <- newTextureAtlas 140 140
+
+  -- face <- new_face library "test/fonts/Sanskrit2003.ttf" 0
+  face <- new_face library "test/fonts/SourceCodePro-Regular.otf" 0
   set_pixel_sizes face 0 128
   font <- hb_ft_font_create face
-  ta@TextureAtlas{..} <- newTextureAtlas 1024 1024
   buffer <- buffer_create
 
   --buffer_direction buffer $= DIRECTION_LTR
@@ -166,13 +178,12 @@ main = do
 
   buffer_direction buffer $= DIRECTION_LTR
   let text = "this is a test"
-
   buffer_add_text buffer text 0 (lengthWord16 text)
   shape font buffer mempty
+
   forever $ do
     events <- SDL.pollEvents
     V2 w h <- SDL.glGetDrawableSize window
-    glClearColor 1 1 1 1
     glViewport 0 0 (fromIntegral w) (fromIntegral h)
     glMatrixMode GL_PROJECTION
     glLoadIdentity
@@ -182,50 +193,36 @@ main = do
     glDisable GL_DEPTH_TEST
     glEnable GL_BLEND
     glBlendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
-
-    let dw x = x /(fromIntegral w)
-        dh y = y /(fromIntegral h)
     glClear GL_COLOR_BUFFER_BIT
+    let yb = fromIntegral h / 2
+
     withBoundTexture Texture2D ta_texture $ do
-      --glEnable GL_TEXTURE_2D
+      glEnable GL_TEXTURE_2D
       gs <- zip
         <$> do E.toList <$> buffer_get_glyph_infos buffer 
         <*> do E.toList <$> buffer_get_glyph_positions buffer
-      let x = fromIntegral w / 2
-          y = fromIntegral h / 2
-      batch ta gs ((,) face) (\(gi,gp) -> glyph_info_codepoint gi) $ \ gs -> do
+      batch ta gs (V2 100 yb) (gp_advance.snd) ((,) face) (\(gi,gp) -> glyph_info_codepoint gi) $ \ gs -> do
         glBegin GL_QUADS
-        for gs $ \((_,gp),TextureGlyph{..}) -> do
-          join $ glColor3f <$> randomIO <*> randomIO <*> randomIO
-          let tx x = fromIntegral x / fromIntegral ta_width :: Float
-              ty y = fromIntegral y / fromIntegral ta_height :: Float
-              ff x = fromIntegral x / 64 :: Float -- from 26.6 fixed
-              s0 = tx tg_x 
-              s1 = s0 + tx tg_w
-              t0 = ty tg_y
-              t1 = t0 + ty tg_h
-              xa = ff (glyph_position_x_advance gp)
-              ya = ff (glyph_position_y_advance gp)
-              xo = ff (glyph_position_x_offset gp)
-              yo = ff (glyph_position_y_offset gp)
-              x0 = x + xo + fromIntegral tg_bx
-              y0 = fromIntegral $ floor $ y + yo + fromIntegral tg_by
+        for gs $ \(V2 x y,(_,gp),TextureGlyph{..}) -> do
+          let tx x = fromIntegral x / fromIntegral ta_width
+              ty y = fromIntegral y / fromIntegral ta_height
+              s0 = tx tg_x; s1 = s0 + tx tg_w
+              t0 = ty tg_y; t1 = t0 + ty tg_h
+              x0 = x + fixed26 (glyph_position_x_offset gp) + fromIntegral tg_bx
+              y0 = fromIntegral $ floor $ y + fixed26 (glyph_position_y_offset gp) + fromIntegral tg_by
               x1 = x0 + fromIntegral tg_w
               y1 = fromIntegral $ floor $ y0 - fromIntegral tg_h
-          --glTexCoord2f s0 t0
+          glTexCoord2f s0 t0
           glVertex2f x0 y0
-          --glTexCoord2f s0 t1
+          glTexCoord2f s0 t1
           glVertex2f x0 y1
-          --glTexCoord2f s1 t1
+          glTexCoord2f s1 t1
           glVertex2f x1 y1
-          --glTexCoord2f s1 t0
+          glTexCoord2f s1 t0
           glVertex2f x1 y0
-          print (x0,y0,s0,t0)
-          print (x0,y1,s0,t1)
-          print (x1,y1,s1,t1)
-          print (x1,y0,s1,t0)
         glEnd
-      --glDisable GL_TEXTURE_2D
+
+      glDisable GL_TEXTURE_2D
     SDL.glSwapWindow window
     when (any escOrQuit events) $ do
       SDL.destroyWindow window
