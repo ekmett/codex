@@ -27,10 +27,9 @@
 --
 
 module Graphics.FreeType
-(
+( Error(..)
 -- * Library
-
-  Library
+, Library
 , LibraryRec
 , init_library
 , reference_library
