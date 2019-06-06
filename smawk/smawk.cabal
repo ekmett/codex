@@ -1,0 +1,46 @@
+cabal-version: 2.2
+name: smawk
+version: 0
+synopsis: Linear time row minima for totally monotone matrices
+homepage: https://github.com/ekmett/codex/tree/master/smawk#readme
+license: BSD-2-Clause OR Apache-2.0
+license-file: LICENSE.md
+author: Edward Kmett
+maintainer: Edward Kmett <ekmett@gmail.com>
+copyright: Copyright (c) 2019 Edward Kmett
+stability: experimental
+category: FFI
+build-type: Simple
+description:
+  This implements the SMAWK algorithm by Peter Shor, Shlomo Moran,
+  Alok Aggarwal, Robert Wilber and Maria Klawe for finding the minimum
+  value in each row of an implicitly defined totally monotone matrix.
+  .
+  This has many applications in computational geometry, such as finding
+  the farthest point from each point in a convex polygon, finding
+  optimal enclosing polygon. It can also be used to implement paragraph
+  line breaking in a manner analogous to Knuth and Platt, but in linear
+  time. It also has uses in RNA secondary structure prediction, various
+  sequence alignment problems, construction of prefix codes, image
+  thresholding, etc.
+extra-doc-files:
+  README.md,
+  CHANGELOG.md
+
+source-repository head
+  type: git
+  location: https://github.com/ekmett/codex
+
+library
+  hs-source-dirs: src
+  default-language: Haskell2010
+  ghc-options:
+    -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+    -Wredundant-constraints -Widentities -Wmissing-export-lists
+  build-depends:
+    base >= 4.11 && < 5,
+    primitive,
+    semigroupoids,
+    transformers
+  exposed-modules:
+    Data.Smawk
