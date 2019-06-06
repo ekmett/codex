@@ -47,6 +47,7 @@ library
 
 executable example
   import: base
+  buildable: False
   main-is: example.hs
   ghc-options: -O2 -threaded -rtsopts -with-rtsopts=-N
   build-depends:
