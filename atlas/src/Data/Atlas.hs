@@ -27,6 +27,7 @@ module Data.Atlas
 , Pt(..)
 , atlas_pack
 , atlas_pack1
+, atlas_packM
 ) where
 
 import Control.Lens
@@ -39,6 +40,7 @@ import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
 import Foreign.Ptr
 import qualified Language.C.Inline as C
+import qualified Language.C.Inline.Unsafe as CU
 
 C.context $ C.baseCtx <> C.fptrCtx <> atlasCtx
 C.verbatim "#define STB_RECT_PACK_IMPLEMENTATION"
@@ -55,53 +57,63 @@ atlas_create_explicit :: PrimMonad m => Int -> Int -> Maybe Int -> m (Atlas (Pri
 atlas_create_explicit width@(fromIntegral -> w) height@(fromIntegral -> h) mn = unsafeIOToPrim $ do
   let nodes@(fromIntegral -> n) = fromMaybe width mn
   unless (width < 0xffff && height < 0xffff) $ fail $ "Atlas.new " ++ show width ++ " " ++ show height ++ ": atlas too large"
-  fp <- mallocForeignPtrBytes (sizeOfAtlas + sizeOfNode * (2 + nodes)) -- i don't trust it not to overrun based on segfaults
-  Atlas fp <$ [C.block|void {
-    stbrp_context * p = $atlas:fp;
-    stbrp_init_target(p,$(int w),$(int h),(stbrp_node*)(p+sizeof(stbrp_context)),$(int n));
+  fp <- mallocForeignPtrBytes (sizeOfAtlas + sizeOfNode * nodes)
+  Atlas fp <$ [CU.block|void {
+      stbrp_context * p = $atlas:fp;
+      stbrp_init_target(p,$(int w),$(int h),(stbrp_node *)(p+1),$(int n));
   }|]
 
 -- | Reinitialize an atlas with the same parameters
 atlas_reset :: PrimMonad m => Atlas (PrimState m) -> m ()
 atlas_reset atlas = unsafeIOToPrim
-  [C.block| void {
+  [CU.block| void {
     stbrp_context * p = $atlas:atlas;
     int heuristic = p->heuristic;
     int align = p->align;
-    stbrp_init_target(p,p->width,p->height,(stbrp_node*)(p+sizeof(stbrp_context)),p->num_nodes);
+    stbrp_init_target(p,p->width,p->height,(stbrp_node*)(p+1),p->num_nodes);
     p->heuristic = heuristic;
     p->align = align;
   }|]
 
 atlas_set_heuristic :: PrimMonad m => Atlas (PrimState m) -> Heuristic -> m ()
-atlas_set_heuristic fp (heuristicId -> h) = unsafeIOToPrim [C.block|void { stbrp_setup_heuristic($atlas:fp,$(int h)); }|]
+atlas_set_heuristic fp (heuristicId -> h) = unsafeIOToPrim [CU.block|void { stbrp_setup_heuristic($atlas:fp,$(int h)); }|]
 
 atlas_set_allow_out_of_mem :: PrimMonad m => Atlas (PrimState m) -> Bool -> m ()
-atlas_set_allow_out_of_mem fp (fromIntegral . fromEnum -> b) = unsafeIOToPrim [C.block|void { stbrp_setup_allow_out_of_mem($atlas:fp,$(int b)); }|]
+atlas_set_allow_out_of_mem fp (fromIntegral . fromEnum -> b) = unsafeIOToPrim [CU.block|void { stbrp_setup_allow_out_of_mem($atlas:fp,$(int b)); }|]
 
 atlas_pack
-  :: (PrimBase m, Traversable f)
+  :: (PrimMonad m, Traversable f)
   => Atlas (PrimState m)
-  -> (a -> m Pt) -- extract extents
-  -> (a -> Maybe Pt -> b) -- report a mix of successful and unsuccessful packings
-  -> (a -> Pt -> c) -- report uniformly successful packings
+  -> (a -> Pt)
+  -> (Maybe Pt -> a -> b)
+  -> (Pt -> a -> c)
   -> f a
   -> m (Either (f b) (f c))
-atlas_pack fc f g h as = unsafeIOToPrim $ do
+atlas_pack atlas f g h as = stToPrim $ atlas_packM atlas (pure . f) g h as
+
+atlas_packM
+  :: (PrimBase m, Traversable f)
+  => Atlas (PrimState m)
+  -> (a -> m Pt)
+  -> (Maybe Pt -> a -> b)
+  -> (Pt -> a -> c)
+  -> f a
+  -> m (Either (f b) (f c))
+atlas_packM fc f g h as = unsafeIOToPrim $ do
   let n = length as
   let cn = fromIntegral n
   allocaBytes (n*sizeOfRect) $ \ rs -> do
     iforOf_ folded as $ \i a -> do
       p <- unsafePrimToIO $ f a
       pokeWH (plusPtr rs (i*sizeOfRect)) p
-    res <- [C.exp|int { stbrp_pack_rects($atlas:fc,$(stbrp_rect *rs),$(int cn)) }|]
+    res <- [CU.exp|int { stbrp_pack_rects($atlas:fc,$(stbrp_rect *rs),$(int cn)) }|]
     if res == 0
     then Left  <$> evalStateT (traverse (go peekMaybeXY g) as) rs -- partial
     else Right <$> evalStateT (traverse (go peekXY h) as) rs -- all allocated
   where
-    go :: (Ptr Rect -> IO u) -> (a -> u -> d) -> a -> StateT (Ptr Rect) IO d
-    go k gh a = StateT $ \p -> (\b -> (,) (gh a b) $! plusPtr p sizeOfRect) <$> k p
+    go :: (Ptr Rect -> IO u) -> (u -> a -> d) -> a -> StateT (Ptr Rect) IO d
+    go k gh a = StateT $ \p -> (\b -> (,) (gh b a) $! plusPtr p sizeOfRect) <$> k p
     {-# inline go #-}
 
 atlas_pack1 :: PrimMonad m => Atlas (PrimState m) -> Pt -> m (Maybe Pt)
-atlas_pack1 atlas p = stToPrim $ either runIdentity runIdentity <$> atlas_pack atlas pure (const id) (const Just) (Identity p)
+atlas_pack1 atlas p = stToPrim $ either runIdentity runIdentity <$> atlas_pack atlas id const (const . Just) (Identity p)
