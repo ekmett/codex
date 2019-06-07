@@ -116,6 +116,16 @@ module Graphics.FreeType
 , is_named_instance
 , is_variation
 
+, Encoding(..)
+, select_charmap
+
+, CharMap
+, CharMapRec(..)
+, charmap_face_
+, charmap_encoding_
+, charmap_platform_id_
+, charmap_encoding_id_
+
 -- * Glyphs
 , Glyph
 , GlyphRec(..)
@@ -525,6 +535,9 @@ is_named_instance face = liftIO $ [C.exp|int { FT_IS_NAMED_INSTANCE($face:face) 
 
 is_variation :: MonadIO m => Face -> m Bool
 is_variation face = liftIO $ [C.exp|int { FT_IS_VARIATION($face:face) }|] <&> (/=0)
+
+select_charmap :: MonadIO m => Face -> Encoding -> m ()
+select_charmap face encoding = liftIO $ [C.exp|FT_Error { FT_Select_Charmap($face:face,$(FT_Encoding encoding)) }|] >>= ok
 
 has_color :: MonadIO m => Face -> m Bool
 has_color face = liftIO $ [C.exp|int { FT_HAS_COLOR($face:face) }|] <&> (/=0)

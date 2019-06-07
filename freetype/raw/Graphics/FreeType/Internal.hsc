@@ -82,6 +82,31 @@ module Graphics.FreeType.Internal
 , bitmapsize_x_ppem_
 , bitmapsize_y_ppem_
 
+, CharMap
+, CharMapRec(..)
+, charmap_face_
+, charmap_encoding_
+, charmap_platform_id_
+, charmap_encoding_id_
+
+, Encoding
+  ( Encoding
+  , ENC_TAG
+  , ENCODING_NONE
+  , ENCODING_MS_SYMBOL
+  , ENCODING_UNICODE
+  , ENCODING_SJIS
+  , ENCODING_PRC
+  , ENCODING_BIG5
+  , ENCODING_WANSUNG
+  , ENCODING_JOHAB
+  , ENCODING_ADOBE_STANDARD
+  , ENCODING_ADOBE_EXPERT
+  , ENCODING_ADOBE_CUSTOM
+  , ENCODING_ADOBE_LATIN_1
+  , ENCODING_OLD_LATIN_2
+  , ENCODING_APPLE_ROMAN
+  )
 , Error
   ( Error
 #err_exports
@@ -298,14 +323,50 @@ pattern ANGLE_PI2 = Fixed (#const FT_ANGLE_PI2)
 pattern ANGLE_PI4 :: Angle
 pattern ANGLE_PI4 = Fixed (#const FT_ANGLE_PI4)
 
+newtype Encoding = Encoding Word32 deriving newtype (Eq,Ord,Show,Storable)
+
+untag :: Encoding -> (Char, Char, Char, Char)
+untag (Encoding w) =
+  ( w2c (unsafeShiftR w 24 .&. 0xff)
+  , w2c (unsafeShiftR w 16 .&. 0xff)
+  , w2c (unsafeShiftR w 8 .&. 0xff)
+  , w2c (w .&. 0xff)
+  )
+
+pattern ENC_TAG :: Char -> Char -> Char -> Char -> Encoding
+pattern ENC_TAG a b c d <- (untag -> (a,b,c,d)) where
+  ENC_TAG a b c d = Encoding $
+    unsafeShiftL (c2w a .&. 0xff) 24 .|.
+    unsafeShiftL (c2w b .&. 0xff) 16 .|.
+    unsafeShiftL (c2w c .&. 0xff) 8  .|.
+    (c2w d .&. 0xff)
+
+#pattern ENCODING_NONE, Encoding
+#pattern ENCODING_MS_SYMBOL, Encoding
+#pattern ENCODING_UNICODE, Encoding
+#pattern ENCODING_SJIS, Encoding
+#pattern ENCODING_PRC, Encoding
+#pattern ENCODING_BIG5, Encoding
+#pattern ENCODING_WANSUNG, Encoding
+#pattern ENCODING_JOHAB, Encoding
+#pattern ENCODING_ADOBE_STANDARD, Encoding
+#pattern ENCODING_ADOBE_EXPERT, Encoding
+#pattern ENCODING_ADOBE_CUSTOM, Encoding
+#pattern ENCODING_ADOBE_LATIN_1, Encoding
+#pattern ENCODING_OLD_LATIN_2, Encoding
+#pattern ENCODING_APPLE_ROMAN, Encoding
+
+
 type Glyph = ForeignPtr GlyphRec
 type BitmapGlyph = ForeignPtr BitmapGlyphRec
 type OutlineGlyph = ForeignPtr OutlineGlyphRec
+type CharMap = ForeignPtr CharMapRec
 
 #struct bbox,BBox,FT_BBox,xMin,Pos,yMin,Pos,xMax,Pos,yMax,Pos
 #struct bitmap,Bitmap,FT_Bitmap,rows,Word32,width,Word32,pitch,Int32,buffer,Ptr Word8,num_grays,Word16,pixel_mode,Word8,palette_mode,Word8,palette,Ptr()
 #struct bitmapglyph,BitmapGlyphRec,FT_BitmapGlyphRec,root,GlyphRec,left,Int32,top,Int32,bitmap,Bitmap
 #struct bitmapsize,BitmapSize,FT_Bitmap_Size,height,Int16,width,Int16,size,Pos,x_ppem,Pos,y_ppem,Pos
+#struct charmap,CharMapRec,FT_CharMapRec,face,Ptr FaceRec,encoding,Encoding,platform_id,Word16,encoding_id,Word16
 #struct generic,Generic,FT_Generic,data,Ptr (),finalizer,FinalizerPtr ()
 #struct glyph,GlyphRec,FT_GlyphRec,library,Ptr Library,clazz,Ptr GlyphClass,format,GlyphFormat,advance,Vector
 #struct matrix,Matrix,FT_Matrix,xx,Fixed,xy,Fixed,yx,Fixed,yy,Fixed
@@ -526,6 +587,10 @@ freeTypeCtx = mempty
     , (C.TypeName "FT_BitmapGlyphRec",     [t|BitmapGlyphRec|])
     , (C.Struct   "FT_BitmapGlyphRec",     [t|BitmapGlyphRec|])
     , (C.TypeName "FT_Bool",               [t|Word8|])
+    , (C.TypeName "FT_CharMap",            [t|Ptr CharMapRec|])
+    , (C.TypeName "FT_CharMapRec",         [t|CharMapRec|])
+    , (C.Struct   "FT_CharMapRec_",        [t|CharMapRec|])
+    , (C.TypeName "FT_Encoding",           [t|Encoding|])
     , (C.TypeName "FT_Error",              [t|Error|])
     , (C.TypeName "FT_Face",               [t|Ptr FaceRec|])
     , (C.TypeName "FT_FaceRec_",           [t|FaceRec|])
