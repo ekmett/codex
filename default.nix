@@ -64,7 +64,11 @@ let
 
   # Basic overrides to include our packages
   modHaskPkgs = haskellPackages.override {
-    overrides = hself: hsuper: pkgs.lib.mapAttrs (n: p: hself.callCabal2nix n p {}) sources;
+    overrides = hself: hsuper: pkgs.lib.mapAttrs (n: p: hself.callCabal2nix n p {}) sources // {
+      # no-caching hitting sadness :<
+      gl    = pkgs.haskell.lib.doJailbreak hsuper.gl;
+      fixed = hself.callCabal2nix "fixed" (import ./.nix/fixed.nix) {};
+    };
   };
 
   # Move sources to here if we find they're triggering 'infinite
