@@ -115,7 +115,30 @@ module Graphics.FreeType.Internal
 
 , Face, FaceRec
 , foreignFace
-
+, FaceFlags
+  ( FaceFlags
+  , FACE_FLAG_SCALABLE
+  , FACE_FLAG_FIXED_SIZES
+  , FACE_FLAG_FIXED_WIDTH
+  , FACE_FLAG_SFNT
+  , FACE_FLAG_HORIZONTAL
+  , FACE_FLAG_VERTICAL
+  , FACE_FLAG_KERNING
+  , FACE_FLAG_FAST_GLYPHS
+  , FACE_FLAG_MULTIPLE_MASTERS
+  , FACE_FLAG_GLYPH_NAMES
+  , FACE_FLAG_EXTERNAL_STREAM
+  , FACE_FLAG_HINTER
+  , FACE_FLAG_CID_KEYED
+  , FACE_FLAG_TRICKY
+  , FACE_FLAG_COLOR
+  , FACE_FLAG_VARIATION
+  )
+, FaceStyleFlags
+  ( FaceStyleFlags
+  , STYLE_FLAG_ITALIC
+  , STYLE_FLAG_BOLD
+  )
 , Generic(..)
 , generic_data_
 , generic_finalizer_
@@ -431,6 +454,29 @@ ok e = throwIO e
 
 type Face = ForeignPtr FaceRec
 data FaceRec
+
+newtype FaceFlags = FaceFlags Int32 deriving newtype (Eq,Ord,Bits,Storable)
+#pattern FACE_FLAG_SCALABLE, FaceFlags
+#pattern FACE_FLAG_FIXED_SIZES, FaceFlags
+#pattern FACE_FLAG_FIXED_WIDTH, FaceFlags
+#pattern FACE_FLAG_SFNT, FaceFlags
+#pattern FACE_FLAG_HORIZONTAL, FaceFlags
+#pattern FACE_FLAG_VERTICAL, FaceFlags
+#pattern FACE_FLAG_KERNING, FaceFlags
+#pattern FACE_FLAG_FAST_GLYPHS, FaceFlags
+#pattern FACE_FLAG_MULTIPLE_MASTERS, FaceFlags
+#pattern FACE_FLAG_GLYPH_NAMES, FaceFlags
+#pattern FACE_FLAG_EXTERNAL_STREAM, FaceFlags
+#pattern FACE_FLAG_HINTER, FaceFlags
+#pattern FACE_FLAG_CID_KEYED, FaceFlags
+#pattern FACE_FLAG_TRICKY, FaceFlags
+#pattern FACE_FLAG_COLOR, FaceFlags
+#pattern FACE_FLAG_VARIATION, FaceFlags
+
+newtype FaceStyleFlags = FaceStyleFlags Int32 deriving newtype (Eq,Ord,Bits,Storable)
+#pattern STYLE_FLAG_ITALIC, FaceStyleFlags
+#pattern STYLE_FLAG_BOLD, FaceStyleFlags
+
 
 pattern FREETYPE_MAJOR :: Int
 pattern FREETYPE_MAJOR = #const FREETYPE_MAJOR
