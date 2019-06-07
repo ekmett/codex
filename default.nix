@@ -8,7 +8,7 @@ let
     freetype2 = self.freetype;
 
     # We require a minimum version of fontconfig lib for specific functionality.
-    # This is a version that should be equialent for some macs, so pin it.
+    # This is a version that should be equivalent for some macs, so pin it.
     fontconfig = super.fontconfig.overrideAttrs (oldAttrs: rec {
       version = "2.13.1";
       name    = "fontconfig-${version}";
