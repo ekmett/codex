@@ -59,6 +59,7 @@ let
     primitive-statevar  = ./primitive-statevar;
     ptrdiff             = ./ptrdiff;
     weak                = ./weak;
+    smawk               = ./smawk;
   };
 
   # Basic overrides to include our packages
