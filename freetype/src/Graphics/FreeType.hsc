@@ -76,12 +76,15 @@ module Graphics.FreeType
 , face_descender_
 , face_height_
 , face_generic_
+, face_glyph_
 , face_units_per_EM_
 , face_max_advance_width_
 , face_max_advance_height_
 , face_underline_position_
 , face_underline_thickness_
 , face_size_
+, face_charmap_
+, face_available_sizes_
 
 -- ** Using the face
 , get_font_format
@@ -92,6 +95,12 @@ module Graphics.FreeType
 , get_name_index
 , set_pixel_sizes
 , set_transform
+
+, SubGlyph
+, SubGlyphRec
+, SubGlyphFlags(..)
+, SubGlyphInfo(..)
+, face_get_subglyph_info
 
 , LoadFlags(..)
 , load_char
@@ -125,6 +134,16 @@ module Graphics.FreeType
 , charmap_encoding_
 , charmap_platform_id_
 , charmap_encoding_id_
+
+, GlyphMetrics(..)
+, glyphmetrics_width_
+, glyphmetrics_height_
+, glyphmetrics_horiBearingX_
+, glyphmetrics_horiBearingY_
+, glyphmetrics_horiAdvance_
+, glyphmetrics_vertBearingX_
+, glyphmetrics_vertBearingY_
+, glyphmetrics_vertAdvance_
 
 -- * Glyphs
 , Glyph
@@ -175,6 +194,8 @@ module Graphics.FreeType
 , GlyphSlotRec
 , face_glyph
 , glyphslot_face
+, SlotInternal
+, SlotInternalRec
 -- diffs
 , glyphslot_glyph_index_
 , glyphslot_generic_
@@ -183,7 +204,17 @@ module Graphics.FreeType
 , glyphslot_bitmap_
 , glyphslot_bitmap_left_
 , glyphslot_bitmap_top_
--- , glyphslot_num_subglyphs
+, glyphslot_metrics_
+, glyphslot_format_
+, glyphslot_outline_
+, glyphslot_num_subglyphs_
+, glyphslot_subglyphs_
+, glyphslot_control_data_
+, glyphslot_control_len_
+, glyphslot_lsb_delta_
+, glyphslot_rsb_delta_
+, glyphslot_other_
+, glyphslot_internal_
 
 , Bitmap(..)
 , bitmap_width_
@@ -564,10 +595,9 @@ glyphslot_face slot = liftIO $ childPtr slot <$> [C.exp|FT_Face { $glyph-slot:sl
 #diff FaceRec, FT_FaceRec, face_underline_position, underline_position, Int16
 #diff FaceRec, FT_FaceRec, face_underline_thickness, underline_thickness, Int16
 #diff FaceRec, FT_FaceRec, face_size, size, Size
---diff FaceRec, FT_RaceRec, face_available_sizes, available_sizes, Ptr BitmapSize
--- FT_GlyphSlot      glyph;
--- FT_CharMap        charmap;
-
+#diff FaceRec, FT_FaceRec, face_glyph, glyph, Ptr GlyphSlotRec
+#diff FaceRec, FT_FaceRec, face_charmap, charmap, CharMap
+#diff FaceRec, FT_FaceRec, face_available_sizes, available_sizes, Ptr BitmapSize
 #diff FaceRec, FT_FaceRec, face_generic, generic, Generic
 
 face_family_name :: MonadIO m => Face -> m String
@@ -578,16 +608,48 @@ face_style_name face = liftIO $ [C.exp|const char * { $face:face->style_name }|]
 
 #diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_glyph_index, glyph_index, Word32
 #diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_generic, generic, Generic
---diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_metrics, metrics, GlyphMetrics
+#diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_metrics, metrics, GlyphMetrics
 #diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_linearHoriAdvance, linearHoriAdvance, Fixed
 #diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_linearVertAdvance, linearVertAdvance, Fixed
---diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_format, format, GlyphFormat
+#diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_format, format, GlyphFormat
 #diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_bitmap, bitmap, Bitmap
 #diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_bitmap_left, bitmap_left, Int32
 #diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_bitmap_top, bitmap_top, Int32
---diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_outline, outline, Outline
--- #diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_num_subglyphs, num_subglyphs, Word32
---diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_subglyphs, subglyphs, SubGlyph -- "currently internal to freetype"
+#diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_outline, outline, Outline
+#diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_num_subglyphs, num_subglyphs, Word32
+#diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_subglyphs, subglyphs, SubGlyph
+#diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_control_data, control_data, Ptr ()
+#diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_control_len, control_len, Int32
+#diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_lsb_delta, lsb_delta, Pos
+#diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_rsb_delta, rsb_delta, Pos
+#diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_other, other, Ptr ()
+#diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_internal, internal, SlotInternal
+
+
+face_get_subglyph_info :: MonadIO m => GlyphSlot -> Word32 -> m SubGlyphInfo
+face_get_subglyph_info slot sub_index = liftIO $
+  alloca $ \p_index ->
+  alloca $ \p_flags ->
+  alloca $ \p_arg1 ->
+  alloca $ \p_arg2 ->
+  alloca $ \p_transform -> do
+    [C.exp|FT_Error {
+      FT_Get_SubGlyph_Info(
+        $glyph-slot:slot,
+        $(FT_UInt sub_index),
+        $(FT_Int * p_index),
+        $(FT_UInt * p_flags),
+        $(FT_Int * p_arg1),
+        $(FT_Int * p_arg2),
+        $(FT_Matrix * p_transform)
+      )
+    }|] >>= ok
+    SubGlyphInfo
+      <$> peek p_index
+      <*> do SubGlyphFlags <$> peek p_flags
+      <*> peek p_arg1
+      <*> peek p_arg2
+      <*> peek p_transform
 
 -- | This is a suitable form for use as an X11 @FONT_PROPERTY@.
 --

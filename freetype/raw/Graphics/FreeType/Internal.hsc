@@ -144,6 +144,17 @@ module Graphics.FreeType.Internal
   , GLYPH_FORMAT_OUTLINE
   , GLYPH_FORMAT_PLOTTER
   )
+
+, GlyphMetrics(..)
+, glyphmetrics_width_
+, glyphmetrics_height_
+, glyphmetrics_horiBearingX_
+, glyphmetrics_horiBearingY_
+, glyphmetrics_horiAdvance_
+, glyphmetrics_vertBearingX_
+, glyphmetrics_vertBearingY_
+, glyphmetrics_vertAdvance_
+
 , GlyphSlot
 , GlyphSlotRec
 
@@ -277,6 +288,23 @@ module Graphics.FreeType.Internal
   , SIZE_REQUEST_TYPE_SCALES
   )
 
+, SlotInternal
+, SlotInternalRec
+
+, SubGlyph
+, SubGlyphRec
+, SubGlyphFlags
+  ( SubGlyphFlags
+  , SUBGLYPH_FLAG_ARGS_ARE_WORDS
+  , SUBGLYPH_FLAG_ARGS_ARE_XY_VALUES
+  , SUBGLYPH_FLAG_ROUND_XY_TO_GRID
+  , SUBGLYPH_FLAG_SCALE
+  , SUBGLYPH_FLAG_XY_SCALE
+  , SUBGLYPH_FLAG_2X2
+  , SUBGLYPH_FLAG_USE_MY_METRICS
+  )
+, SubGlyphInfo(..) -- made up record to batch all the subglyph info fields together
+
 , Vector(..)
 , vectorTransform
 , vector_x_
@@ -369,6 +397,7 @@ type CharMap = ForeignPtr CharMapRec
 #struct charmap,CharMapRec,FT_CharMapRec,face,Ptr FaceRec,encoding,Encoding,platform_id,Word16,encoding_id,Word16
 #struct generic,Generic,FT_Generic,data,Ptr (),finalizer,FinalizerPtr ()
 #struct glyph,GlyphRec,FT_GlyphRec,library,Ptr Library,clazz,Ptr GlyphClass,format,GlyphFormat,advance,Vector
+#struct glyphmetrics,GlyphMetrics,FT_Glyph_Metrics,width,Pos,height,Pos,horiBearingX,Pos,horiBearingY,Pos,horiAdvance,Pos,vertBearingX,Pos,vertBearingY,Pos,vertAdvance,Pos
 #struct matrix,Matrix,FT_Matrix,xx,Fixed,xy,Fixed,yx,Fixed,yy,Fixed
 #struct memory,MemoryRec,struct FT_MemoryRec_,user,Ptr(),alloc,FunPtr AllocFunc,free,FunPtr FreeFunc,realloc,FunPtr ReallocFunc
 #struct outline,Outline,FT_Outline,n_contours,Word16,n_points,Word16,points,Ptr Vector,tags,Ptr Word8,contours,Ptr Word16,flags,Int32
@@ -517,6 +546,27 @@ newtype GlyphBBoxMode = GlyphBBoxMode Word32 deriving newtype (Eq,Show,Storable,
 
 type SizeRequest = Ptr SizeRequestRec
 
+data SlotInternalRec
+type SlotInternal = Ptr SlotInternalRec
+
+newtype SubGlyphFlags = SubGlyphFlags Word32 deriving newtype (Eq,Ord,Show,Bits)
+#pattern SUBGLYPH_FLAG_ARGS_ARE_WORDS, SubGlyphFlags
+#pattern SUBGLYPH_FLAG_ARGS_ARE_XY_VALUES, SubGlyphFlags
+#pattern SUBGLYPH_FLAG_ROUND_XY_TO_GRID, SubGlyphFlags
+#pattern SUBGLYPH_FLAG_SCALE, SubGlyphFlags
+#pattern SUBGLYPH_FLAG_XY_SCALE, SubGlyphFlags
+#pattern SUBGLYPH_FLAG_2X2, SubGlyphFlags
+#pattern SUBGLYPH_FLAG_USE_MY_METRICS, SubGlyphFlags
+
+data SubGlyphRec -- opaque
+type SubGlyph = Ptr SubGlyphRec
+data SubGlyphInfo = SubGlyphInfo
+  { subglyphinfo_index     :: Int32
+  , subglyphinfo_flags     :: SubGlyphFlags
+  , subglyphinfo_arg1      :: Int32
+  , subglyphinfo_arg2      :: Int32
+  , subglyphinfo_transform :: Matrix
+  } deriving (Eq,Show)
 
 C.context $ C.baseCtx <> mempty
   { C.ctxTypesTable = Map.fromList
