@@ -33,7 +33,7 @@ common base
     bytestring,
     containers,
     data-default,
-    fixed,
+    fixed >= 0.3,
     inline-c,
     primitive,
     ptrdiff,
@@ -64,6 +64,7 @@ library
     Graphics.FreeType.Internal
   exposed-modules:
     Graphics.FreeType
+    Numeric.Fixed.F26Dot6
 
 test-suite spec
   import: base

@@ -27,9 +27,9 @@ static inline void hsc_err_patterns() {
 #undef  FT_ERROR_START_LIST
 #define FT_ERROR_START_LIST
 #undef  FT_NOERRORDEF
-#define FT_NOERRORDEF(e,s) hsc_printf("-- %s\npattern %s :: Error\npattern %s = Error 0\n\n",s,xstr(e),xstr(e));
+#define FT_NOERRORDEF(e,s) hsc_printf("{- | %s -}\n\npattern %s :: Error\npattern %s = Error 0\n\n",s,xstr(e),xstr(e));
 #undef  FT_ERRORDEF
-#define FT_ERRORDEF(e,v,s) hsc_printf("-- %s\npattern %s :: Error\npattern %s = Error %d\n\n",s,xstr(e),xstr(e),v);
+#define FT_ERRORDEF(e,v,s) hsc_printf("{- | %s -}\n\npattern %s :: Error\npattern %s = Error %d\n\n",s,xstr(e),xstr(e),v);
 #undef  FT_ERROR_END_LIST
 #define FT_ERROR_END_LIST
 

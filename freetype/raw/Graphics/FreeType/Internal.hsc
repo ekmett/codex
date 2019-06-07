@@ -438,7 +438,7 @@ childPtr :: ForeignPtr a -> Ptr b -> ForeignPtr b
 childPtr (ForeignPtr _ guts) (Ptr p) = ForeignPtr p guts
 
 -- | By convention the library will throw any non-0 FT_Error encountered.
-newtype Error = Error CInt deriving newtype (Eq,Ord,Show,Storable)
+newtype Error = Error Int32 deriving newtype (Eq,Ord,Show,Storable)
 
 #err_patterns
 
