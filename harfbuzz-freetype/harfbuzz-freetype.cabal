@@ -51,6 +51,7 @@ executable example
   ghc-options: -O2 -threaded -rtsopts -with-rtsopts=-N
   build-depends:
     atlas,
+    bytestring,
     containers,
     data-default,
     gl,
@@ -62,4 +63,5 @@ executable example
     random,
     sdl2 >= 2.4.1,
     StateVar,
-    text
+    text,
+    vector

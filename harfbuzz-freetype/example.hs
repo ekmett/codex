@@ -12,6 +12,8 @@ import Control.Monad.ST (RealWorld)
 import Control.Monad
 import Data.Atlas
 import Data.Bifunctor
+import qualified Data.ByteString as BS
+import Data.Coerce
 import Data.Default
 import Data.IORef
 import Data.Map (Map)
@@ -26,6 +28,9 @@ import Data.Proxy
 import Data.Set.Lens
 import Data.Traversable
 import Data.Vector.Generic.Lens
+import qualified Data.Vector.Storable as V
+import Data.Word
+import Foreign.C.String
 import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Utils
@@ -34,7 +39,7 @@ import Foreign.Ptr.Diff
 import GHC.Conc (setUncaughtExceptionHandler)
 import qualified GHC.Exts as E
 import Graphics.FreeType as FT
-import Graphics.GL.Compatibility32
+import Graphics.GL.Core41
 import Graphics.Glow
 import Graphics.Harfbuzz hiding (Map)
 import Graphics.Harfbuzz.FreeType
@@ -62,7 +67,7 @@ newTextureAtlas w h = do
     glPixelStorei GL_PACK_ALIGNMENT 1
     glPixelStorei GL_UNPACK_ALIGNMENT 1
     atlas_data <- mallocBytes (w * h) -- used as a scratch buffer for texture uploads  w/ glTexSubImage2D
-    glTexImage2D GL_TEXTURE_2D 0 GL_LUMINANCE (fromIntegral w) (fromIntegral h) 0 GL_LUMINANCE GL_UNSIGNED_BYTE atlas_data
+    glTexImage2D GL_TEXTURE_2D 0 GL_RED (fromIntegral w) (fromIntegral h) 0 GL_RED GL_UNSIGNED_BYTE atlas_data
     atlas <- atlas_create w h
     TextureAtlas tex atlas atlas_data w h <$> newIORef Map.empty
 
@@ -86,7 +91,7 @@ uploadGlyph bg (Pt x y) scratch = do
     bx <- fromIntegral <$> peekDiffOff p bitmapglyph_left_
     by <- fromIntegral <$> peekDiffOff p bitmapglyph_top_
     pure $ TextureGlyph w h x y bx by
-  
+
 -- | render a single glyph
 render :: (FT.Face, Codepoint) -> IO BitmapGlyph
 render (face,codepoint) = do
@@ -100,7 +105,7 @@ size bmg = withForeignPtr (act bitmapglyph_bitmap_ bmg) $ \bp ->
     Pt <$> do fromIntegral <$> peekDiffOff bp bitmap_width_
        <*> do fromIntegral <$> peekDiffOff bp bitmap_rows_
 
-splat :: [(Maybe a,b)] -> ([(a,b)],[b]) 
+splat :: [(Maybe a,b)] -> ([(a,b)],[b])
 splat = bimap (fmap (first fromJust)) (fmap snd) . partition (isJust.fst)
 
 data GlyphTooLarge = GlyphTooLarge deriving (Show,Exception)
@@ -147,7 +152,7 @@ fixed26 x = fromIntegral x / 64
 
 gp_advance :: GlyphPosition -> V2 Float
 gp_advance gp = fixed26 <$> V2 (glyph_position_x_advance gp) (glyph_position_y_advance gp)
-           
+
 -- A fairly minimal old-school fixed function pipeline demo
 main :: IO ()
 main = do
@@ -158,73 +163,84 @@ main = do
     { SDL.windowInitialSize = V2 640 480
     , SDL.windowHighDPI = True
     , SDL.windowOpenGL = Just SDL.defaultOpenGL
+      { SDL.glProfile = SDL.Core SDL.Debug 4 1
+      }
     }
   SDL.showWindow window
   _ <- SDL.glCreateContext window
+
+  glEnable GL_BLEND
+  glBlendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+
+  ta@TextureAtlas{..} <- newTextureAtlas 1024 1024
+  let tx x = fromIntegral x / fromIntegral ta_width
+      ty y = fromIntegral y / fromIntegral ta_height
+  boundTexture Texture2D $= ta_texture
+
+  vs <- BS.readFile "shaders/example.vert" >>= buildShaderFrom VertexShader
+  fs <- BS.readFile "shaders/example.frag" >>= buildShaderFrom FragmentShader
+  program <- Program <$> glCreateProgram
+  attachShader program vs
+  attachShader program fs
+  glLinkProgram (coerce program)
+
+  uniformLocation program "tex" >>= \texul -> programUniform1i program texul $= 0 -- bind to GL_TEXTURE_2D
+
+  currentProgram $= program
+
+  ibo <- gen -- ibo holding a 'quad' access pattern
+  boundBufferAt ElementArrayBufferTarget $= ibo
+  bufferData ElementArrayBufferTarget $= (StaticDraw, [0,1,2,3,2,1 :: Word8]) -- quad AB CD
+
+  vao <- gen
+  boundBufferAt ArrayBufferTarget $= vao
+  withCString "a" $ glBindAttribLocation (coerce program) 0
+  glEnableVertexAttribArray 0
+  glVertexAttribPointer 0 4 GL_FLOAT GL_TRUE 32 (intPtrToPtr 0) -- janky 4.1 API =(
+  glVertexAttribDivisor 0 1
+  withCString "b" $ glBindAttribLocation (coerce program) 1
+  glEnableVertexAttribArray 1
+  glVertexAttribPointer 1 4 GL_FLOAT GL_TRUE 32 (intPtrToPtr 16) -- =(
+  glVertexAttribDivisor 1 1
+
   throwErrors
   library <- init_library
-  ta@TextureAtlas{..} <- newTextureAtlas 140 140
 
-  -- face <- new_face library "test/fonts/Sanskrit2003.ttf" 0
   face <- new_face library "test/fonts/SourceCodePro-Regular.otf" 0
   set_pixel_sizes face 0 128
   font <- hb_ft_font_create face
   buffer <- buffer_create
-
-  --buffer_direction buffer $= DIRECTION_LTR
-  --buffer_language buffer $= "hi"
-  --buffer_script buffer $= SCRIPT_DEVANAGARI
-  --let text = "हालाँकि प्रचलित रूप पूजा"
-
   buffer_direction buffer $= DIRECTION_LTR
   let text = "this is a test"
   buffer_add_text buffer text 0 (lengthWord16 text)
   shape font buffer mempty
+  gs <- zip
+    <$> do E.toList <$> buffer_get_glyph_infos buffer
+    <*> do E.toList <$> buffer_get_glyph_positions buffer
 
   forever $ do
     events <- SDL.pollEvents
     V2 w h <- SDL.glGetDrawableSize window
     glViewport 0 0 (fromIntegral w) (fromIntegral h)
-    glMatrixMode GL_PROJECTION
-    glLoadIdentity
-    glOrtho 0 (fromIntegral w) 0 (fromIntegral h) (-1) 1
-    glMatrixMode GL_MODELVIEW
-    glLoadIdentity
-    glDisable GL_DEPTH_TEST
-    glEnable GL_BLEND
-    glBlendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
     glClear GL_COLOR_BUFFER_BIT
     let yb = fromIntegral h / 2
-
-    withBoundTexture Texture2D ta_texture $ do
-      glEnable GL_TEXTURE_2D
-      gs <- zip
-        <$> do E.toList <$> buffer_get_glyph_infos buffer 
-        <*> do E.toList <$> buffer_get_glyph_positions buffer
-      batch ta gs (V2 100 yb) (gp_advance.snd) ((,) face) (\(gi,gp) -> glyph_info_codepoint gi) $ \ gs -> do
-        glBegin GL_QUADS
-        for gs $ \(V2 x y,(_,gp),TextureGlyph{..}) -> do
-          let tx x = fromIntegral x / fromIntegral ta_width
-              ty y = fromIntegral y / fromIntegral ta_height
-              s0 = tx tg_x; s1 = s0 + tx tg_w
-              t0 = ty tg_y; t1 = t0 + ty tg_h
-              x0 = x + fixed26 (glyph_position_x_offset gp) + fromIntegral tg_bx
-              y0 = fromIntegral $ floor $ y + fixed26 (glyph_position_y_offset gp) + fromIntegral tg_by
-              x1 = x0 + fromIntegral tg_w
-              y1 = fromIntegral $ floor $ y0 - fromIntegral tg_h
-          glTexCoord2f s0 t0
-          glVertex2f x0 y0
-          glTexCoord2f s0 t1
-          glVertex2f x0 y1
-          glTexCoord2f s1 t1
-          glVertex2f x1 y1
-          glTexCoord2f s1 t0
-          glVertex2f x1 y0
-        glEnd
-
-      glDisable GL_TEXTURE_2D
+    batch ta gs (V2 100 yb) (gp_advance.snd) ((,) face) (\(gi,gp) -> glyph_info_codepoint gi) $ \ tgs -> do
+      let quads = V.fromList $ do
+            (V2 x y,(_,gp),TextureGlyph{..}) <- tgs
+            let s0 = tx tg_x
+                t0 = ty tg_y
+                s1 = s0 + tx tg_w
+                t1 = t0 + ty tg_h
+                x0 = x + fixed26 (glyph_position_x_offset gp) + fromIntegral tg_bx
+                y0 = fromIntegral $ floor $ y + fixed26 (glyph_position_y_offset gp) + fromIntegral tg_by
+                x1 = x0 + fromIntegral tg_w
+                y1 = fromIntegral $ floor $ y0 - fromIntegral tg_h
+            [x0,s0,x1,s1,y0,t0,y1,t1] -- 8 floats per glyph
+      bufferData ArrayBufferTarget $= (StreamDraw, quads)
+      glDrawElementsInstanced GL_TRIANGLES 6 GL_UNSIGNED_BYTE nullPtr $ fromIntegral $ div (V.length quads) 8
     SDL.glSwapWindow window
     when (any escOrQuit events) $ do
+      -- glDisableVertexAttribArray vao
       SDL.destroyWindow window
       SDL.quit
       exitSuccess
