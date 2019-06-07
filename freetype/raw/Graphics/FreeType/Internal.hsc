@@ -82,6 +82,31 @@ module Graphics.FreeType.Internal
 , bitmapsize_x_ppem_
 , bitmapsize_y_ppem_
 
+, CharMap
+, CharMapRec(..)
+, charmap_face_
+, charmap_encoding_
+, charmap_platform_id_
+, charmap_encoding_id_
+
+, Encoding
+  ( Encoding
+  , ENC_TAG
+  , ENCODING_NONE
+  , ENCODING_MS_SYMBOL
+  , ENCODING_UNICODE
+  , ENCODING_SJIS
+  , ENCODING_PRC
+  , ENCODING_BIG5
+  , ENCODING_WANSUNG
+  , ENCODING_JOHAB
+  , ENCODING_ADOBE_STANDARD
+  , ENCODING_ADOBE_EXPERT
+  , ENCODING_ADOBE_CUSTOM
+  , ENCODING_ADOBE_LATIN_1
+  , ENCODING_OLD_LATIN_2
+  , ENCODING_APPLE_ROMAN
+  )
 , Error
   ( Error
 #err_exports
@@ -90,7 +115,30 @@ module Graphics.FreeType.Internal
 
 , Face, FaceRec
 , foreignFace
-
+, FaceFlags
+  ( FaceFlags
+  , FACE_FLAG_SCALABLE
+  , FACE_FLAG_FIXED_SIZES
+  , FACE_FLAG_FIXED_WIDTH
+  , FACE_FLAG_SFNT
+  , FACE_FLAG_HORIZONTAL
+  , FACE_FLAG_VERTICAL
+  , FACE_FLAG_KERNING
+  , FACE_FLAG_FAST_GLYPHS
+  , FACE_FLAG_MULTIPLE_MASTERS
+  , FACE_FLAG_GLYPH_NAMES
+  , FACE_FLAG_EXTERNAL_STREAM
+  , FACE_FLAG_HINTER
+  , FACE_FLAG_CID_KEYED
+  , FACE_FLAG_TRICKY
+  , FACE_FLAG_COLOR
+  , FACE_FLAG_VARIATION
+  )
+, FaceStyleFlags
+  ( FaceStyleFlags
+  , STYLE_FLAG_ITALIC
+  , STYLE_FLAG_BOLD
+  )
 , Generic(..)
 , generic_data_
 , generic_finalizer_
@@ -119,6 +167,17 @@ module Graphics.FreeType.Internal
   , GLYPH_FORMAT_OUTLINE
   , GLYPH_FORMAT_PLOTTER
   )
+
+, GlyphMetrics(..)
+, glyphmetrics_width_
+, glyphmetrics_height_
+, glyphmetrics_horiBearingX_
+, glyphmetrics_horiBearingY_
+, glyphmetrics_horiAdvance_
+, glyphmetrics_vertBearingX_
+, glyphmetrics_vertBearingY_
+, glyphmetrics_vertAdvance_
+
 , GlyphSlot
 , GlyphSlotRec
 
@@ -252,6 +311,23 @@ module Graphics.FreeType.Internal
   , SIZE_REQUEST_TYPE_SCALES
   )
 
+, SlotInternal
+, SlotInternalRec
+
+, SubGlyph
+, SubGlyphRec
+, SubGlyphFlags
+  ( SubGlyphFlags
+  , SUBGLYPH_FLAG_ARGS_ARE_WORDS
+  , SUBGLYPH_FLAG_ARGS_ARE_XY_VALUES
+  , SUBGLYPH_FLAG_ROUND_XY_TO_GRID
+  , SUBGLYPH_FLAG_SCALE
+  , SUBGLYPH_FLAG_XY_SCALE
+  , SUBGLYPH_FLAG_2X2
+  , SUBGLYPH_FLAG_USE_MY_METRICS
+  )
+, SubGlyphInfo(..) -- made up record to batch all the subglyph info fields together
+
 , Vector(..)
 , vectorTransform
 , vector_x_
@@ -299,16 +375,53 @@ pattern ANGLE_PI2 = Fixed (#const FT_ANGLE_PI2)
 pattern ANGLE_PI4 :: Angle
 pattern ANGLE_PI4 = Fixed (#const FT_ANGLE_PI4)
 
+newtype Encoding = Encoding Word32 deriving newtype (Eq,Ord,Show,Storable)
+
+untag :: Encoding -> (Char, Char, Char, Char)
+untag (Encoding w) =
+  ( w2c (unsafeShiftR w 24 .&. 0xff)
+  , w2c (unsafeShiftR w 16 .&. 0xff)
+  , w2c (unsafeShiftR w 8 .&. 0xff)
+  , w2c (w .&. 0xff)
+  )
+
+pattern ENC_TAG :: Char -> Char -> Char -> Char -> Encoding
+pattern ENC_TAG a b c d <- (untag -> (a,b,c,d)) where
+  ENC_TAG a b c d = Encoding $
+    unsafeShiftL (c2w a .&. 0xff) 24 .|.
+    unsafeShiftL (c2w b .&. 0xff) 16 .|.
+    unsafeShiftL (c2w c .&. 0xff) 8  .|.
+    (c2w d .&. 0xff)
+
+#pattern ENCODING_NONE, Encoding
+#pattern ENCODING_MS_SYMBOL, Encoding
+#pattern ENCODING_UNICODE, Encoding
+#pattern ENCODING_SJIS, Encoding
+#pattern ENCODING_PRC, Encoding
+#pattern ENCODING_BIG5, Encoding
+#pattern ENCODING_WANSUNG, Encoding
+#pattern ENCODING_JOHAB, Encoding
+#pattern ENCODING_ADOBE_STANDARD, Encoding
+#pattern ENCODING_ADOBE_EXPERT, Encoding
+#pattern ENCODING_ADOBE_CUSTOM, Encoding
+#pattern ENCODING_ADOBE_LATIN_1, Encoding
+#pattern ENCODING_OLD_LATIN_2, Encoding
+#pattern ENCODING_APPLE_ROMAN, Encoding
+
+
 type Glyph = ForeignPtr GlyphRec
 type BitmapGlyph = ForeignPtr BitmapGlyphRec
 type OutlineGlyph = ForeignPtr OutlineGlyphRec
+type CharMap = ForeignPtr CharMapRec
 
 #struct bbox,BBox,FT_BBox,xMin,Pos,yMin,Pos,xMax,Pos,yMax,Pos
 #struct bitmap,Bitmap,FT_Bitmap,rows,Word32,width,Word32,pitch,Int32,buffer,Ptr Word8,num_grays,Word16,pixel_mode,Word8,palette_mode,Word8,palette,Ptr()
 #struct bitmapglyph,BitmapGlyphRec,FT_BitmapGlyphRec,root,GlyphRec,left,Int32,top,Int32,bitmap,Bitmap
 #struct bitmapsize,BitmapSize,FT_Bitmap_Size,height,Int16,width,Int16,size,Pos,x_ppem,Pos,y_ppem,Pos
+#struct charmap,CharMapRec,FT_CharMapRec,face,Ptr FaceRec,encoding,Encoding,platform_id,Word16,encoding_id,Word16
 #struct generic,Generic,FT_Generic,data,Ptr (),finalizer,FinalizerPtr ()
 #struct glyph,GlyphRec,FT_GlyphRec,library,Ptr Library,clazz,Ptr GlyphClass,format,GlyphFormat,advance,Vector
+#struct glyphmetrics,GlyphMetrics,FT_Glyph_Metrics,width,Pos,height,Pos,horiBearingX,Pos,horiBearingY,Pos,horiAdvance,Pos,vertBearingX,Pos,vertBearingY,Pos,vertAdvance,Pos
 #struct matrix,Matrix,FT_Matrix,xx,Fixed,xy,Fixed,yx,Fixed,yy,Fixed
 #struct memory,MemoryRec,struct FT_MemoryRec_,user,Ptr(),alloc,FunPtr AllocFunc,free,FunPtr FreeFunc,realloc,FunPtr ReallocFunc
 #struct outline,Outline,FT_Outline,n_contours,Word16,n_points,Word16,points,Ptr Vector,tags,Ptr Word8,contours,Ptr Word16,flags,Int32
@@ -326,7 +439,7 @@ childPtr :: ForeignPtr a -> Ptr b -> ForeignPtr b
 childPtr (ForeignPtr _ guts) (Ptr p) = ForeignPtr p guts
 
 -- | By convention the library will throw any non-0 FT_Error encountered.
-newtype Error = Error CInt deriving newtype (Eq,Ord,Show,Storable)
+newtype Error = Error Int32 deriving newtype (Eq,Ord,Show,Storable)
 
 #err_patterns
 
@@ -342,6 +455,29 @@ ok e = throwIO e
 
 type Face = ForeignPtr FaceRec
 data FaceRec
+
+newtype FaceFlags = FaceFlags Int32 deriving newtype (Eq,Ord,Bits,Storable)
+#pattern FACE_FLAG_SCALABLE, FaceFlags
+#pattern FACE_FLAG_FIXED_SIZES, FaceFlags
+#pattern FACE_FLAG_FIXED_WIDTH, FaceFlags
+#pattern FACE_FLAG_SFNT, FaceFlags
+#pattern FACE_FLAG_HORIZONTAL, FaceFlags
+#pattern FACE_FLAG_VERTICAL, FaceFlags
+#pattern FACE_FLAG_KERNING, FaceFlags
+#pattern FACE_FLAG_FAST_GLYPHS, FaceFlags
+#pattern FACE_FLAG_MULTIPLE_MASTERS, FaceFlags
+#pattern FACE_FLAG_GLYPH_NAMES, FaceFlags
+#pattern FACE_FLAG_EXTERNAL_STREAM, FaceFlags
+#pattern FACE_FLAG_HINTER, FaceFlags
+#pattern FACE_FLAG_CID_KEYED, FaceFlags
+#pattern FACE_FLAG_TRICKY, FaceFlags
+#pattern FACE_FLAG_COLOR, FaceFlags
+#pattern FACE_FLAG_VARIATION, FaceFlags
+
+newtype FaceStyleFlags = FaceStyleFlags Int32 deriving newtype (Eq,Ord,Bits,Storable)
+#pattern STYLE_FLAG_ITALIC, FaceStyleFlags
+#pattern STYLE_FLAG_BOLD, FaceStyleFlags
+
 
 pattern FREETYPE_MAJOR :: Int
 pattern FREETYPE_MAJOR = #const FREETYPE_MAJOR
@@ -457,6 +593,27 @@ newtype GlyphBBoxMode = GlyphBBoxMode Word32 deriving newtype (Eq,Show,Storable,
 
 type SizeRequest = Ptr SizeRequestRec
 
+data SlotInternalRec
+type SlotInternal = Ptr SlotInternalRec
+
+newtype SubGlyphFlags = SubGlyphFlags Word32 deriving newtype (Eq,Ord,Show,Bits)
+#pattern SUBGLYPH_FLAG_ARGS_ARE_WORDS, SubGlyphFlags
+#pattern SUBGLYPH_FLAG_ARGS_ARE_XY_VALUES, SubGlyphFlags
+#pattern SUBGLYPH_FLAG_ROUND_XY_TO_GRID, SubGlyphFlags
+#pattern SUBGLYPH_FLAG_SCALE, SubGlyphFlags
+#pattern SUBGLYPH_FLAG_XY_SCALE, SubGlyphFlags
+#pattern SUBGLYPH_FLAG_2X2, SubGlyphFlags
+#pattern SUBGLYPH_FLAG_USE_MY_METRICS, SubGlyphFlags
+
+data SubGlyphRec -- opaque
+type SubGlyph = Ptr SubGlyphRec
+data SubGlyphInfo = SubGlyphInfo
+  { subglyphinfo_index     :: Int32
+  , subglyphinfo_flags     :: SubGlyphFlags
+  , subglyphinfo_arg1      :: Int32
+  , subglyphinfo_arg2      :: Int32
+  , subglyphinfo_transform :: Matrix
+  } deriving (Eq,Show)
 
 C.context $ C.baseCtx <> mempty
   { C.ctxTypesTable = Map.fromList
@@ -527,6 +684,10 @@ freeTypeCtx = mempty
     , (C.TypeName "FT_BitmapGlyphRec",     [t|BitmapGlyphRec|])
     , (C.Struct   "FT_BitmapGlyphRec",     [t|BitmapGlyphRec|])
     , (C.TypeName "FT_Bool",               [t|Word8|])
+    , (C.TypeName "FT_CharMap",            [t|Ptr CharMapRec|])
+    , (C.TypeName "FT_CharMapRec",         [t|CharMapRec|])
+    , (C.Struct   "FT_CharMapRec_",        [t|CharMapRec|])
+    , (C.TypeName "FT_Encoding",           [t|Encoding|])
     , (C.TypeName "FT_Error",              [t|Error|])
     , (C.TypeName "FT_Face",               [t|Ptr FaceRec|])
     , (C.TypeName "FT_FaceRec_",           [t|FaceRec|])

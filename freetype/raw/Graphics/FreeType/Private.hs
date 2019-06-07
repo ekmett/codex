@@ -10,10 +10,12 @@
 --
 module Graphics.FreeType.Private
 ( anti
+, w2c, c2w
 ) where
 
 import Data.Coerce
 import Data.Functor ((<&>))
+import Data.Word
 import qualified Language.C.Inline.Context as C
 import qualified Language.C.Inline.HaskellIdentifier as C
 import qualified Language.C.Types as C
@@ -30,4 +32,8 @@ anti cTy hsTyQ w = C.SomeAntiQuoter C.AntiQuoter
   , C.aqMarshaller = \_ _ _ cId -> (,) <$> hsTyQ <*> [|$w (coerce $(getHsVariable "freeTypeCtx" cId))|]
   }
 
+w2c :: Word32 -> Char
+w2c = toEnum . fromIntegral
 
+c2w :: Char -> Word32
+c2w = fromIntegral . fromEnum
