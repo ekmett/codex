@@ -1,8 +1,8 @@
 cabal-version: 2.2
-name: primitive-ffi
+name: primitive-unlift
 version: 0
-synopsis: FFI primitives for ST and MonadPrim
-homepage: https://github.com/ekmett/codex/tree/master/foreign-ref#readme
+synopsis: unliftio-core for primitive
+homepage: https://github.com/ekmett/codex/tree/master/primitive-unlift#readme
 license: BSD-2-Clause OR Apache-2.0
 license-file: LICENSE.md
 author: Edward Kmett
@@ -12,7 +12,7 @@ stability: experimental
 category: FFI
 build-type: Simple
 description:
-  FFI primitives for ST and MonadPrim.
+  Unlifting Primitives
 extra-doc-files:
   README.md,
   CHANGELOG.md
@@ -29,17 +29,11 @@ library
     -Wredundant-constraints -Widentities -Wmissing-export-lists
   build-depends:
     base >= 4.11 && < 5,
-    const,
-    data-default,
     ghc-prim,
-    StateVar,
     primitive,
     primitive-statevar,
-    primitive-unlift,
-    ptrdiff
+    transformers
   exposed-modules:
-    Foreign.ForeignRef
-    Foreign.ForeignRef.Unsafe
-    Foreign.Ref
-    Foreign.Ref.Unsafe
-    Foreign.Storable.Ref
+    Control.Monad.Primitive.Unlift
+    Control.Monad.IOST
+    Control.Monad.IOST.Unsafe
