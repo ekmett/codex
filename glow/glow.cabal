@@ -61,6 +61,7 @@ library
     Graphics.Glow.Renderbuffer
     Graphics.Glow.Sampler
     Graphics.Glow.Shader
+    Graphics.Glow.State
     Graphics.Glow.Texture
     Graphics.Glow.Types
     Graphics.Glow.Uniform
