@@ -49,6 +49,7 @@ library
     Graphics.Glow.Attribute
     Graphics.Glow.Block
     Graphics.Glow.Buffer
+    Graphics.Glow.Debug
     Graphics.Glow.Draw
     Graphics.Glow.Error
     Graphics.Glow.Framebuffer

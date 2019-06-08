@@ -9,6 +9,7 @@ module Graphics.Glow
 ( module Graphics.Glow.Attribute
 , module Graphics.Glow.Block
 , module Graphics.Glow.Buffer
+, module Graphics.Glow.Debug
 , module Graphics.Glow.Draw
 , module Graphics.Glow.Error
 , module Graphics.Glow.Framebuffer
@@ -30,6 +31,7 @@ module Graphics.Glow
 import Graphics.Glow.Attribute
 import Graphics.Glow.Block
 import Graphics.Glow.Buffer
+import Graphics.Glow.Debug
 import Graphics.Glow.Draw
 import Graphics.Glow.Error
 import Graphics.Glow.Framebuffer

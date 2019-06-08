@@ -431,6 +431,13 @@ type CharMap = ForeignPtr CharMapRec
 #struct sizerequest,SizeRequestRec,FT_Size_RequestRec,type,SizeRequestType,width,Int32,height,Int32,horiResolution,Word32,vertResolution,Word32
 #struct vector,Vector,FT_Vector,x,Pos,y,Pos
 
+instance Semigroup BBox where
+  BBox x0 y0 x1 y1 <> BBox x2 y2 x3 y3 =
+    BBox (min x0 x2) (min y0 y2) (max x1 x3) (max y1 y3)
+
+instance Monoid BBox where
+  mempty = BBox maxBound maxBound minBound minBound
+
 -- | Given a foreign ptr and a ptr, produces a foreign ptr that has the same finalizers as the first, but now
 -- pointing at the target value. Holding this foreign ptr will keep the original alive and vice versa.
 --
