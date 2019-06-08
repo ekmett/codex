@@ -35,8 +35,10 @@ library
     -Wredundant-constraints -Widentities -Wmissing-export-lists
   build-depends:
     hashable,
+    primitive-unlift,
     transformers,
     unique,
+    unliftio-core,
     unordered-containers
   exposed-modules:
     Data.Watch

@@ -20,7 +20,9 @@ import Control.Applicative
 import Control.Concurrent.Unique
 import Control.Monad.Fail as MonadFail
 import Control.Monad.IO.Class
+import Control.Monad.IO.Unlift
 import Control.Monad.Primitive
+import Control.Monad.Primitive.Unlift
 import Control.Monad.ST
 import Control.Monad.ST.Unsafe
 import Control.Monad.Trans.Accum
@@ -99,11 +101,11 @@ instance Applicative (Watch s) where
   Watch m <* Watch n = Watch $ \u d -> m u d <* n u d
   {-# inlinable (<*) #-}
   liftA2 f (Watch m) (Watch n) = Watch $ \u d -> liftA2 f (m u d) (n u d)
-  {-# inlinable liftA2 #-} 
+  {-# inlinable liftA2 #-}
 
 instance Monad (Watch s) where
   Watch m >>= f = Watch $ \u d -> do
-    a <- m u d 
+    a <- m u d
     runWatch (f a) u d
   {-# inline (>>=) #-}
   Watch m >> Watch n = Watch $ \u d -> m u d >> n u d
@@ -111,7 +113,32 @@ instance Monad (Watch s) where
 
   fail s = Watch $ \_ _ -> unsafeIOToST $ MonadFail.fail s
   {-# inlinable fail #-}
-  
+
+--instance MonadBase (ST s) (Watch s) where
+--  liftBase m = Watch $ \_ _ -> m
+
+instance s ~ RealWorld => MonadUnliftIO (Watch s) where
+  askUnliftIO = Watch $ \u d ->
+    ioToPrim $ withUnliftIO $ \k ->
+      return $ UnliftIO $ \ m ->
+        unliftIO k $ stToIO $ runWatch m u d
+  {-# inline askUnliftIO #-}
+  withRunInIO inner =
+    Watch $ \u d -> ioToPrim $ withRunInIO $ \run ->
+      inner $ \m -> run $ stToIO $ runWatch m u d
+  {-# inline withRunInIO #-}
+
+instance MonadUnliftPrim (Watch s) where
+  askUnliftPrim = Watch $ \u d -> do
+    withUnliftIOST $ \k ->
+      return $ UnliftPrim $ \ m ->
+        unliftPrim k $ stToPrim $ runWatch m u d
+  {-# inline askUnliftPrim #-}
+  withRunInPrim inner =
+    Watch $ \u d -> withRunInPrim $ \run ->
+      inner $ \m -> run $ stToPrim $ runWatch m u d
+  {-# inline withRunInPrim #-}
+
 instance MonadFail (Watch s) where
   fail s = Watch $ \_ _ -> unsafeIOToST $ MonadFail.fail s
   {-# inlinable fail #-}

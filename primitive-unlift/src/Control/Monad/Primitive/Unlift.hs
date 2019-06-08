@@ -8,6 +8,7 @@ module Control.Monad.Primitive.Unlift
 , askRunInPrim
 , askRunInIOST
 , withUnliftPrim
+, withUnliftIOST
 , toPrim
 , toIOST
 , wrappedWithRunInPrim
@@ -42,7 +43,7 @@ askRunInPrim = withRunInPrim (\run -> (return (\ma -> primToPrim $ run ma)))
 {-# inline askRunInPrim #-}
 
 askRunInIOST :: MonadUnliftPrim m => m (m a -> IOST (PrimState m) a)
-askRunInIOST = withRunInPrim (\run -> (return (\ma -> primToPrim $ run ma)))
+askRunInIOST = askRunInPrim
 {-# inline askRunInIOST #-}
 
 withUnliftPrim :: (MonadUnliftPrim m, PrimBase n, PrimState m ~ PrimState n) => (UnliftPrim m -> n a) -> m a
@@ -50,7 +51,7 @@ withUnliftPrim inner = askUnliftPrim >>= primToPrim . inner
 {-# inline withUnliftPrim #-}
 
 withUnliftIOST :: MonadUnliftPrim m => (UnliftPrim m -> IOST (PrimState m) a) -> m a
-withUnliftIOST inner = askUnliftPrim >>= primToPrim . inner
+withUnliftIOST = withUnliftPrim
 {-# inline withUnliftIOST #-}
 
 toPrim :: (MonadUnliftPrim m, PrimMonad n, PrimState m ~ PrimState n) => m a -> m (n a)
