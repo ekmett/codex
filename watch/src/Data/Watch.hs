@@ -15,6 +15,7 @@ module Data.Watch
   ( Ref
   , MonadWatch(..)
   , Watch
+  , newRef
   , writeRef
   , modifyRef
   , modifyRef'
