@@ -1,0 +1,39 @@
+cabal-version: 2.2
+name: watch-filepath
+version: 0
+synopsis: Watch file system changes
+homepage: https://github.com/ekmett/codex/tree/master/watch-fsnotify#readme
+license: BSD-2-Clause OR Apache-2.0
+license-file: LICENSE.md
+author: Edward Kmett
+maintainer: Edward Kmett <ekmett@gmail.com>
+copyright: Copyright (c) 2019 Edward Kmett
+stability: experimental
+category: filesystem
+build-type: Simple
+description:
+  Watch file system changes with a variant of adapton.
+extra-doc-files:
+  README.md,
+  CHANGELOG.md
+
+source-repository head
+  type: git
+  location: https://github.com/ekmett/codex
+
+library
+  hs-source-dirs: src
+  default-language: Haskell2010
+  ghc-options:
+    -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+    -Wredundant-constraints -Widentities -Wmissing-export-lists
+  build-depends:
+    base >= 4.11 && < 5,
+    bytestring,
+    fsnotify,
+    hashable,
+    primitive,
+    unordered-containers,
+    watch
+  exposed-modules:
+    Data.Watch.FilePath
