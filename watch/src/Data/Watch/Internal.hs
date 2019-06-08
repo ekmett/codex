@@ -2,12 +2,13 @@
 {-# language DefaultSignatures #-}
 {-# language DeriveFunctor #-}
 {-# language TypeFamilies #-}
+{-# language StrictData #-}
 {-# language GADTs #-}
 {-# options_ghc -Wno-deprecations #-} -- Control.Monad.Trans.Error
 {-# options_haddock not-home #-}
 -- | My take on mini-adapton.
 module Data.Watch.Internal
-  ( Dep(..)
+  ( Dep
   , Deps(..)
   , Ref(..)
   , MonadWatch(..)
@@ -42,8 +43,7 @@ import Data.Primitive.MVar
 import Data.Type.Coercion
 import Unsafe.Coerce
 
-data Dep s where
-  Dep :: Ref s (Maybe a) -> Dep s
+type Dep s = ST s ()
 
 newtype Deps s = Deps (MutVar s (HashMap Unique (Dep s)))
 
@@ -130,12 +130,12 @@ instance MonadWatch (Watch s) where
     readMutVar src
   {-# inlinable readRef #-}
 
-data Thunk s a = Thunk (Watch s a) (MVar s ()) (Ref s (Maybe a))
+data Thunk s a = Thunk (Watch s a) (a -> Dep s) (MVar s ()) (Ref s (Maybe a))
 
 instance Eq (Thunk s a) where
-  Thunk _ _ x == Thunk _ _ y = x == y
+  Thunk _ _ _ x == Thunk _ _ _ y = x == y
 
 instance TestCoercion (Thunk s) where
-  testCoercion (Thunk _ _ s :: Thunk s a) (Thunk _ _ t)
+  testCoercion (Thunk _ _ _ s :: Thunk s a) (Thunk _ _ _ t)
     | s == unsafeCoerce t = Just $ unsafeCoerce (Coercion :: Coercion a a)
     | otherwise = Nothing
