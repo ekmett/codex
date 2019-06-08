@@ -21,6 +21,7 @@ module Graphics.Glow
 , module Graphics.Glow.Renderbuffer
 , module Graphics.Glow.Sampler
 , module Graphics.Glow.Shader
+, module Graphics.Glow.State
 , module Graphics.Glow.Texture
 , module Graphics.Glow.Types
 , module Graphics.Glow.Uniform
@@ -43,6 +44,7 @@ import Graphics.Glow.ProgramPipeline
 import Graphics.Glow.Renderbuffer
 import Graphics.Glow.Sampler
 import Graphics.Glow.Shader
+import Graphics.Glow.State
 import Graphics.Glow.Texture
 import Graphics.Glow.Types
 import Graphics.Glow.Uniform
