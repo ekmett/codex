@@ -354,7 +354,6 @@ import Foreign.Ptr
 import Foreign.Ptr.Diff
 import Foreign.Storable
 import GHC.ForeignPtr
-import GHC.Ptr
 import Numeric.Fixed
 import qualified Language.C.Inline as C
 import qualified Language.C.Inline.Context as C
