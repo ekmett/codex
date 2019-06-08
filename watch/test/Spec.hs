@@ -56,6 +56,15 @@ spec = do
     writeRef r "bye"
     force t `shouldReturn` 3
     readMutVar m `shouldReturn` 5
+  it "chains" $ do
+    r <- newRef "hello"
+    x <- delay $ readRef r
+    force x `shouldReturn` "hello"
+    y <- delay $ length <$> force x
+    force y `shouldReturn` 5
+    writeRef r "bye"
+    force y `shouldReturn` 3
+    
 
 
 

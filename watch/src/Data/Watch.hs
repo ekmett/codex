@@ -107,14 +107,15 @@ withMVar m io = unsafeIOToPrim $
     b <$ do unsafeSTToIO (putMVar m a :: ST s ())
 
 force :: MonadWatch m => Thunk (PrimState m) a -> m a
-force (Thunk m fin mvar r@(Ref _ u mutvar)) = stToPrim $ do
-  withMVar mvar $ \_ -> do
-    let dep = atomicModifyMutVar mutvar (Nothing,) >>= traverse_ (stToPrim . fin)
-    readRef r >>= \case
-      Just a -> pure a
-      Nothing -> do
-        a <- runWatch m u dep
-        a <$ writeMutVar mutvar (Just a)
+force (Thunk m fin mvar r@(Ref _ u _)) = do
+  readRef r >>= \case
+    Just a -> pure a
+    Nothing -> stToPrim $ withMVar mvar $ \_ -> do
+      readRef r >>= \case -- unrecorded, but recorded above
+        Just a -> pure a
+        Nothing -> do
+          a <- runWatch m u $ atomicModifyRef r (Nothing,) >>= traverse_ (stToPrim . fin)
+          a <$ writeRef r (Just a)
 {-# inlinable force #-}
 
 release :: PrimMonad m => Thunk (PrimState m) a -> m ()

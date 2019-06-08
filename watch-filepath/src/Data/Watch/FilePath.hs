@@ -54,7 +54,9 @@ import qualified Data.ByteString as Lazy
 import Data.Foldable (for_)
 import Data.HashMap.Strict as HashMap
 import Data.Watch
+import System.Directory
 import System.FSNotify
+
 
 data FileWatcher = FileWatcher
   WatchManager
@@ -79,27 +81,28 @@ stopFileWatcher (FileWatcher wm _) = liftIO $ stopManager wm
 listenToDir :: MonadIO m => FileWatcher -> FilePath -> m StopListening
 listenToDir (FileWatcher wm paths) dir = liftIO $
   watchDir wm dir (const True) $ \e ->
-    withMVar paths pure >>= \hm ->
-      for_ (HashMap.lookup (eventPath e) hm) $ \(r,_) ->
+    withMVar paths pure >>= \hm -> do
+      for_ (HashMap.lookup (eventPath e) hm) $ \(r,_) -> do
         writeRef r (Just e)
   
 listenToTree :: MonadIO m => FileWatcher -> FilePath -> m StopListening
 listenToTree (FileWatcher wm paths) dir = liftIO $ 
   watchTree wm dir (const True) $ \e ->
-    withMVar paths pure >>= \hm ->
-      for_ (HashMap.lookup (eventPath e) hm) $ \(r,_) ->
+    withMVar paths pure >>= \hm -> do
+      for_ (HashMap.lookup (eventPath e) hm) $ \(r,_) -> do
         writeRef r (Just e)
   
 -- | This contains the last event associated with a given file. However, it only contains
 -- events since someone started watching. Typical usecase is as a building
 onFileEvent :: MonadIO m => FileWatcher -> FilePath -> m (IOThunk (Maybe Event))
 onFileEvent (FileWatcher _ fes) fp = liftIO $ do
-  modifyMVar fes $ \hm -> case HashMap.lookup fp hm of
+  afp <- makeAbsolute fp
+  modifyMVar fes $ \hm -> case HashMap.lookup afp hm of
     Just (_,t) -> pure (hm,t)
     Nothing -> do
       r <- newRef Nothing
       t <- delay (readRef r)
-      pure (HashMap.insert fp (r,t) hm, t)
+      pure (HashMap.insert afp (r,t) hm, t)
 
 -- | if you do this in a thunk the thunk will be invalidated every time the file changes
 -- so long as we are watching the containing directory
