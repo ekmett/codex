@@ -23,6 +23,7 @@
 module Graphics.Glow.Buffer
 ( Buffer(..)
 , boundBufferAt
+, withBoundBufferAt
 , Alloca(..)
 -- * Buffer Data
 , BufferData(..)
@@ -185,6 +186,9 @@ boundBufferAt (BufferTarget target binding) = StateVar g s where
     i <- alloca $ liftM2 (>>) (glGetIntegerv binding) peek
     return $ Buffer (fromIntegral i)
   s = glBindBuffer target . coerce
+
+withBoundBufferAt :: BufferTarget -> Buffer a -> IO r -> IO r
+withBoundBufferAt t b = bracket (get (boundBufferAt t) <* do boundBufferAt t $= b) (boundBufferAt t $=) . const
 
 -- | bindless uploading data to the argumented buffer (since OpenGL 4.4+ or with 'gl_EXT_direct_state_access')
 bufferDataDirect :: forall a. BufferData a => Buffer a -> StateVar (BufferUsage, a)

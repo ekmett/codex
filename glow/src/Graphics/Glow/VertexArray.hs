@@ -10,8 +10,10 @@
 module Graphics.Glow.VertexArray
 ( VertexArray(..)
 , boundVertexArray
+, withVertexArray
 ) where
 
+import Control.Exception (bracket)
 import Control.Applicative
 import Control.Monad.IO.Class
 import Data.Coerce
@@ -51,3 +53,6 @@ boundVertexArray = StateVar g s where
     i <- alloca $ liftA2 (>>) (glGetIntegerv GL_VERTEX_ARRAY_BINDING) peek
     return $ VertexArray (fromIntegral i)
   s = glBindVertexArray . coerce
+
+withVertexArray :: VertexArray -> IO r -> IO r
+withVertexArray vao = bracket (get boundVertexArray <* do boundVertexArray $= vao) (boundVertexArray $=) . const
