@@ -92,7 +92,7 @@ delay = delayWith (\_ -> pure ())
 {-# inlinable delay #-}
 
 delayWith :: PrimMonad m => (a -> ST (PrimState m) ()) -> Watch (PrimState m) a -> m (Thunk (PrimState m) a)
-delayWith fin m = stToPrim $ Thunk m fin <$> newEmptyMVar <*> newRef Nothing
+delayWith fin m = stToPrim $ Thunk m fin <$> newMVar () <*> newRef Nothing
 {-# inlinable delayWith #-}
 
 delayWithIO :: (PrimMonad m, PrimState m ~ RealWorld) => (a -> IO ()) -> Watch RealWorld a -> m (IOThunk a)

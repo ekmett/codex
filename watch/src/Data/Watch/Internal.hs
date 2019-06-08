@@ -45,6 +45,7 @@ import Unsafe.Coerce
 
 type Dep s = ST s ()
 
+-- hold deps in an mvar?
 newtype Deps s = Deps (MutVar s (HashMap Unique (Dep s)))
 
 data Ref s a = Ref (Deps s) Unique (MutVar s a)
