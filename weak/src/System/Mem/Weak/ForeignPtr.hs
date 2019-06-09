@@ -1,5 +1,3 @@
-{-# language MagicHash #-}
-{-# language UnboxedTuples #-}
 -- |
 -- Copyright :  (c) 2019 Edward Kmett
 -- License   :  BSD-2-Clause OR Apache-2.0
@@ -13,22 +11,17 @@ module System.Mem.Weak.ForeignPtr
 , mkWeakForeignPtrPair
 ) where
 
-import GHC.Base
 import GHC.ForeignPtr 
-import GHC.Weak
-import GHC.IORef
-import GHC.STRef
+import System.Mem.Weak
+import System.Mem.Weak.IORef
 
--- | Make a 'Weak' reference from a 'ForeignPtr'. This attaches to an IORef down inside of the ForeignPtr.
+-- | Make a 'Weak' reference from a 'ForeignPtr'. This attaches to an IORef down inside of the ForeignPtr
+-- that holds onto the finalizers. This is safe than attaching to the ForeignPtr itself.
 mkWeakForeignPtr :: ForeignPtr k -> v -> Maybe (IO ()) -> IO (Weak v)
-mkWeakForeignPtr (ForeignPtr _ k) v fin = case finalizers k of
-  IORef (STRef k#) -> case fin of
-    Nothing       -> IO $ \s -> case mkWeakNoFinalizer# k# v s of (# s1, w #) -> (#s1, Weak w #)
-    Just (IO finalizer) -> IO $ \s -> case mkWeak# k# v finalizer s of (# s1, w #) -> (#s1, Weak w #)
-  where
-    finalizers PlainPtr{} = error "mkWeakForeignPtr: PlainPtr encountered"
-    finalizers (MallocPtr _ p) = p
-    finalizers (PlainForeignPtr p) = p 
+mkWeakForeignPtr (ForeignPtr _ k) v fin = mkWeakIORef' (finalizers k) v fin where
+  finalizers PlainPtr{} = error "mkWeakForeignPtr: PlainPtr encountered"
+  finalizers (MallocPtr _ p) = p
+  finalizers (PlainForeignPtr p) = p 
 {-# inlinable mkWeakForeignPtr #-}
 
 mkWeakForeignPtrPtr :: ForeignPtr a -> Maybe (IO ()) -> IO (Weak (ForeignPtr a))
