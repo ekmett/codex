@@ -1,10 +1,8 @@
-{-# language PatternSynonyms #-}
-{-# language GeneralizedNewtypeDeriving #-}
+{-# language PatternSynonyms #-} {-# language GeneralizedNewtypeDeriving #-}
 {-# language RankNTypes #-}
 {-# language LambdaCase #-}
 {-# options_ghc -Wno-missing-pattern-synonym-signatures -Wno-incomplete-patterns #-}
--- | This implements a pretty standard game-like
--- opengl state caching layer.
+-- | This implements a pretty standard game-like opengl state caching layer.
 module Graphics.Glow.State
 ( StateBits
 , DepthFunc(..), depthFunc
@@ -38,22 +36,24 @@ newtype StateBits = StateBits { getStateBits :: Word64 }
   deriving (Eq,Ord,Show,Bits)
 
 instance Default StateBits where
-  def = StateBits DEFAULT_BITS -- not 0
+  def = StateBits DEFAULT_BITS -- not 0!
 
 glowStateBits :: IORef StateBits
 glowStateBits = unsafePerformIO $ newIORef def
 {-# noinline glowStateBits #-}
 
 pattern DEPTHFUNC_MASK               = 0x0000000000000003
-pattern DEPTH_MASK                   = 0x0000000000000004
-pattern POLYGON_MODE_LINE            = 0x0000000000000008
 ---------------------------------------------------------
-pattern BLEND_EQUATION_MASK          = 0x0000000000000770
+pattern FORCE_STENCIL_OP_STATE       = 0x0000000000000004 -- if this bit is set, we'll forcibly reset stencilOp
+pattern FORCE_STATE                  = 0x0000000000000008 -- if this bit is set, we'll forcibly reset everything
+---------------------------------------------------------
+pattern BLEND_EQUATION_MASK          = 0x00000000000003f0
 pattern BLEND_EQUATION_RGB_MASK      = 0x0000000000000070; pattern BLEND_EQUATION_RGB_SHIFT = 4
-pattern FORCE_STENCIL_OP_STATE       = 0x0000000000000080 -- e.g. in case you want to manually use 'glStencilOpSeparate'
-pattern BLEND_EQUATION_ALPHA_MASK    = 0x0000000000000700; pattern BLEND_EQUATION_ALPHA_SHIFT = 8
-pattern FORCE_STATE                  = 0x0000000000000800 -- if this bit is set, we'll forcibly reset the state
+pattern BLEND_EQUATION_ALPHA_MASK    = 0x0000000000000380; pattern BLEND_EQUATION_ALPHA_SHIFT = 7
 ---------------------------------------------------------
+pattern POLYGON_MODE_LINE            = 0x0000000000000400
+---------------------------------------------------------
+pattern DEPTH_MASK                   = 0x0000000000000800
 pattern COLOR_MASK                   = 0x000000000000f000
 pattern RED_MASK                     = 0x0000000000001000
 pattern BLUE_MASK                    = 0x0000000000002000
@@ -75,7 +75,9 @@ pattern BLEND_SRC_RGB_MASK           = 0x0001f00000000000; pattern BLEND_SRC_RGB
 pattern BLEND_DST_RGB_MASK           = 0x003e000000000000; pattern BLEND_DST_RGB_SHIFT = 49
 pattern BLEND_SRC_ALPHA_MASK         = 0x07c0000000000000; pattern BLEND_SRC_ALPHA_SHIFT = 54
 pattern BLEND_DST_ALPHA_MASK         = 0xf800000000000000; pattern BLEND_DST_ALPHA_SHIFT = 59
-pattern DEFAULT_BITS                 = 0x0002100000000000 -- makes GL_ONE the default for SRCBLEND*
+pattern DEFAULT_BITS                 = 0x004010000000f800
+  -- srcBlendFuncRGB, srcBlendFuncAlpha = GL_ONE
+  -- DEPTH_MASK, COLOR_MASK, RED_MASK, GREEN_MASK_BLUE_MASK all set
 
 data DepthFunc
   = DepthFuncLEqual
@@ -348,6 +350,12 @@ stateBits = StateVar (get glowStateBits) $ \s@(StateBits sb) -> do
       (field stencilFunc) (views stencilFuncRef fromIntegral s) (views stencilFuncMask fromIntegral s)
     when (changed STENCIL_OP_MASK) $ glStencilOp (field stencilOpFail) (field stencilOpZFail) (field stencilOpPass)
 
--- | just stencil for now
 setCommonState :: MonadIO m => m ()
-setCommonState = glEnable GL_STENCIL_TEST
+setCommonState = do
+  -- reset everything I might touch
+  glEnable GL_CULL_FACE
+  glDisable GL_POLYGON_OFFSET_FILL
+  glDisable GL_POLYGON_OFFSET_LINE
+  glDisable GL_STENCIL_TEST
+  glEnable GL_DEPTH_TEST
+  stateBits $= do def & forceState .~ True
