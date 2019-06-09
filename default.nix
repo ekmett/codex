@@ -49,17 +49,20 @@ let
   # infinite recursion errors when trying to 'nix-shell' then you
   # might have to move the package to 'recursiveSrcs'.
   sources = {
-    atlas               = ./atlas;
-    bidi-icu            = ./bidi-icu;
-    const               = ./const;
-    freetype            = ./freetype;
-    harfbuzz-opentype   = ./harfbuzz-opentype;
-    hkd                 = ./hkd;
-    primitive-ffi       = ./primitive-ffi;
-    primitive-statevar  = ./primitive-statevar;
-    ptrdiff             = ./ptrdiff;
-    weak                = ./weak;
-    smawk               = ./smawk;
+    atlas              = ./atlas;
+    bidi-icu           = ./bidi-icu;
+    const              = ./const;
+    freetype           = ./freetype;
+    harfbuzz-opentype  = ./harfbuzz-opentype;
+    hkd                = ./hkd;
+    primitive-statevar = ./primitive-statevar;
+    primitive-ffi = ./primitive-ffi;
+    primitive-unlift   = ./primitive-unlift;
+    ptrdiff            = ./ptrdiff;
+    weak               = ./weak;
+    smawk              = ./smawk;
+    watch              = ./watch;
+    watch-filepath     = ./watch-filepath;
   };
 
   # Basic overrides to include our packages
