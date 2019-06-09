@@ -1,13 +1,16 @@
 {-# language StrictData #-}
 {-# language TypeFamilies #-}
+{-# language ImplicitParams #-} -- I was bound to find a usecase sometime
+{-# language ConstraintKinds #-}
+{-# language RankNTypes #-}
 
 -- | Usage sketch:
--- 
+--
 -- @
--- watchProgram :: DirectoryWatcher -> IO (Thunk Program)
+-- watchProgram :: HasDirectoryWatcher => IO (Thunk Program)
 -- watchProgram w = do
---   vthunk <- delayWithIO delete $ readWatchedFileLazy w "shaders/foo.vert" >>= compileShader VertexShader
---   fthunk <- delayWithIO delete $ readWatchedFileLazy w "shaders/foo.frag" >>= compileShader FragmentShader
+--   vthunk <- delayWithIO delete $ readWatchedFileLazy "shaders/foo.vert" >>= compileShader VertexShader
+--   fthunk <- delayWithIO delete $ readWatchedFileLazy "shaders/foo.frag" >>= compileShader FragmentShader
 --   delayWithIO delete $ do
 --     vs <- force vthunk
 --     fs <- force fthunk
@@ -15,10 +18,10 @@
 --     glAttachShader p fs
 --     glLinkProgram p
 --
--- main = withDirectoryWatcher $ \w -> do
---   listenToTree w "shaders"
+-- main = withDirectoryWatcher $ do
+--   listenToTree "shaders"
 --   ...
---   foo <- watchProgram w
+--   foo <- watchProgram
 --   force foo -- make sure it compiles now
 --   ...
 --   let loop = do
@@ -48,6 +51,7 @@ module Data.Watch.Directory
 
 import Control.Concurrent.MVar
 import Control.Monad.IO.Class
+import Control.Monad.IO.Unlift
 import Control.Monad.Primitive
 import qualified Data.ByteString as Strict
 import qualified Data.ByteString as Lazy
@@ -57,16 +61,22 @@ import Data.Watch
 import System.Directory
 import System.FSNotify
 
+type HasDirectoryWatcher = (?directoryWatcher :: DirectoryWatcher)
+
 data DirectoryWatcher = DirectoryWatcher
   WatchManager
   (MVar (HashMap FilePath (Ref RealWorld (Maybe Event), IOThunk (Maybe Event))))
   -- TODO: WeakRef? that would let us periodically prune the list of references if people stop caring
 
-withDirectoryWatcher :: MonadIO m => (DirectoryWatcher -> IO r) -> m r
-withDirectoryWatcher = withDirectoryWatcherConf defaultConfig
+withDirectoryWatcher :: MonadUnliftIO m => (HasDirectoryWatcher => m r) -> m r
+withDirectoryWatcher k = withDirectoryWatcherConf defaultConfig k
 
-withDirectoryWatcherConf :: MonadIO m => WatchConfig -> (DirectoryWatcher -> IO r) -> m r
-withDirectoryWatcherConf cfg k = liftIO $ withManagerConf cfg $ \wm -> newMVar HashMap.empty >>= k . DirectoryWatcher wm
+withDirectoryWatcherConf :: MonadUnliftIO m => WatchConfig -> (HasDirectoryWatcher => m r) -> m r
+withDirectoryWatcherConf cfg k = withRunInIO $ \run ->
+  withManagerConf cfg $ \ wm -> do
+    w <- DirectoryWatcher wm <$> newMVar HashMap.empty
+    let ?directoryWatcher = w
+    run k
 
 startDirectoryWatcher :: MonadIO m => m DirectoryWatcher
 startDirectoryWatcher = liftIO $ DirectoryWatcher <$> startManager <*> newMVar HashMap.empty
@@ -77,46 +87,48 @@ startDirectoryWatcherConf config = liftIO $ DirectoryWatcher <$> startManagerCon
 stopDirectoryWatcher :: MonadIO m => DirectoryWatcher -> m ()
 stopDirectoryWatcher (DirectoryWatcher wm _) = liftIO $ stopManager wm
 
-listenToDir :: MonadIO m => DirectoryWatcher -> FilePath -> m StopListening
-listenToDir (DirectoryWatcher wm paths) dir = liftIO $
-  watchDir wm dir (const True) $ \e ->
-    withMVar paths pure >>= \hm -> do
-      for_ (HashMap.lookup (eventPath e) hm) $ \(r,_) -> do
-        writeRef r (Just e)
-  
-listenToTree :: MonadIO m => DirectoryWatcher -> FilePath -> m StopListening
-listenToTree (DirectoryWatcher wm paths) dir = liftIO $ 
-  watchTree wm dir (const True) $ \e ->
-    withMVar paths pure >>= \hm -> do
-      for_ (HashMap.lookup (eventPath e) hm) $ \(r,_) -> do
-        writeRef r (Just e)
-  
--- | This contains the last event associated with a given file. However, it only contains
--- events since someone started watching. Typical usecase is as a building
-onFileEvent :: MonadIO m => DirectoryWatcher -> FilePath -> m (IOThunk (Maybe Event))
-onFileEvent (DirectoryWatcher _ fes) fp = liftIO $ do
-  afp <- makeAbsolute fp
-  modifyMVar fes $ \hm -> case HashMap.lookup afp hm of
-    Just (_,t) -> pure (hm,t)
-    Nothing -> do
-      r <- newRef Nothing
-      t <- delay (readRef r)
-      pure (HashMap.insert afp (r,t) hm, t)
+listenToDir :: (HasDirectoryWatcher, MonadIO m) => FilePath -> m StopListening
+listenToDir dir = case ?directoryWatcher of
+  DirectoryWatcher wm paths -> liftIO $
+    watchDir wm dir (const True) $ \e ->
+      withMVar paths pure >>= \hm -> do
+        for_ (HashMap.lookup (eventPath e) hm) $ \(r,_) -> do
+          writeRef r (Just e)
 
--- | if you do this in a thunk the thunk will be invalidated every time the file changes
--- so long as we are watching the containing directory
-readWatchedFile :: MonadIO m => DirectoryWatcher -> FilePath -> m (IOThunk Strict.ByteString)
-readWatchedFile w fp = liftIO $ do
-  e <- onFileEvent w fp
+listenToTree :: (HasDirectoryWatcher, MonadIO m) => FilePath -> m StopListening
+listenToTree dir = case ?directoryWatcher of
+  DirectoryWatcher wm paths -> liftIO $
+    watchTree wm dir (const True) $ \e ->
+      withMVar paths pure >>= \hm -> do
+        for_ (HashMap.lookup (eventPath e) hm) $ \(r,_) -> do
+          writeRef r (Just e)
+
+-- | This contains the last event associated with a given file. However, it only contains
+-- events since someone started watching. Typical usecase is as a building block for
+-- things that need the file content.
+onFileEvent :: (HasDirectoryWatcher, MonadIO m) => FilePath -> m (IOThunk (Maybe Event))
+onFileEvent fp = case ?directoryWatcher of
+  DirectoryWatcher _ fes -> liftIO $ do
+    afp <- makeAbsolute fp
+    modifyMVar fes $ \hm -> case HashMap.lookup afp hm of
+      Just (_,t) -> pure (hm,t)
+      Nothing -> do
+        r <- newRef Nothing
+        t <- delay (readRef r)
+        pure (HashMap.insert afp (r,t) hm, t)
+
+-- | invalidated every time the file changes so long as we are watching the containing directory
+readWatchedFile :: (HasDirectoryWatcher, MonadIO m) => FilePath -> m (IOThunk Strict.ByteString)
+readWatchedFile fp = liftIO $ do
+  e <- onFileEvent fp
   delay $ do
     _ <- force e
     liftIO $ Strict.readFile fp
 
--- | if you do this in a thunk the thunk will be invalidated every time the file changes
--- so long as we are watching the containing directory
-readWatchedFileLazy :: MonadIO m => DirectoryWatcher -> FilePath -> m (IOThunk Lazy.ByteString)
-readWatchedFileLazy w fp = liftIO $ do
-  e <- onFileEvent w fp
+-- | invalidated every time the file changes so long as we are watching the containing directory
+readWatchedFileLazy :: (HasDirectoryWatcher,MonadIO m) => FilePath -> m (IOThunk Lazy.ByteString)
+readWatchedFileLazy fp = liftIO $ do
+  e <- onFileEvent fp
   delay $ do
     _ <- force e
     liftIO $ Lazy.readFile fp

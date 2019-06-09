@@ -39,6 +39,7 @@ library
     fsnotify,
     hashable,
     primitive,
+    unliftio-core,
     unordered-containers
   exposed-modules:
     Data.Watch.Directory

@@ -25,14 +25,14 @@ io = id
 spec :: Spec
 spec = before_ emptyScratch $ Hspec.after_ emptyScratch $ do
   it "starts/stops" $ do
-    x <- withDirectoryWatcher $ \w -> do pure 0
+    x <- withDirectoryWatcher $ pure 0
     x `shouldBe` 0
   it "sees changes" $ io $ do
-    withDirectoryWatcher $ \w -> do
-      listenToTree w scratchDir
+    withDirectoryWatcher $ do
+      listenToTree scratchDir
       let file = scratchDir </> "x"
       doesFileExist file `shouldReturn` False
-      thunk <- readWatchedFile w file
+      thunk <- readWatchedFile file
       force thunk `shouldThrow` anyIOException
       force thunk `shouldThrow` anyIOException
       writeFile file "hello"
