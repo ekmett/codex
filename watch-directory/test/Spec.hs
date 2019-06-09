@@ -3,7 +3,7 @@ import Control.Concurrent
 import qualified Data.ByteString as BS
 import Data.Foldable
 import Data.Watch
-import Data.Watch.FilePath
+import Data.Watch.Directory
 import System.Directory
 import System.FilePath
 import Test.Hspec as Hspec
@@ -25,10 +25,10 @@ io = id
 spec :: Spec
 spec = before_ emptyScratch $ Hspec.after_ emptyScratch $ do
   it "starts/stops" $ do
-    x <- withFileWatcher $ \w -> do pure 0
+    x <- withDirectoryWatcher $ \w -> do pure 0
     x `shouldBe` 0
   it "sees changes" $ io $ do
-    withFileWatcher $ \w -> do
+    withDirectoryWatcher $ \w -> do
       listenToTree w scratchDir
       let file = scratchDir </> "x"
       doesFileExist file `shouldReturn` False

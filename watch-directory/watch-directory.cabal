@@ -1,5 +1,5 @@
 cabal-version: 2.2
-name: watch-filepath
+name: watch-directory
 version: 0
 synopsis: Watch file system changes
 homepage: https://github.com/ekmett/codex/tree/master/watch-fsnotify#readme
@@ -41,7 +41,7 @@ library
     primitive,
     unordered-containers
   exposed-modules:
-    Data.Watch.FilePath
+    Data.Watch.Directory
 
 test-suite spec
   import: base
@@ -54,4 +54,4 @@ test-suite spec
     hspec,
     tasty,
     tasty-hspec,
-    watch-filepath
+    watch-directory
