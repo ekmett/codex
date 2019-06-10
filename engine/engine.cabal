@@ -29,9 +29,12 @@ common base
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
     -Wredundant-constraints -Widentities -Wmissing-export-lists
   build-depends:
+    attoparsec,
     base >= 4.11 && < 5,
+    bytestring,
     containers,
     data-default,
+    fingertree,
     gl,
     glow,
     lens,
@@ -59,6 +62,8 @@ library
     Engine.Display
     Engine.Exception
     Engine.Input
+    Engine.Meter
+    Engine.Parser
     Engine.SDL
     Engine.Task
     Engine.Time
