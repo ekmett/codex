@@ -39,6 +39,7 @@ common base
     glow,
     lens,
     linear,
+    parser-combinators,
     primitive-statevar,
     sdl2,
     StateVar,
@@ -64,6 +65,8 @@ library
     Engine.Input
     Engine.Meter
     Engine.Parser
+    Engine.Parser.Base
+    Engine.Parser.Char8
     Engine.SDL
     Engine.Task
     Engine.Time

@@ -29,7 +29,7 @@ updateFPS meter = do
   t <- now
   m <- liftIO $ atomicModifyIORef meter $ \m -> let m' = tick t m in (m',m')
   withMVar (?display) $ \d -> do
-    windowTitle (_displayWindow d) $= pack (showString "engine (fps: " $ showFFloat (Just 1) (fps m) ")") 
+    windowTitle (_displayWindow d) $= pack (showString "engine (fps: " $ showFFloat (Just 1) (fps m) ")")
 
 withEngine :: MonadUnliftIO m => ((GivenDirectoryWatcher, GivenInput, GivenDisplay) => (m a -> m ()) -> m ()) -> m ()
 withEngine k = withRunInIO $ \run1 -> do
