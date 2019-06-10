@@ -35,13 +35,13 @@ now = liftIO $ coerce (getPerformanceCounter @IO)
 {-# inline now #-}
 
 addTime :: NominalDiffTime -> Time -> Time
-addTime dt (Time t) = Time $ round (realToFrac dt * resolution') + t
+addTime dt (Time t) = Time $ round (realToFrac dt * frequency) + t
 {-# inline addTime #-}
 
 diffTime :: Time -> Time -> NominalDiffTime
 diffTime (Time t) (Time s)
-  | t - s < t = realToFrac $ fromIntegral (t - s) / frequency
-  | otherwise = realToFrac $ negate $ fromIntegral (s - t) / frequency
+  | t - s < t = realToFrac $ fromIntegral (t - s) * resolution'
+  | otherwise = realToFrac $ negate $ fromIntegral (s - t) * resolution'
 {-# inline diffTime #-}
 
 resolution :: NominalDiffTime
