@@ -56,13 +56,13 @@ let
     harfbuzz-opentype  = ./harfbuzz-opentype;
     hkd                = ./hkd;
     primitive-statevar = ./primitive-statevar;
-    primitive-ffi = ./primitive-ffi;
+    primitive-ffi      = ./primitive-ffi;
     primitive-unlift   = ./primitive-unlift;
     ptrdiff            = ./ptrdiff;
     weak               = ./weak;
     smawk              = ./smawk;
     watch              = ./watch;
-    watch-directory     = ./watch-directory;
+    watch-directory    = ./watch-directory;
   };
 
   # Basic overrides to include our packages
@@ -89,7 +89,7 @@ let
     harfbuzz-icu        = modHaskPkgs.callCabal2nix "harfbuzz-icu" ./harfbuzz-icu { harfbuzz = harfbuzz; };
     harfbuzz-subset     = modHaskPkgs.callCabal2nix "harfbuzz-subset" ./harfbuzz-subset { harfbuzz = harfbuzz; };
     harfbuzz-freetype   = modHaskPkgs.callCabal2nix "harfbuzz-freetype" ./harfbuzz-freetype { harfbuzz = harfbuzz; };
-
+    engine              = modHaskPkgs.callCabal2nix "engine" ./engine { glow = glow; };
     ui                  = modHaskPkgs.callCabal2nix "ui" ./ui {
       fontconfig   = fontconfig;
       glow         = glow;
