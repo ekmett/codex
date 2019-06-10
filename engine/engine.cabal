@@ -41,6 +41,7 @@ common base
     StateVar,
     stm,
     text,
+    time,
     transformers,
     unliftio-core,
     watch,
@@ -60,6 +61,7 @@ library
     Engine.Input
     Engine.SDL
     Engine.Task
+    Engine.Time
 
 executable example
   import: executable
