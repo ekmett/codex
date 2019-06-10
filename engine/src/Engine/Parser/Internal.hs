@@ -20,7 +20,7 @@ import Prelude hiding (takeWhile, dropWhile, take, drop)
 -- tiniest parser
 data Result a
    = OK a {-# unpack #-} !Int
-   | Fail
+   | Fail !Int
    deriving (Show, Functor, Foldable, Traversable)
 
 -- non-backtracking parser
@@ -31,44 +31,46 @@ instance Applicative Parser where
   pure a = Parser $ \_ -> OK a
   {-# inline pure #-}
   Parser m <*> Parser n = Parser $ \bs i -> case m bs i of
-    Fail -> Fail
+    Fail j -> Fail j
     OK a j -> case n bs j of
       OK b k -> OK (a b) k
-      Fail -> Fail
+      Fail k -> Fail k
   {-# inline (<*>) #-}
   Parser m *> Parser n = Parser $ \bs i -> case m bs i of
-    Fail -> Fail
+    Fail j -> Fail j
     OK _ j -> n bs j
   {-# inline (*>) #-}
   Parser m <* Parser n = Parser $ \bs i -> case m bs i of
-    Fail -> Fail
+    Fail j -> Fail j
     OK a j -> case n bs j of
-      Fail -> Fail
+      Fail k -> Fail k
       OK _ k -> OK a k
   {-# inline (<*) #-} 
   liftA2 f (Parser m) (Parser n) = Parser $ \bs i -> case m bs i of
-    Fail -> Fail
+    Fail j -> Fail j
     OK a j -> case n bs j of
-      Fail -> Fail
+      Fail k -> Fail k
       OK b k -> OK (f a b) k
 
 instance Monad Parser where
   Parser m >>= f = Parser $ \bs i -> case m bs i of
-    Fail -> Fail
+    Fail j -> Fail j
     OK a j -> runParser (f a) bs j
   {-# inline (>>=) #-}
   (>>) = (*>)
   {-# inline (>>) #-}
 
 instance MonadFail Parser where
-  fail _ = Parser $ \_ _ -> Fail
+  fail _ = Parser $ \_ i -> Fail i
   {-# inline fail #-}
 
 instance Alternative Parser where
-  empty = Parser $ \_ _ -> Fail
+  empty = Parser $ \_ i -> Fail i
   {-# inline empty #-}
   Parser m <|> Parser n = Parser $ \bs i -> case m bs i of
-    Fail -> n bs i
+    Fail j
+      | i == j    -> n bs i
+      | otherwise -> Fail j -- committed choice
     r@OK{} -> r
   {-# inline (<|>) #-}
 
@@ -82,6 +84,6 @@ instance a ~ ByteString => IsString (Parser a) where
   fromString s = Parser $ \ bs i ->
     if needle `C.isPrefixOf` B.unsafeDrop i bs
     then OK needle (i + B.length needle)
-    else Fail
+    else Fail i 
     where needle = fromString s
   {-# inline fromString #-}

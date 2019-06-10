@@ -12,8 +12,11 @@ module Engine.Parser.Char8
 , letter_iso8859_15
 , takeWhile
 , takeUntilChar
+, takeWhile1 
 , dropWhile
 , dropUntilChar
+, dropWhile1 
+, previousChar
 ) where
 
 import qualified Data.Attoparsec.ByteString.Char8 as A
@@ -25,6 +28,7 @@ import Data.ByteString (ByteString)
 import GHC.Char
 import Prelude hiding (takeWhile, dropWhile, take, drop)
 
+import Engine.Parser.Base
 import Engine.Parser.Internal
 
 -- * Char8
@@ -48,13 +52,13 @@ letter_iso8859_15 = satisfy A.isAlpha_iso8859_15
 satisfy :: (Char -> Bool) -> Parser Char
 satisfy p = Parser $ \bs i -> if 
   | B.length bs > i, a <- B.w2c (B.unsafeIndex bs i), p a -> OK a (i + 1)
-  | otherwise -> Fail
+  | otherwise -> Fail i
 {-# inline satisfy #-}
 
 char :: Char -> Parser Char
 char x = Parser $ \bs i -> if
   | B.length bs > i, B.w2c (B.unsafeIndex bs i) == x -> OK x (i + 1)
-  | otherwise -> Fail
+  | otherwise -> Fail i
 {-# inline char #-}
 
 anyChar :: Parser Char
@@ -96,3 +100,15 @@ dropUntilChar c = Parser $ \bs i -> OK () $ case B.elemIndex (B.c2w c) $ B.unsaf
   Nothing -> B.length bs
   Just n -> n + i
 {-# inline dropUntilChar #-}
+
+dropWhile1 :: (Char -> Bool) -> Parser ()
+dropWhile1 p = satisfy p *> dropWhile p
+{-# inline takeWhile1 #-}
+
+takeWhile1 :: (Char -> Bool) -> Parser ByteString
+takeWhile1 p = spanning (dropWhile1 p)
+{-# inline dropWhile1 #-}
+
+previousChar :: Parser (Maybe Char)
+previousChar = Parser $ \bs i -> if i == 0 then OK Nothing 0 else OK (Just $ B.w2c $ B.unsafeIndex bs $ i-1) i -- non-consuming choice 
+{-# inline previousChar #-}

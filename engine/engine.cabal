@@ -67,6 +67,7 @@ library
     Engine.Parser
     Engine.Parser.Base
     Engine.Parser.Char8
+    Engine.Parser.Internal
     Engine.SDL
     Engine.Task
     Engine.Time
