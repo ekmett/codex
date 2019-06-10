@@ -15,6 +15,7 @@ import Data.Text
 import Data.Watch.Directory
 import Engine.Display
 import Engine.Exception
+import Engine.Include.Cache
 import Engine.Meter
 import Engine.Input
 import Engine.Task
@@ -31,7 +32,7 @@ updateFPS meter = do
   withMVar (?display) $ \d -> do
     windowTitle (_displayWindow d) $= pack (showString "engine (fps: " $ showFFloat (Just 1) (fps m) ")")
 
-withEngine :: MonadUnliftIO m => ((GivenDirectoryWatcher, GivenInput, GivenDisplay) => (m a -> m ()) -> m ()) -> m ()
+withEngine :: MonadUnliftIO m => ((GivenIncludeCache, GivenInput, GivenDisplay) => (m a -> m ()) -> m ()) -> m ()
 withEngine k = withRunInIO $ \run1 -> do
   liftIO $ do
     setUncaughtExceptionHandler $ putStrLn . displayException
@@ -40,6 +41,7 @@ withEngine k = withRunInIO $ \run1 -> do
   withDirectoryWatcher $ withTasks $ \pumpTasks -> do
     (window, _display) <- newDisplay; let ?display = _display
     _input <- liftIO $ newIORef def; let ?input = _input
+    _includes <- newMVar (def :: IncludeCache); let ?includes = _includes
     _ <- listenToTree "shaders"
     run1 $ k $ \draw -> withRunInIO $ \run2 -> do
       _ <- trying _Shutdown $ forever $ do

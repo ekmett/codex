@@ -62,6 +62,9 @@ library
     Engine
     Engine.Display
     Engine.Exception
+    Engine.Include.Body
+    Engine.Include.Cache
+    Engine.Include.Parser
     Engine.Input
     Engine.Meter
     Engine.Parser
