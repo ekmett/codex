@@ -41,7 +41,10 @@ common base
     StateVar,
     stm,
     text,
-    transformers
+    transformers,
+    unliftio-core,
+    watch,
+    watch-directory
 
 common executable
   import: base
@@ -51,6 +54,7 @@ library
   import: base
   hs-source-dirs: src
   exposed-modules:
+    Engine
     Engine.Display
     Engine.Exception
     Engine.Input
@@ -62,6 +66,4 @@ executable example
   main-is: example.hs
   ghc-options: -O2
   build-depends:
-    engine,
-    watch,
-    watch-directory
+    engine

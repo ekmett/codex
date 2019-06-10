@@ -19,6 +19,7 @@
 module Engine.Display 
   ( Display(..)
   , HasDisplay(..)
+  , GivenDisplay
   , warn
   , newDisplay
   , resizeDisplay
