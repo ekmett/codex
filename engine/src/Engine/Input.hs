@@ -58,7 +58,7 @@ instance Default Input where
 type GivenInput = (?input :: IORef Input)
 
 handleInputEvents :: (MonadIO m, GivenInput) => [Event] -> m ()
-handleInputEvents events = ?input $~! execState (traverse_ handleInputEvent events) 
+handleInputEvents events = ?input $~! execState (traverse_ handleInputEvent events)
 {-# inline handleInputEvents #-}
 
 handleInputEvent :: Event -> State Input ()

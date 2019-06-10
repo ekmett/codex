@@ -34,12 +34,14 @@ common base
     bytestring,
     containers,
     data-default,
+    directory,
     fingertree,
     gl,
     glow,
     lens,
     linear,
     parser-combinators,
+    primitive,
     primitive-statevar,
     sdl2,
     StateVar,
@@ -48,6 +50,7 @@ common base
     time,
     transformers,
     unliftio-core,
+    unordered-containers,
     watch,
     watch-directory
 

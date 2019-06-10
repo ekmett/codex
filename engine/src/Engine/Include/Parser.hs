@@ -33,8 +33,8 @@ import Engine.Parser as P
 import Data.Maybe
 
 -- space within a line
-simple :: Parser ()
-simple = skipSome $ choice 
+spaces :: Parser ()
+spaces = skipMany $ choice 
   [ () <$ satisfy (\c -> A.isSpace c && c `Prelude.notElem` vspace)
   , () <$ do "/*" *> P.breakSubstring "*/" *> "*/"
   , () <$ "\\\n"
@@ -42,58 +42,63 @@ simple = skipSome $ choice
   ] where vspace = "\r\n" :: [Char]
 
 token :: Parser a -> Parser a
-token p = p <* optional simple
+token p = p <* spaces
 
 newline :: Parser ()
 newline = () <$ ("\n" <|> "\r\n")
 
-nonsimple :: Parser ()
-nonsimple = skipSome $ token $ choice
+-- actually must succeed, as we use this to delimit with skipManyTill, etc.
+newlines :: Parser ()
+newlines = skipSome $ token $ choice
   [ "//" *> skip
   , newline
   ]
 
 skip :: Parser ()
-skip = token anyChar `skipManyTill` nonsimple
+skip = token anyChar `skipManyTill` newlines
 
-nondirective :: Parser ()
-nondirective = satisfy ('#'/=) *> skip
+nondirectives :: Parser ()
+nondirectives = skipSome (satisfy ('#'/=) *> skip)
 
-directive :: Parser a -> Parser (Maybe (Int,a,Int))
+data Run a = Run Int Int a
+
+directive :: Parser a -> Parser (Maybe (Run a))
 directive p = do
   a <- mark
-  mp <- token (char '#' *> optional p) -- try'd before
-  optional nonsimple
+  _ <- token (char '#')
+  m <- optional (token p)
+  _ <- optional newlines
   b <- mark
-  pure $ (a,,b) <$> mp
+  pure $ Run a b <$> m
   
 -- parse (directives include) some_bytestring
+-- parse (directives skip) gets all directives
 
 directives :: Parser a -> Parser [Either ByteString a]
 directives p = do
-  skipMany simple
-  skipMany nonsimple
-  skipMany nondirective
-  result <- directive p `sepEndBy` skipMany nondirective
+  spaces
+  _ <- optional newlines
+  _ <- optional nondirectives
+  result <- directive p `sepEndBy` optional nondirectives
   endOfInput
   cut (catMaybes result)
 
 include :: Parser FilePath
-include = token "include" *> token file
+include = token "include" *> file
 
 file :: Parser FilePath
-file = C.unpack <$ char '<' <*> takeUntilChar '>' <* char '>'
-   <|> C.unpack <$ char '"' <*> takeUntilChar '"' <* char '"'
-
--- directives skip -- gets all directives
+file = token $ C.unpack <$> choice
+  [ char '<' *> takeUntilChar '>' <* char '>'
+  , char '"' *> takeUntilChar '"' <* char '"'
+  ] 
 
 trim :: Int -> Int -> ByteString -> ByteString
 trim lo hi = B.unsafeTake (hi - lo) . B.unsafeDrop lo
 
-cut :: [(Int,a,Int)] -> Parser [Either ByteString a]
+cut :: [Run a] -> Parser [Either ByteString a]
 cut xs0 = input <&> \bs -> go bs 0 xs0 where
   go bs i [] | bs' <- B.unsafeDrop i bs = [Left bs' | not $ B.null bs']
     
-  go bs i ((j,a,k):xs) 
+  go bs i (Run j k a:xs) 
     | bs' <- trim i j bs, not $ B.null bs' = Left bs' : Right a : go bs k xs
     | otherwise = Right a : go bs k xs

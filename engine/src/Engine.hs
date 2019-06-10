@@ -10,6 +10,7 @@ import Control.Exception.Lens
 import Control.Monad
 import Control.Monad.IO.Unlift
 import Data.Default
+import qualified Data.HashMap.Strict as HashMap
 import Data.IORef
 import Data.Text
 import Data.Watch.Directory
@@ -41,7 +42,7 @@ withEngine k = withRunInIO $ \run1 -> do
   withDirectoryWatcher $ withTasks $ \pumpTasks -> do
     (window, _display) <- newDisplay; let ?display = _display
     _input <- liftIO $ newIORef def; let ?input = _input
-    _includes <- newMVar (def :: IncludeCache); let ?includes = _includes
+    _includes <- newMVar (HashMap.empty :: IncludeCache); let ?includes = _includes
     _ <- listenToTree "shaders"
     run1 $ k $ \draw -> withRunInIO $ \run2 -> do
       _ <- trying _Shutdown $ forever $ do
