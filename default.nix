@@ -62,7 +62,7 @@ let
     weak               = ./weak;
     smawk              = ./smawk;
     watch              = ./watch;
-    watch-filepath     = ./watch-filepath;
+    watch-directory     = ./watch-directory;
   };
 
   # Basic overrides to include our packages
