@@ -2,7 +2,7 @@
 {-# language TypeFamilies #-}
 {-# language DeriveTraversable #-}
 
-module Engine.Parser.Internal
+module Text.Parsnip.Internal
 ( Parser(..)
 , Result(..)
 ) where

@@ -41,6 +41,7 @@ common base
     lens,
     linear,
     parser-combinators,
+    parsnip,
     primitive,
     primitive-statevar,
     sdl2,
@@ -70,10 +71,6 @@ library
     Engine.Include.Parser
     Engine.Input
     Engine.Meter
-    Engine.Parser
-    Engine.Parser.Base
-    Engine.Parser.Char8
-    Engine.Parser.Internal
     Engine.SDL
     Engine.Task
     Engine.Time

@@ -9,13 +9,12 @@ module Engine.Include.Body
 import Control.Lens.Type
 import Control.Monad.IO.Class
 import Data.ByteString (ByteString)
-import qualified Data.ByteString.Char8 as B
-import Data.Maybe
 import Data.Monoid
 import Engine.Include.Parser
-import Engine.Parser.Internal
 import System.Directory
 import System.IO
+import Text.Parsnip.Internal
+import Text.Parsnip.Location
 
 -- | Contains a set of bytestrings which together form the shader
 -- along with a list of interleaved bytestrings and include paths
@@ -35,28 +34,10 @@ instance Monoid Body where
 absolves :: MonadIO m => [ByteString] -> m Body
 absolves = liftIO . getAp . foldMap (Ap . absolve)
 
-data Loc = Loc Int Int ByteString
-
-loc :: ByteString -> Int -> Loc
-loc bs j = Loc (B.count '\n' before) (j - start) content where
-  (before, after) = B.splitAt j bs
-  start = fromMaybe 0 $ B.elemIndexEnd '\n' before
-  end = maybe (B.length bs) (B.length before +) (B.elemIndex '\n' after)
-  content = B.take (end - start) $ B.drop start bs
-
--- | Til we get a pretty printer in here
-located :: Loc -> String -> String
-located (Loc l c bs) msg = Prelude.unlines
-  [ show l ++ ":" ++ show c ++ " " ++ msg
-  , ls
-  , show l ++ " | " ++ B.unpack bs
-  , ls ++ Prelude.replicate c ' ' ++ "^"
-  ] where ls = Prelude.replicate (length (show l) + 1) ' ' ++ "|"
-
 -- | Produce a body containing absolute filepaths
 absolve :: MonadIO m => ByteString -> m Body
 absolve bs = liftIO $ case runParser (directives include) bs 0 of
   Fail j -> do
-    hPutStrLn stderr $ located (loc bs j) "Warning: preprocessing failed"
+    hPutStrLn stderr $ located (location bs j) "Warning: preprocessing failed"
     pure $ Body [bs] [Left bs]
   OK content _ -> Body [bs] <$> traverse (traverse makeAbsolute) content

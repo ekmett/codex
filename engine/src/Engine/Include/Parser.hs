@@ -29,7 +29,7 @@ import qualified Data.ByteString.Unsafe as B
 import qualified Data.ByteString.Char8 as C
 import qualified Data.Attoparsec.ByteString.Char8 as A
 import Data.Functor ((<&>))
-import Engine.Parser as P
+import Text.Parsnip as P
 import Data.Maybe
 
 -- space within a line

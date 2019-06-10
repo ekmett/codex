@@ -2,7 +2,7 @@
 {-# language TypeFamilies #-}
 {-# language DeriveTraversable #-}
 
-module Engine.Parser.Char8
+module Text.Parsnip.Char8
 ( satisfy
 , char
 , anyChar
@@ -28,8 +28,8 @@ import Data.ByteString (ByteString)
 import GHC.Char
 import Prelude hiding (takeWhile, dropWhile, take, drop)
 
-import Engine.Parser.Base
-import Engine.Parser.Internal
+import Text.Parsnip.Internal
+import Text.Parsnip.Parser
 
 -- * Char8
 
@@ -106,7 +106,7 @@ dropWhile1 p = satisfy p *> dropWhile p
 {-# inline takeWhile1 #-}
 
 takeWhile1 :: (Char -> Bool) -> Parser ByteString
-takeWhile1 p = spanning (dropWhile1 p)
+takeWhile1 p = snipping (dropWhile1 p)
 {-# inline dropWhile1 #-}
 
 previousChar :: Parser (Maybe Char)
