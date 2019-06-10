@@ -19,8 +19,9 @@ instance Exception SDLException where
   displayException (SDLException s) = "SDL Exception: " ++ s
 
 class AsSDLException t where _SDLException :: Prism' t SDLException
-instance AsSDLException SDLException where _SDLException = id 
+instance AsSDLException SDLException where _SDLException = id
 instance AsSDLException SomeException where _SDLException = exception
+
 
 -- | Treat negative return codes as prompting an error check.
 sdl_err :: CInt -> IO ()
