@@ -85,6 +85,7 @@ resetDeps :: PrimMonad m => Deps (PrimState m) -> m ()
 resetDeps (Deps deps) = do
   xs <- atomicModifyMutVar deps (HashMap.empty,)
   stToPrim $ sequence_ xs 
+  -- TODO: add a persistent set of deps that can be used for onChange/Future-like behavior
 {-# inline resetDeps #-}
     
 delay :: PrimMonad m => Watch (PrimState m) a -> m (Thunk (PrimState m) a)
