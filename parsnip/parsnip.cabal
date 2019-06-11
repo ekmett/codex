@@ -33,8 +33,7 @@ common base
     base >= 4.11 && < 5,
     bytestring,
     containers,
-    data-default,
-    parser-combinators,
+    data-default
 
 library
   import: base
