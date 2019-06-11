@@ -42,6 +42,7 @@ import Foreign.Ptr
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
 import qualified Language.C.Inline as C
+import qualified Language.C.Inline.Unsafe as U
 
 import Graphics.Harfbuzz.Internal
 import Graphics.Harfbuzz.Private
@@ -52,26 +53,26 @@ C.include "HsFFI.h"
 
 unicode_funcs_create :: PrimMonad m => UnicodeFuncs (PrimState m) -> m (UnicodeFuncs (PrimState m))
 unicode_funcs_create parent = unsafeIOToPrim $
-  [C.exp|hb_unicode_funcs_t * {
+  [U.exp|hb_unicode_funcs_t * {
     hb_unicode_funcs_create(hb_unicode_funcs_reference($unicode-funcs:parent))
   }|] >>= foreignUnicodeFuncs
 
 unicode_funcs_get_default :: PrimMonad m => m (UnicodeFuncs (PrimState m))
 unicode_funcs_get_default = unsafeIOToPrim $
-  [C.exp|hb_unicode_funcs_t * { hb_unicode_funcs_reference(hb_unicode_funcs_get_default()) }|] >>= foreignUnicodeFuncs
+  [U.exp|hb_unicode_funcs_t * { hb_unicode_funcs_reference(hb_unicode_funcs_get_default()) }|] >>= foreignUnicodeFuncs
 
 unicode_funcs_get_parent :: PrimMonad m => UnicodeFuncs (PrimState m) -> m (UnicodeFuncs (PrimState m))
 unicode_funcs_get_parent u = unsafeIOToPrim $
-  [C.block|hb_unicode_funcs_t * {
+  [U.block|hb_unicode_funcs_t * {
     hb_unicode_funcs_t * p = hb_unicode_funcs_get_parent($unicode-funcs:u);
     return hb_unicode_funcs_reference(p);
   }|] >>= foreignUnicodeFuncs
 
 unicode_funcs_is_immutable :: PrimMonad m => UnicodeFuncs (PrimState m) -> m Bool
-unicode_funcs_is_immutable b = unsafeIOToPrim $ [C.exp|hb_bool_t { hb_unicode_funcs_is_immutable($unicode-funcs:b) }|] <&> cbool
+unicode_funcs_is_immutable b = unsafeIOToPrim $ [U.exp|hb_bool_t { hb_unicode_funcs_is_immutable($unicode-funcs:b) }|] <&> cbool
 
 unicode_funcs_make_immutable :: PrimMonad m => UnicodeFuncs (PrimState m) -> m ()
-unicode_funcs_make_immutable b = unsafeIOToPrim [C.block|void { hb_unicode_funcs_make_immutable($unicode-funcs:b); }|]
+unicode_funcs_make_immutable b = unsafeIOToPrim [U.block|void { hb_unicode_funcs_make_immutable($unicode-funcs:b); }|]
 
 unicode_funcs_set_combining_class_func :: PrimBase m => UnicodeFuncs (PrimState m) -> (Char -> m UnicodeCombiningClass) -> m ()
 unicode_funcs_set_combining_class_func uf fun = unsafeIOToPrim do

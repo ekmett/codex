@@ -76,6 +76,7 @@ import Foreign.Marshal.Unsafe
 import Foreign.Ptr
 import Foreign.Storable
 import qualified Language.C.Inline as C
+import qualified Language.C.Inline.Unsafe as U
 
 import Graphics.Harfbuzz.Internal
 import Graphics.Harfbuzz.Object
@@ -87,34 +88,34 @@ C.include "HsFFI.h"
 C.verbatim "static hb_user_data_key_t face_key;"
 
 face_key :: Key (Face m)
-face_key = unsafeLocalState $ Key <$> newForeignPtr_ [C.pure|hb_user_data_key_t * { &face_key }|]
+face_key = unsafeLocalState $ Key <$> newForeignPtr_ [U.pure|hb_user_data_key_t * { &face_key }|]
 {-# NOINLINE face_key #-}
 
 font_create :: PrimMonad m => Face (PrimState m) -> m (Font (PrimState m))
 font_create face = unsafeSTToPrim do
-  font <- unsafeIOToPrim $ [C.exp|hb_font_t * { hb_font_create($face:face) }|] >>= foreignFont
+  font <- unsafeIOToPrim $ [U.exp|hb_font_t * { hb_font_create($face:face) }|] >>= foreignFont
   font <$ object_set_user_data font face_key face True
 
 font_create_sub_font :: PrimMonad m => Font (PrimState m) -> m (Font (PrimState m))
 font_create_sub_font parent = unsafeSTToPrim do
-  font <- unsafeIOToPrim $ [C.exp|hb_font_t * {
+  font <- unsafeIOToPrim $ [U.exp|hb_font_t * {
     hb_font_create_sub_font(hb_font_reference($font:parent))
   }|] >>= foreignFont
-  mface <- object_get_user_data parent face_key
+  mface <- object_get_user_data parent face_key -- we store our own copy, so that it can hold the foreign ptr alive
   font <$ for_ mface \face -> object_set_user_data font face_key face True
 
 font_face :: Font s -> StateVar s (Face s)
 font_face font = StateVar g s where
   g = fromMaybe (error "font_face: missing face key") <$> object_get_user_data font face_key
   s face = do
-      unsafeIOToPrim $ [C.block|void { hb_font_set_face($font:font,hb_face_reference($face:face)); }|]
+      unsafeIOToPrim $ [U.block|void { hb_font_set_face($font:font,hb_face_reference($face:face)); }|]
       () <$ object_set_user_data font face_key face True
 
 font_get_glyph :: PrimMonad m => Font (PrimState m) -> Codepoint -> Codepoint -> m (Maybe Codepoint)
 font_get_glyph font unicode variation_selector = unsafeIOToPrim $ alloca \pglyph -> do
   b <- [C.exp|hb_bool_t {
     hb_font_get_glyph($font:font,$(hb_codepoint_t unicode),$(hb_codepoint_t variation_selector),$(hb_codepoint_t * pglyph))
-  }|]
+  }|] -- requires safe, calls font_funcs
   if cbool b then Just <$> peek pglyph else pure Nothing
 
 font_get_glyph_advance_for_direction :: PrimMonad m => Font (PrimState m) -> Codepoint -> Direction -> m (Position, Position)
@@ -122,7 +123,7 @@ font_get_glyph_advance_for_direction font glyph dir = unsafeIOToPrim $ allocaArr
   [C.block|void {
     hb_position_t * xy = $(hb_position_t * xy);
     hb_font_get_glyph_advance_for_direction($font:font,$(hb_codepoint_t glyph),$(hb_direction_t dir),xy,xy+1);
-  }|]
+  }|] -- requires safe, calls font_funcs
   (,) <$> peek xy <*> peek (advancePtr xy 1)
 
 -- You'll need to manage the glyphs and advances yourself
@@ -139,14 +140,14 @@ font_get_glyph_advances_for_direction
       $(hb_position_t * first_advance),
       $(unsigned int advance_stride)
     );
-  }|]
+  }|] -- requires safe, calls font_funcs
 
 font_get_glyph_contour_point :: PrimMonad m => Font (PrimState m) -> Codepoint -> Int -> m (Maybe (Position, Position))
 font_get_glyph_contour_point font glyph (fromIntegral -> point_index) = unsafeIOToPrim $ allocaArray 2 \xy -> do
   b <- [C.block|hb_bool_t {
     hb_position_t * xy = $(hb_position_t * xy);
     return hb_font_get_glyph_contour_point($font:font,$(hb_codepoint_t glyph),$(unsigned int point_index),xy,xy+1);
-  }|]
+  }|] -- requires safe, calls font_funcs
   if cbool b
   then do
     x <- peek xy
@@ -159,7 +160,7 @@ font_get_glyph_contour_point_for_origin font glyph (fromIntegral -> point_index)
   b <- [C.block|hb_bool_t {
     hb_position_t * xy = $(hb_position_t * xy);
     return hb_font_get_glyph_contour_point_for_origin($font:font,$(hb_codepoint_t glyph),$(hb_direction_t dir),$(unsigned int point_index),xy,xy+1);
-  }|]
+  }|] -- requires safe, calls font_funcs
   if cbool b
   then do
     x <- peek xy
@@ -172,7 +173,7 @@ font_get_glyph_origin_for_direction font glyph dir = unsafeIOToPrim $ allocaArra
   [C.block|void {
     hb_position_t * xy = $(hb_position_t * xy);
     hb_font_get_glyph_origin_for_direction($font:font,$(hb_codepoint_t glyph),$(hb_direction_t dir),xy,xy+1);
-  }|]
+  }|] -- requires safe, calls font_funcs
   (,) <$> peek xy <*> peek (advancePtr xy 1)
 
 font_add_glyph_origin_for_direction :: PrimMonad m => Font (PrimState m) -> Codepoint -> Direction -> (Position,Position) -> m (Position,Position)
@@ -187,11 +188,12 @@ font_subtract_glyph_origin_for_direction font glyph dir (x,y) = do
 
 font_set_variations :: PrimMonad m => Font (PrimState m) -> [Variation] -> m ()
 font_set_variations font vars = unsafeIOToPrim $ withArrayLen vars \ (fromIntegral -> len) pvars ->
-   [C.block|void{ hb_font_set_variations($font:font,$(const hb_variation_t * pvars),$(unsigned int len)); }|]
-
+  [U.block|void{ hb_font_set_variations($font:font,$(const hb_variation_t * pvars),$(unsigned int len)); }|]
+   -- requires safe, calls font_funcs
+   --
 font_set_var_coords_design :: PrimMonad m => Font (PrimState m) -> [Float] -> m ()
 font_set_var_coords_design font v = unsafeIOToPrim $ withArrayLen (coerce <$> v) \ (fromIntegral -> len) pcoords ->
-  [C.block|void{ hb_font_set_var_coords_design($font:font,$(const float * pcoords),$(unsigned int len)); }|]
+  [U.block|void{ hb_font_set_var_coords_design($font:font,$(const float * pcoords),$(unsigned int len)); }|]
 
 font_var_coords_normalized :: Font s -> StateVar s [Int]
 font_var_coords_normalized font = unsafeStateVar g s where
@@ -249,10 +251,10 @@ font_glyph_from_string font name = unsafeIOToPrim $
 font_ppem :: Font s -> StateVar s (Int,Int)
 font_ppem font = unsafeStateVar g s where
   g = allocaArray 2 \xy -> do
-       [C.block|void {
+       [U.block|void {
           unsigned int * xy = $(unsigned int * xy);
           hb_font_get_ppem($font:font,xy,xy+1);
-       }|]
+       }|] -- stored in font, unsafe okay
        a <- peek xy
        b <- peek (advancePtr xy 1)
        return (fromIntegral a,fromIntegral b)
@@ -260,33 +262,33 @@ font_ppem font = unsafeStateVar g s where
 
 font_ptem :: Font s -> StateVar s Float
 font_ptem font = unsafeStateVar g s where
-  g = [C.exp|float { hb_font_get_ptem($font:font) }|] <&> coerce
-  s (coerce -> x) = [C.block|void { hb_font_set_ptem($font:font,$(float x)); }|]
+  g = [U.exp|float { hb_font_get_ptem($font:font) }|] <&> coerce
+  s (coerce -> x) = [U.block|void { hb_font_set_ptem($font:font,$(float x)); }|]
 
 font_scale :: Font s -> StateVar s (Int,Int)
 font_scale font = unsafeStateVar g s where
   g = allocaArray 2 \xy -> do
-       [C.block|void {
+       [U.block|void {
           int * xy = $(int * xy);
           hb_font_get_scale($font:font,xy,xy+1);
-       }|]
+       }|] -- stored in font, unsafe okay
        a <- peek xy
        b <- peek (advancePtr xy 1)
        return (fromIntegral a,fromIntegral b)
-  s (fromIntegral -> x, fromIntegral -> y) = [C.block|void { hb_font_set_scale($font:font,$(int x),$(int y)); }|]
+  s (fromIntegral -> x, fromIntegral -> y) = [U.block|void { hb_font_set_scale($font:font,$(int x),$(int y)); }|]
 
 font_set_funcs :: PrimMonad m => Font (PrimState m) -> FontFuncs (PrimState m) -> Ptr () -> FinalizerPtr () -> m ()
 font_set_funcs font funcs font_data destroy = unsafeIOToPrim [C.block|void {
   hb_font_set_funcs($font:font,hb_font_funcs_reference($font-funcs:funcs),$(void * font_data),$(hb_destroy_func_t destroy));
-}|]
+}|] -- calls previous font_funcs destroy, must be a safe call
 
 font_funcs_create :: PrimMonad m => m (FontFuncs (PrimState m))
 font_funcs_create = unsafeIOToPrim do
-  [C.exp|hb_font_funcs_t * { hb_font_funcs_create() }|] >>= foreignFontFuncs
+  [U.exp|hb_font_funcs_t * { hb_font_funcs_create() }|] >>= foreignFontFuncs
 
 font_funcs_is_immutable :: PrimMonad m => FontFuncs (PrimState m) -> m Bool
 font_funcs_is_immutable b = unsafeIOToPrim do
-  [C.exp|hb_bool_t { hb_font_funcs_is_immutable($font-funcs:b) }|] <&> cbool
+  [U.exp|hb_bool_t { hb_font_funcs_is_immutable($font-funcs:b) }|] <&> cbool
 
 font_funcs_make_immutable :: PrimMonad m => FontFuncs (PrimState m) -> m ()
-font_funcs_make_immutable b = unsafeIOToPrim [C.block|void { hb_font_funcs_make_immutable($font-funcs:b); }|]
+font_funcs_make_immutable b = unsafeIOToPrim [U.block|void { hb_font_funcs_make_immutable($font-funcs:b); }|]

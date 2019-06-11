@@ -38,6 +38,7 @@ import Foreign.Marshal.Alloc
 import Foreign.Marshal.Utils
 import Foreign.Storable
 import qualified Language.C.Inline as C
+import qualified Language.C.Inline.Unsafe as U
 
 import Graphics.Harfbuzz.Internal
 import Graphics.Harfbuzz.Private
@@ -49,7 +50,7 @@ C.include "<hb.h>"
 
 blob_create :: PrimMonad m => ByteString -> MemoryMode -> m (Blob (PrimState m))
 blob_create bs mode = unsafeIOToPrim $
-  [C.block|hb_blob_t * {
+  [U.block|hb_blob_t * {
     int len = $bs-len:bs;
     char * s = strndup($bs-ptr:bs,len);
     return hb_blob_create(s,len,$(hb_memory_mode_t mode),s,free);
@@ -57,34 +58,34 @@ blob_create bs mode = unsafeIOToPrim $
 
 blob_create_from_file :: (PrimMonad m, PrimState m ~ RealWorld) => FilePath -> m (Blob RealWorld)
 blob_create_from_file fp = ioToPrim $
-  [C.exp|hb_blob_t * { hb_blob_create_from_file($str:fp) }|] >>= foreignBlob
+  [U.exp|hb_blob_t * { hb_blob_create_from_file($str:fp) }|] >>= foreignBlob
 
 blob_create_sub_blob :: PrimMonad m => Blob (PrimState m) -> Int -> Int -> m (Blob (PrimState m))
 blob_create_sub_blob b (fromIntegral -> o) (fromIntegral -> l) = unsafeIOToPrim $
-  [C.exp|hb_blob_t * { hb_blob_create_sub_blob($blob:b,$(int o),$(int l)) }|] >>= foreignBlob
+  [U.exp|hb_blob_t * { hb_blob_create_sub_blob($blob:b,$(int o),$(int l)) }|] >>= foreignBlob
 
 blob_copy_writable_or_fail :: PrimMonad m => Blob (PrimState m) -> m (Maybe (Blob (PrimState m)))
 blob_copy_writable_or_fail b = unsafeIOToPrim $
-  [C.exp|hb_blob_t * { hb_blob_copy_writable_or_fail($blob:b) }|] >>= maybePeek foreignBlob
+  [U.exp|hb_blob_t * { hb_blob_copy_writable_or_fail($blob:b) }|] >>= maybePeek foreignBlob
 
 blob_get_length :: PrimMonad m => Blob (PrimState m) -> m Int
-blob_get_length b = unsafeIOToPrim $ [C.exp|int { hb_blob_get_length($blob:b) }|] <&> fromIntegral
+blob_get_length b = unsafeIOToPrim $ [U.exp|int { hb_blob_get_length($blob:b) }|] <&> fromIntegral
 
 blob_is_immutable :: PrimMonad m => Blob (PrimState m) -> m Bool
-blob_is_immutable b = unsafeIOToPrim $ [C.exp|hb_bool_t { hb_blob_is_immutable($blob:b) }|] <&> cbool
+blob_is_immutable b = unsafeIOToPrim $ [U.exp|hb_bool_t { hb_blob_is_immutable($blob:b) }|] <&> cbool
 
 blob_make_immutable :: PrimMonad m => Blob (PrimState m) -> m ()
-blob_make_immutable b = unsafeIOToPrim [C.block|void { hb_blob_make_immutable($blob:b); }|]
+blob_make_immutable b = unsafeIOToPrim [U.block|void { hb_blob_make_immutable($blob:b); }|]
 
 -- | hb_blob_get_data is unsafe under ForeignPtr management, this is safe
 with_blob_data :: PrimBase m => Blob (PrimState m) -> (ConstCStringLen -> m r) -> m r
 with_blob_data (Blob bfp) k = unsafeIOToPrim $ withForeignPtr bfp \bp -> alloca $ \ip -> do
-  s <- [C.exp|const char * { hb_blob_get_data($(hb_blob_t * bp),$(unsigned int * ip)) }|]
+  s <- [U.exp|const char * { hb_blob_get_data($(hb_blob_t * bp),$(unsigned int * ip)) }|]
   i <- peek ip
   unsafePrimToIO $ k (constant s, fromIntegral i)
 
 with_blob_data_writable :: PrimBase m => Blob (PrimState m) -> (CStringLen -> m r) -> m r
 with_blob_data_writable (Blob bfp) k = unsafeIOToPrim $ withForeignPtr bfp \bp -> alloca $ \ip -> do
-  s <- [C.exp|char * { hb_blob_get_data_writable($(hb_blob_t * bp),$(unsigned int * ip)) }|]
+  s <- [U.exp|char * { hb_blob_get_data_writable($(hb_blob_t * bp),$(unsigned int * ip)) }|]
   i <- peek ip
   unsafePrimToIO $ k (s, fromIntegral i)

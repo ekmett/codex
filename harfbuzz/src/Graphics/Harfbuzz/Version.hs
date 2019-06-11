@@ -23,6 +23,7 @@ import Foreign.C.String
 import Foreign.Marshal.Array
 import Foreign.Storable
 import qualified Language.C.Inline as C
+import qualified Language.C.Inline.Unsafe as U
 
 import Graphics.Harfbuzz.Internal
 
@@ -31,7 +32,7 @@ C.include "<hb.h>"
 
 version :: MonadIO m => m Version
 version = liftIO $ allocaArray 3 \abc -> do
-  [C.block|void {
+  [U.block|void {
      unsigned int * abc = $(unsigned int * abc);
      hb_version(abc,abc+1,abc+2);
   }|]
@@ -42,4 +43,4 @@ version = liftIO $ allocaArray 3 \abc -> do
 
 version_string :: MonadIO m => m String
 version_string = liftIO do
-  [C.exp|const char * { hb_version_string() }|] >>= peekCString
+  [U.exp|const char * { hb_version_string() }|] >>= peekCString

@@ -35,11 +35,12 @@ import Data.Vector.Storable
 import Foreign.C.Types
 import Foreign.Marshal.Array
 import Foreign.Ptr
-import qualified Language.C.Inline as C
+import qualified Language.C.Inline as C 
 
 import Graphics.Harfbuzz.Internal
 import Graphics.Harfbuzz.Private
 
+-- all of this makes callbacks to messagefunc, nothing can use unsafe calls
 C.context $ C.baseCtx <> C.vecCtx <> harfbuzzCtx
 C.include "<hb.h>"
 
