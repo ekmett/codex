@@ -35,6 +35,7 @@ import qualified Graphics.Harfbuzz.Internal as HB
 import qualified Graphics.Harfbuzz.Object as HB
 import qualified Graphics.Harfbuzz.Font as HB
 import qualified Language.C.Inline as C
+import qualified Language.C.Inline.Unsafe as U
 
 C.context $ C.baseCtx <> C.fptrCtx <> HB.harfbuzzCtx <> FT.freeTypeCtx
 C.include "<hb-ft.h>"
@@ -45,17 +46,17 @@ C.verbatim "static hb_user_data_key_t face_face_udk;" -- allocate a fresh key fo
 C.verbatim "static hb_user_data_key_t font_face_udk;" -- allocate a fresh key for ft_face data maintenance
 
 face_face_key :: HB.Key (Either (Ptr FT.FaceRec) FT.Face)
-face_face_key = unsafeLocalState $ HB.Key <$> newForeignPtr_ [C.pure|hb_user_data_key_t * { &face_face_udk }|]
+face_face_key = unsafeLocalState $ HB.Key <$> newForeignPtr_ [U.pure|hb_user_data_key_t * { &face_face_udk }|]
 
 font_face_key :: HB.Key FT.Face
-font_face_key = unsafeLocalState $ HB.Key <$> newForeignPtr_ [C.pure|hb_user_data_key_t * { &font_face_udk }|]
+font_face_key = unsafeLocalState $ HB.Key <$> newForeignPtr_ [U.pure|hb_user_data_key_t * { &font_face_udk }|]
 
 -- | Create a harfbuzz face that references our freetype face.
 --
 -- This will keep the freetype face alive until the harfbuzz object is destroyed.
 hb_ft_face_create :: MonadIO m => FT.Face -> m (HB.Face RealWorld)
 hb_ft_face_create ftface = liftIO do
-  face <- [C.exp|hb_face_t * { hb_ft_face_create($fptr-ptr:(FT_Face ftface), NULL) }|] >>= HB.foreignFace
+  face <- [U.exp|hb_face_t * { hb_ft_face_create($fptr-ptr:(FT_Face ftface), NULL) }|] >>= HB.foreignFace
   face <$ HB.object_set_user_data face face_face_key (Right ftface) True -- keeps the ft font alive.
 
 -- | Create a harfbuzz font that references our freetype face.
@@ -63,14 +64,14 @@ hb_ft_face_create ftface = liftIO do
 -- This will keep the freetype face alive until the harfbuzz object is destroyed.
 hb_ft_font_create :: MonadIO m => FT.Face -> m (HB.Font RealWorld)
 hb_ft_font_create ftface = liftIO do
-  font <- [C.exp|hb_font_t * { hb_ft_font_create($fptr-ptr:(FT_Face ftface), NULL) }|] >>= HB.foreignFont
+  font <- [U.exp|hb_font_t * { hb_ft_font_create($fptr-ptr:(FT_Face ftface), NULL) }|] >>= HB.foreignFont
   font <$ HB.object_set_user_data font font_face_key ftface True -- keeps the ft font alive
 
 -- | Create a harfbuzz face that references our freetype face. Repeated calls
 -- will retrieve the same harfbuzz face. Reference management should be automatic.
 hb_ft_face_create_cached :: MonadIO m => FT.Face -> m (HB.Face RealWorld)
 hb_ft_face_create_cached ftface@(ForeignPtr _ guts) = liftIO do
-  Ptr addr <- [C.block|hb_face_t * {
+  Ptr addr <- [U.block|hb_face_t * {
     hb_face_t * face = hb_ft_face_create_cached($fptr-ptr:(FT_Face ftface));
     hb_face_destroy(face); /* avoid off-by-1 reference counting bug */
     return face;
@@ -92,12 +93,12 @@ hb_ft_font_get_face font = liftIO $
 
 hb_ft_font_load_flags :: HB.Font RealWorld -> StateVar RealWorld Int
 hb_ft_font_load_flags font = StateVar g s where
-  g = fromIntegral <$> unsafeIOToST [C.exp|int { hb_ft_font_get_load_flags($fptr-ptr:(hb_font_t * font)) }|]
-  s (fromIntegral -> v) = unsafeIOToST [C.block|void { hb_ft_font_set_load_flags($fptr-ptr:(hb_font_t * font),$(int v)); }|]
+  g = fromIntegral <$> unsafeIOToST [U.exp|int { hb_ft_font_get_load_flags($fptr-ptr:(hb_font_t * font)) }|]
+  s (fromIntegral -> v) = unsafeIOToST [U.block|void { hb_ft_font_set_load_flags($fptr-ptr:(hb_font_t * font),$(int v)); }|]
 
 -- notify harfbuzz that our freetype font has been changed. call immediately after changes are made.
 hb_ft_font_changed :: MonadIO m => HB.Font RealWorld -> m ()
-hb_ft_font_changed font = liftIO [C.block|void { hb_ft_font_changed($fptr-ptr:(hb_font_t * font)); }|]
+hb_ft_font_changed font = liftIO [U.block|void { hb_ft_font_changed($fptr-ptr:(hb_font_t * font)); }|]
 
 hb_ft_font_set_funcs :: MonadIO m => HB.Font RealWorld -> m ()
-hb_ft_font_set_funcs font = liftIO [C.block|void { hb_ft_font_set_funcs($fptr-ptr:(hb_font_t * font)); }|]
+hb_ft_font_set_funcs font = liftIO [U.block|void { hb_ft_font_set_funcs($fptr-ptr:(hb_font_t * font)); }|]
