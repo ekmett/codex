@@ -9,6 +9,7 @@
 {-# language StrictData #-}
 {-# language TemplateHaskell #-}
 {-# language TupleSections #-}
+{-# language BlockArguments #-}
 -- |
 -- Copyright :  (c) 2014-2019 Edward Kmett
 -- License   :  BSD2
@@ -76,7 +77,7 @@ type GivenEvents = ?events :: [SDL.Event]
 type GivenWindow = ?window :: Window
 
 withWindow :: MonadUnliftIO m => (GivenWindow => m a) -> m a
-withWindow k = withRunInIO $ \io -> bracket create destroy $ \w -> let ?window = w in io k where
+withWindow k = withRunInIO \io -> bracket create destroy \w -> let ?window = w in io k where
   create = do
     SDL.initialize [SDL.InitVideo]
     window <- SDL.createWindow "engine example" SDL.defaultWindow
@@ -100,13 +101,13 @@ withWindow k = withRunInIO $ \io -> bracket create destroy $ \w -> let ?window =
 
 -- | Complain loudly enough to pop up a window
 warn :: (GivenWindow, MonadIO m) => Text -> Text -> m ()
-warn title message = liftIO $ do
+warn title message = liftIO do
   hPutStrLn stderr $ "Warning: " ++ unpack title ++ ": " ++ unpack message
   showSimpleMessageBox (Just ?window) Warning title message
 
 -- | Recalculate the actual OpenGL viewport size considering Retina, TODO: include whether or not we're visible
 resizeViewport :: (GivenWindow, MonadIO m) => m ()
-resizeViewport = liftIO $ do
+resizeViewport = liftIO do
   V2 w h <- SDL.glGetDrawableSize ?window
   glViewport 0 0 (fromIntegral w) (fromIntegral h)
 
@@ -149,6 +150,9 @@ makeClassy ''Input
 instance Default Input where
   def = Input def def def 0 [] 0 0
 
+-- | This provides convenient access to user events without actually processing them yourself
+--
+-- If you need more information, use 'GivenEvents' and process them yourself each frame.
 type GivenInput = (?input :: Input)
 
 handleInputEvents :: GivenEvents => Input -> Input

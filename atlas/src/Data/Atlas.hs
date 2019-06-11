@@ -6,6 +6,7 @@
 {-# language TemplateHaskell #-}
 {-# language QuasiQuotes #-}
 {-# language ViewPatterns #-}
+{-# language BlockArguments #-}
 -- |
 -- Copyright :  (c) 2019 Edward Kmett
 -- License   :  BSD-2-Clause OR Apache-2.0
@@ -54,7 +55,7 @@ atlas_create w h = atlas_create_explicit w h Nothing
 -- | Initialization with an optional node count, when @node count < width@ is used this results in quantization unless
 -- 'atlas_set_allow_out_of_mem' is enabled. When no value is supplied, it defaults to the width of the 'Atlas'.
 atlas_create_explicit :: PrimMonad m => Int -> Int -> Maybe Int -> m (Atlas (PrimState m))
-atlas_create_explicit width@(fromIntegral -> w) height@(fromIntegral -> h) mn = unsafeIOToPrim $ do
+atlas_create_explicit width@(fromIntegral -> w) height@(fromIntegral -> h) mn = unsafeIOToPrim do
   let nodes@(fromIntegral -> n) = fromMaybe width mn
   unless (width < 0xffff && height < 0xffff) $ fail $ "Atlas.new " ++ show width ++ " " ++ show height ++ ": atlas too large"
   fp <- mallocForeignPtrBytes (sizeOfAtlas + sizeOfNode * nodes)
@@ -99,11 +100,11 @@ atlas_packM
   -> (Pt -> a -> c)
   -> f a
   -> m (Either (f b) (f c))
-atlas_packM fc f g h as = unsafeIOToPrim $ do
+atlas_packM fc f g h as = unsafeIOToPrim do
   let n = length as
   let cn = fromIntegral n
-  allocaBytes (n*sizeOfRect) $ \ rs -> do
-    iforOf_ folded as $ \i a -> do
+  allocaBytes (n*sizeOfRect) \ rs -> do
+    iforOf_ folded as \i a -> do
       p <- unsafePrimToIO $ f a
       pokeWH (plusPtr rs (i*sizeOfRect)) p
     res <- [CU.exp|int { stbrp_pack_rects($atlas:fc,$(stbrp_rect *rs),$(int cn)) }|]
@@ -112,7 +113,7 @@ atlas_packM fc f g h as = unsafeIOToPrim $ do
     else Right <$> evalStateT (traverse (go peekXY h) as) rs -- all allocated
   where
     go :: (Ptr Rect -> IO u) -> (u -> a -> d) -> a -> StateT (Ptr Rect) IO d
-    go k gh a = StateT $ \p -> (\b -> (,) (gh b a) $! plusPtr p sizeOfRect) <$> k p
+    go k gh a = StateT \p -> (\b -> (,) (gh b a) $! plusPtr p sizeOfRect) <$> k p
     {-# inline go #-}
 
 atlas_pack1 :: PrimMonad m => Atlas (PrimState m) -> Pt -> m (Maybe Pt)

@@ -7,6 +7,7 @@
 {-# language StrictData #-}
 {-# language TupleSections #-}
 {-# language TypeFamilies #-}
+{-# language BlockArguments #-}
 -- | In order to properly "watch" the changes to a shader
 -- we need to know what it depends on. There is no callback
 -- in OpenGL to determine which NamedStrings a shader uses.
@@ -123,7 +124,7 @@ flattenIncludes env = getAp . go [] where
   go :: [FilePath] -> Body -> Ap (Validation [String]) [ByteString]
   go m (Body _ es xs)
     | not (null es) = Ap $ Failure es -- include messages from the parser
-    | otherwise = flip foldMap xs $ \case
+    | otherwise = flip foldMap xs \case
       Left bs -> Ap $ Success [bs] -- bytestring snippet
       Right fp
         | elem fp m -> Ap $ Failure
@@ -155,10 +156,10 @@ deps body = liftIO $ delay $ execStateT (forOf_ paths body cache) HashMap.empty
 
 -- | Path should be absolute
 includes :: (GivenIncludeCache, GivenShaderDir, GivenDirectoryWatcher) => FilePath -> IO (IOThunk Body)
-includes path = modifyMVar ?includes $ \m -> case m^.at path of
+includes path = modifyMVar ?includes \m -> case m^.at path of
   Just body -> pure (m,body)
   Nothing -> do
-    body <- delay $ do
+    body <- delay do
       thunk <- readWatchedFile path
       absolve <$> force thunk
     pure (HashMap.insert path body m,body)
@@ -180,7 +181,7 @@ cache path = use (at path) >>= \case
 -- space within a line
 spaces :: Parser ()
 spaces = skipMany $ choice 
-  [ () <$ satisfy (\c -> A.isSpace c && c `Prelude.notElem` vspace)
+  [ () <$ satisfy \c -> A.isSpace c && c `Prelude.notElem` vspace
   , () <$ do "/*" *> P.breakSubstring "*/" *> "*/"
   , () <$ "\\\n"
   , () <$ "\\\r\n"

@@ -2,6 +2,7 @@
 {-# language QuasiQuotes #-}
 {-# language ViewPatterns #-}
 {-# language OverloadedStrings #-}
+{-# language TupleSections #-}
 {-# language DeriveDataTypeable #-}
 {-# language DeriveGeneric #-}
 {-# language PatternSynonyms #-}
@@ -14,6 +15,7 @@
 {-# language PolyKinds #-}
 {-# language DataKinds #-}
 {-# language UnboxedTuples #-}
+{-# language BlockArguments #-}
 {-# options_ghc -Wno-missing-pattern-synonym-signatures #-}
 
 module Data.Text.ICU.Bidi
@@ -177,7 +179,7 @@ import System.IO.Unsafe (unsafePerformIO)
 --------------------------------------------------------------------------------
 
 withPrimArrayLen :: forall a r. Prim a => PrimArray a -> (Int -> Ptr a -> IO r) -> IO r
-withPrimArrayLen pa k = allocaBytes (n * I## (sizeOf## @a undefined)) $ \p -> copyPrimArrayToPtr p pa 0 n *> k n p where
+withPrimArrayLen pa k = allocaBytes (n * I## (sizeOf## @a undefined)) \p -> copyPrimArrayToPtr p pa 0 n *> k n p where
   n = sizeofPrimArray pa
 
 peekPrimArray :: Prim a => Int -> Ptr a -> IO (PrimArray a)
@@ -375,10 +377,10 @@ foreignBidi :: Ptr UBiDi -> IO (Bidi s)
 foreignBidi self_ptr = do
   embeddings_ref <- newIORef nullPtr -- embeddingLevels
   parent_ref <- newIORef Nothing -- parentLink
-  self_fptr <- Concurrent.newForeignPtr self_ptr $ do
+  self_fptr <- Concurrent.newForeignPtr self_ptr do
     [C.block|void { ubidi_close($(UBiDi * self_ptr)); }|] -- delete self
     embeddings <- readIORef embeddings_ref -- clean up embeddings
-    when (embeddings /= nullPtr) $ free embeddings
+    when (embeddings /= nullPtr) do free embeddings
     -- garbage collecting the parent link will allow parent to now possibly be freed if it has no references
   pure $ Bidi embeddings_ref parent_ref self_fptr
 
@@ -386,21 +388,21 @@ bad :: UErrorCode -> Bool
 bad e = [C.pure|int { U_FAILURE($(UErrorCode e)) }|] /= 0
 
 ok :: UErrorCode -> IO ()
-ok e = when (bad e) $ throwIO e
+ok e = when (bad e) do throwIO e
 
 open :: PrimMonad m => m (Bidi (PrimState m))
-open = unsafeIOToPrim $ [C.exp|UBiDi * { ubidi_open() }|] >>= foreignBidi
+open = unsafeIOToPrim do [C.exp|UBiDi * { ubidi_open() }|] >>= foreignBidi
 
 openSized :: PrimMonad m => Int32 -> Int32 -> m (Bidi (PrimState m))
-openSized maxLength maxRunCount = unsafeIOToPrim $
-  with def $ \pErrorCode -> do
+openSized maxLength maxRunCount = unsafeIOToPrim do
+  with def \pErrorCode -> do
     bidi <- [C.exp|UBiDi * { ubidi_openSized($(int32_t maxLength),$(int32_t maxRunCount),$(UErrorCode * pErrorCode)) }|]
     peek pErrorCode >>= ok
     foreignBidi bidi
 
 getText :: PrimMonad m => Bidi (PrimState m) -> m Text
-getText bidi = unsafeIOToPrim $
-  withBidi bidi $ \p -> do
+getText bidi = unsafeIOToPrim do
+  withBidi bidi \p -> do
     cwstr <- [C.exp|const UChar * { ubidi_getText($(const UBiDi * p))}|]
     len <- [C.exp|int32_t { ubidi_getLength($(const UBiDi * p))}|]
     fromPtr cwstr (fromIntegral len)
@@ -412,30 +414,30 @@ setInverse :: PrimMonad m => Bidi (PrimState m) -> Bool -> m ()
 setInverse bidi (boolu -> b) = unsafeIOToPrim [C.block|void { ubidi_setInverse($bidi:bidi,$(UBool b)); }|]
 
 isInverse :: PrimMonad m => Bidi (PrimState m) -> m Bool
-isInverse bidi = unsafeIOToPrim $ [C.exp|UBool { ubidi_isInverse($bidi:bidi) }|] <&> ubool
+isInverse bidi = unsafeIOToPrim do [C.exp|UBool { ubidi_isInverse($bidi:bidi) }|] <&> ubool
 
 orderParagraphsLTR :: PrimMonad m => Bidi (PrimState m) -> Bool -> m ()
 orderParagraphsLTR bidi (boolu -> b) = unsafeIOToPrim [C.block|void { ubidi_orderParagraphsLTR($bidi:bidi,$(UBool b)); }|]
 
 isOrderParagraphsLTR :: PrimMonad m => Bidi (PrimState m) -> m Bool
-isOrderParagraphsLTR bidi = unsafeIOToPrim $ [C.exp|UBool { ubidi_isOrderParagraphsLTR($bidi:bidi) }|] <&> ubool
+isOrderParagraphsLTR bidi = unsafeIOToPrim do [C.exp|UBool { ubidi_isOrderParagraphsLTR($bidi:bidi) }|] <&> ubool
 
 setReorderingMode :: PrimMonad m => Bidi (PrimState m) -> ReorderingMode -> m ()
 setReorderingMode bidi (fromIntegral . fromEnum -> mode) = unsafeIOToPrim [C.block|void { ubidi_setReorderingMode($bidi:bidi,$(UBiDiReorderingMode mode)); }|]
 
 getReorderingMode :: PrimMonad m => Bidi (PrimState m) -> m ReorderingMode
-getReorderingMode bidi = unsafeIOToPrim $ [C.exp|UBiDiReorderingMode{ ubidi_getReorderingMode($bidi:bidi)}|] <&> toEnum . fromIntegral
+getReorderingMode bidi = unsafeIOToPrim do [C.exp|UBiDiReorderingMode{ ubidi_getReorderingMode($bidi:bidi)}|] <&> toEnum . fromIntegral
 
 setReorderingOptions :: PrimMonad m => Bidi (PrimState m) -> ReorderingOption -> m ()
 setReorderingOptions bidi options = unsafeIOToPrim [C.block|void { ubidi_setReorderingOptions($bidi:bidi,$(UBiDiReorderingOption options)); }|]
 
 getReorderingOptions :: PrimMonad m => Bidi (PrimState m) -> m ReorderingOption
-getReorderingOptions bidi = unsafeIOToPrim $ [C.exp|UBiDiReorderingOption { ubidi_getReorderingOptions($bidi:bidi) }|]
+getReorderingOptions bidi = unsafeIOToPrim do [C.exp|UBiDiReorderingOption { ubidi_getReorderingOptions($bidi:bidi) }|]
 
 setContext :: PrimMonad m => Bidi (PrimState m) -> Text -> Text -> m ()
-setContext bidi prologue_text epilogue_text = unsafeIOToPrim $ do
-  useAsPtr prologue_text $ \prologue (fromIntegral -> prologue_len) ->
-    useAsPtr epilogue_text $ \epilogue (fromIntegral -> epilogue_len) ->
+setContext bidi prologue_text epilogue_text = unsafeIOToPrim do
+  useAsPtr prologue_text \prologue (fromIntegral -> prologue_len) ->
+    useAsPtr epilogue_text \epilogue (fromIntegral -> epilogue_len) ->
       [C.block|UErrorCode {
         UErrorCode error_code = 0;
         ubidi_setContext(
@@ -450,9 +452,9 @@ setContext bidi prologue_text epilogue_text = unsafeIOToPrim $ do
       }|] >>= ok
 
 setPara :: PrimMonad m => Bidi (PrimState m) -> Text -> Level -> Maybe (Prim.Vector Level) -> m ()
-setPara bidi text paraLevel els = unsafeIOToPrim $
-  useAsPtr text $ \t i16@(fromIntegral -> len) -> do
-    (fromMaybe nullPtr -> u) <- for els $ \(Prim.Vector vofs vlen (ByteArray vba)) -> do
+setPara bidi text paraLevel els = unsafeIOToPrim do
+  useAsPtr text \t i16@(fromIntegral -> len) -> do
+    (fromMaybe nullPtr -> u) <- for els \(Prim.Vector vofs vlen (ByteArray vba)) -> do
       u <- if vlen < len
            then callocBytes (fromIntegral i16)
            else mallocBytes (fromIntegral i16)
@@ -470,11 +472,11 @@ setPara bidi text paraLevel els = unsafeIOToPrim $
       );
       return error_code;
     }|] >>= ok
-    v <- atomicModifyIORef (embeddingLevels bidi) $ \v -> (u, v)
-    when (v /= nullPtr) $ free v
+    v <- atomicModifyIORef (embeddingLevels bidi) (u,)
+    when (v /= nullPtr) do free v
 
 setLine :: PrimMonad m => Bidi (PrimState m) -> Int32 -> Int32 -> Bidi (PrimState m) -> m ()
-setLine para start limit line = unsafeIOToPrim $ do
+setLine para start limit line = unsafeIOToPrim do
   [C.block|UErrorCode {
     UErrorCode error_code = 0;
     ubidi_setLine(
@@ -489,11 +491,12 @@ setLine para start limit line = unsafeIOToPrim $ do
   writeIORef (parentLink line) $ Just para -- prevents deallocation of the paragraph bidi before we at least repurpose the line
 
 getDirection :: PrimMonad m => Bidi (PrimState m) -> m Direction
-getDirection bidi = unsafeIOToPrim $ [C.exp|UBiDiDirection { ubidi_getDirection($bidi:bidi) }|] <&> toEnum . fromIntegral
+getDirection bidi = unsafeIOToPrim do
+  [C.exp|UBiDiDirection { ubidi_getDirection($bidi:bidi) }|] <&> toEnum . fromIntegral
 
 getBaseDirection :: Text -> Direction
-getBaseDirection text = unsafeLocalState $
-  useAsPtr text $ \t (fromIntegral -> len) ->
+getBaseDirection text = unsafeLocalState do
+  useAsPtr text \t (fromIntegral -> len) ->
     [C.exp|UBiDiDirection { ubidi_getBaseDirection($(const UChar * t),$(int32_t len)) }|] <&> toEnum . fromIntegral
 
 getParaLevel :: PrimMonad m => Bidi (PrimState m) -> m Level
@@ -509,10 +512,10 @@ countParagraphs bidi = unsafeIOToPrim [C.exp|int32_t { ubidi_countParagraphs($bi
 --
 -- If the paragraph index is known, it can be more efficient to use 'getParagraphByIndex'
 getParagraph :: PrimMonad m => Bidi (PrimState m) -> Int32 -> m (Int32, Int32, Int32, Level)
-getParagraph bidi charIndex = unsafeIOToPrim $
-  allocaArray 2 $ \pParaStart ->
-    alloca $ \pParaLevel ->
-      with def $ \pErrorCode -> do
+getParagraph bidi charIndex = unsafeIOToPrim do
+  allocaArray 2 \pParaStart ->
+    alloca \pParaLevel ->
+      with def \pErrorCode -> do
         result <- [C.block|int32_t {
           int32_t * pPara = $(int32_t * pParaStart);
           return ubidi_getParagraph(
@@ -531,9 +534,9 @@ getParagraph bidi charIndex = unsafeIOToPrim $
           <*> peek pParaLevel
 
 getParagraphByIndex :: PrimMonad m => Bidi (PrimState m) -> Int32 -> m (Int32, Int32, Level)
-getParagraphByIndex bidi paragraphIndex = unsafeIOToPrim $
-  allocaArray 2 $ \pParaStart ->
-    alloca $ \pParaLevel -> do
+getParagraphByIndex bidi paragraphIndex = unsafeIOToPrim do
+  allocaArray 2 \pParaStart ->
+    alloca \pParaLevel -> do
         [C.block|UErrorCode {
           int32_t * pPara = $(int32_t * pParaStart);
           UErrorCode error_code = 0;
@@ -556,8 +559,8 @@ getLevelAt :: PrimMonad m => Bidi (PrimState m) -> Int32 -> m Level
 getLevelAt bidi charIndex = unsafeIOToPrim [C.exp|UBiDiLevel { ubidi_getLevelAt($bidi:bidi,$(int32_t charIndex)) }|]
 
 getLogicalRun :: PrimMonad m => Bidi (PrimState m) -> Int32 -> m (Int32, Level)
-getLogicalRun bidi logicalPosition = unsafeIOToPrim $
-  alloca $ \pLevel ->
+getLogicalRun bidi logicalPosition = unsafeIOToPrim do
+  alloca \pLevel ->
     (,) <$> [C.block|int32_t {
               int32_t logicalLimit;
               ubidi_getLogicalRun(
@@ -571,8 +574,8 @@ getLogicalRun bidi logicalPosition = unsafeIOToPrim $
         <*> peek pLevel
 
 countRuns :: PrimMonad m => Bidi (PrimState m) -> m Int32
-countRuns bidi = unsafeIOToPrim $
-  with def $ \pErrorCode -> do
+countRuns bidi = unsafeIOToPrim do
+  with def \pErrorCode -> do
     [C.exp|int32_t {
       ubidi_countRuns($bidi:bidi, $(UErrorCode * pErrorCode))
     }|] <* (peek pErrorCode >>= ok)
@@ -581,8 +584,8 @@ countRuns bidi = unsafeIOToPrim $
 --
 -- 'countRuns' should be called before the runs are retrieved
 getVisualRun :: PrimMonad m => Bidi (PrimState m) -> Int32 -> m (Int32, Int32, Direction)
-getVisualRun bidi runIndex = unsafeIOToPrim $
-  allocaArray 2 $ \pLogicalStart -> do
+getVisualRun bidi runIndex = unsafeIOToPrim do
+  allocaArray 2 \pLogicalStart -> do
     dir <- [C.block|UBiDiDirection {
       int32_t * pLogicalStart = $(int32_t * pLogicalStart);
       return ubidi_getVisualRun(
@@ -597,10 +600,10 @@ getVisualRun bidi runIndex = unsafeIOToPrim $
     pure (logical_start, len, dir)
 
 invertMap :: PrimArray Int32 -> PrimArray Int32
-invertMap pa = unsafePerformIO $ do -- use a full heavy weight dup check as this can be slow for large maps
+invertMap pa = unsafePerformIO do -- use a full heavy weight dup check as this can be slow for large maps
   let !n = sizeofPrimArray pa
   let !m = fromIntegral (foldlPrimArray' max (-1) pa + 1)
-  allocaArray (n+m) $ \srcMap -> do
+  allocaArray (n+m) \srcMap -> do
     copyPrimArrayToPtr srcMap pa 0 n
     let len = fromIntegral n
     [C.block|void {
@@ -611,29 +614,29 @@ invertMap pa = unsafePerformIO $ do -- use a full heavy weight dup check as this
     peekPrimArray m (Prim.advancePtr srcMap n) -- dstMap
 
 getVisualIndex :: PrimMonad m => Bidi (PrimState m) -> Int32 -> m Int32
-getVisualIndex bidi logicalIndex = unsafeIOToPrim $
-  with def $ \pErrorCode ->
+getVisualIndex bidi logicalIndex = unsafeIOToPrim do
+  with def \pErrorCode ->
     [C.exp|int32_t {
       ubidi_getVisualIndex($bidi:bidi,$(int32_t logicalIndex),$(UErrorCode * pErrorCode))
     }|] <* (peek pErrorCode >>= ok)
 
 getLogicalIndex :: PrimMonad m => Bidi (PrimState m) -> Int32 -> m Int32
-getLogicalIndex bidi visualIndex = unsafeIOToPrim $
-  with def $ \pErrorCode ->
+getLogicalIndex bidi visualIndex = unsafeIOToPrim do
+  with def \pErrorCode ->
     [C.exp|int32_t {
       ubidi_getLogicalIndex($bidi:bidi,$(int32_t visualIndex),$(UErrorCode * pErrorCode))
     }|] <* (peek pErrorCode >>= ok)
 
 getLogicalMap :: PrimMonad m => Bidi (PrimState m) -> m (PrimArray Int32)
-getLogicalMap bidi = stToPrim $ do
+getLogicalMap bidi = stToPrim do
   len <- fromIntegral <$> do
     opts <- getReorderingOptions bidi
     processed_len <- getProcessedLength bidi
     if opts .&. OPTION_INSERT_MARKS /= OPTION_DEFAULT
     then max processed_len <$> getResultLength bidi
     else pure processed_len
-  unsafeIOToPrim $
-    allocaArray len $ \ indexMap -> do
+  unsafeIOToPrim do
+    allocaArray len \ indexMap -> do
       [C.block|UErrorCode {
         UErrorCode error_code = 0;
         ubidi_getLogicalMap($bidi:bidi,$(int32_t * indexMap),&error_code);
@@ -642,15 +645,15 @@ getLogicalMap bidi = stToPrim $ do
       peekPrimArray len indexMap
 
 getVisualMap :: PrimMonad m => Bidi (PrimState m) -> m (PrimArray Int32)
-getVisualMap bidi = stToPrim $ do
+getVisualMap bidi = stToPrim do
   len <- fromIntegral <$> do
     opts <- getReorderingOptions bidi
     result_len <- getResultLength bidi
     if opts .&. OPTION_INSERT_MARKS /= OPTION_DEFAULT
     then max result_len <$> getProcessedLength bidi
     else pure result_len
-  unsafeIOToPrim $
-    allocaArray len $ \ indexMap -> do
+  unsafeIOToPrim do
+    allocaArray len \indexMap -> do
       [C.block|UErrorCode {
         UErrorCode error_code = 0;
         ubidi_getVisualMap($bidi:bidi,$(int32_t * indexMap),&error_code);
@@ -665,26 +668,26 @@ getProcessedLength :: PrimMonad m => Bidi (PrimState m) -> m Int32
 getProcessedLength bidi = unsafeIOToPrim [C.exp|int32_t { ubidi_getProcessedLength($bidi:bidi) }|]
 
 getLevels :: PrimMonad m => Bidi (PrimState m) -> m (PrimArray Level)
-getLevels bidi = stToPrim $ do
+getLevels bidi = stToPrim do
   len <- fromIntegral <$> getProcessedLength bidi
   unsafeIOToPrim $
-    with def $ \pErrorCode -> do
+    with def \pErrorCode -> do
        levels <- [C.exp|const UBiDiLevel * { ubidi_getLevels($bidi:bidi, $(UErrorCode * pErrorCode)) }|]
        peek pErrorCode >>= ok
        peekPrimArray len levels
 
 reorderLogical :: PrimArray Level -> PrimArray Int32
-reorderLogical pa = unsafePerformIO $
-  withPrimArrayLen pa $ \n@(fromIntegral -> len) levels ->
-    allocaArray n $ \indexMap ->
+reorderLogical pa = unsafePerformIO do
+  withPrimArrayLen pa \n@(fromIntegral -> len) levels ->
+    allocaArray n \indexMap ->
       [C.block|void {
         ubidi_reorderLogical($(const UBiDiLevel * levels),$(int32_t len),$(int32_t * indexMap));
       }|] *> peekPrimArray n indexMap
 
 reorderVisual :: PrimArray Level -> PrimArray Int32
-reorderVisual pa = unsafePerformIO $
-  withPrimArrayLen pa $ \n@(fromIntegral -> len) levels ->
-    allocaArray n $ \indexMap ->
+reorderVisual pa = unsafePerformIO do
+  withPrimArrayLen pa \n@(fromIntegral -> len) levels ->
+    allocaArray n \indexMap ->
       [C.block|void {
         ubidi_reorderVisual($(const UBiDiLevel * levels),$(int32_t len),$(int32_t * indexMap));
       }|] *> peekPrimArray n indexMap
@@ -694,9 +697,9 @@ getCustomizedClass bidi (fromIntegral . fromEnum -> c) = unsafeIOToPrim
   [C.exp|UCharDirection { ubidi_getCustomizedClass($bidi:bidi, $(UChar32 c)) }|]
 
 setClassCallback :: PrimMonad m => Bidi (PrimState m) -> FunPtr ClassCallback -> Ptr () -> m (FunPtr ClassCallback, Ptr ())
-setClassCallback bidi newFn newCtx = unsafeIOToPrim $
-  alloca $ \oldFn ->
-    alloca $ \oldCtx -> do
+setClassCallback bidi newFn newCtx = unsafeIOToPrim do
+  alloca \oldFn ->
+    alloca \oldCtx -> do
       [C.block|UErrorCode {
         UErrorCode error_code = 0;
         ubidi_setClassCallback(
@@ -712,24 +715,24 @@ setClassCallback bidi newFn newCtx = unsafeIOToPrim $
       (,) <$> peek oldFn <*> peek oldCtx
 
 getClassCallback :: PrimMonad m => Bidi (PrimState m) -> m (FunPtr ClassCallback, Ptr ())
-getClassCallback bidi = unsafeIOToPrim $
-  alloca $ \fn->
-    alloca $ \ctx ->
+getClassCallback bidi = unsafeIOToPrim do
+  alloca \fn ->
+    alloca \ctx ->
       (,) <$  [C.block|void { ubidi_getClassCallback($bidi:bidi,$(UBiDiClassCallbackPtr * fn),$(const void ** ctx)); }|]
           <*> peek fn
           <*> peek ctx
 
 writeReordered :: PrimMonad m => Bidi (PrimState m) -> WriteOptions -> m Text
-writeReordered bidi options = stToPrim $ do
+writeReordered bidi options = stToPrim do
   destSize@(fromIntegral -> len) <- if options .&. INSERT_LRM_FOR_NUMERIC /= def
-         then do
-            len <- getLength bidi
-            runs <- countRuns bidi
-            pure $ len + 2 * runs
-         else getProcessedLength bidi
-  unsafeIOToPrim $
-    allocaArray len $ \ dest ->
-      with def $ \pErrorCode -> do
+    then do
+      len <- getLength bidi
+      runs <- countRuns bidi
+      pure $ len + 2 * runs
+    else getProcessedLength bidi
+  unsafeIOToPrim do
+    allocaArray len \dest ->
+      with def \pErrorCode -> do
         actual_len <- [C.exp|int32_t {
           ubidi_writeReordered($bidi:bidi,$(UChar * dest),$(int32_t destSize),$(WriteOptions options),$(UErrorCode * pErrorCode))
         }|]
@@ -737,10 +740,10 @@ writeReordered bidi options = stToPrim $ do
         fromPtr dest $ fromIntegral actual_len
 
 writeReverse :: Text -> WriteOptions -> Text
-writeReverse t options = unsafePerformIO $ do
-  useAsPtr t $ \src i16@(fromIntegral -> n) ->
-    allocaArray (fromIntegral i16) $ \ dest ->
-      with def $ \pErrorCode -> do
+writeReverse t options = unsafePerformIO do
+  useAsPtr t \src i16@(fromIntegral -> n) ->
+    allocaArray (fromIntegral i16) \ dest ->
+      with def \pErrorCode -> do
         actual_len <- [C.block|int32_t {
           int32_t len = $(int32_t n);
           return ubidi_writeReverse($(const UChar * src),len,$(UChar * dest),len,$(WriteOptions options),$(UErrorCode * pErrorCode));

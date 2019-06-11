@@ -15,6 +15,7 @@
 {-# language DeriveAnyClass #-}
 {-# language DerivingStrategies #-}
 {-# language GeneralizedNewtypeDeriving #-}
+{-# language BlockArguments #-}
 {-# language PolyKinds #-}
 {-# language DataKinds #-}
 {-# language UnboxedTuples #-}
@@ -350,7 +351,6 @@ import Foreign.C.Types
 import Foreign.ForeignPtr
 import Foreign.Marshal.Unsafe
 import Foreign.Marshal.Utils
-import Foreign.Ptr
 import Foreign.Ptr.Diff
 import Foreign.Storable
 import GHC.ForeignPtr
@@ -646,14 +646,14 @@ angleDiff angle1 angle2 = [C.pure|FT_Angle { FT_Angle_Diff($(FT_Angle angle1),$(
 
 matrixInvert:: Matrix -> Maybe Matrix
 matrixInvert m = unsafeLocalState $
-  with m $ \mm -> do
+  with m \mm -> do
     e <- [C.exp|FT_Error { FT_Matrix_Invert($(FT_Matrix * mm))}|]
     if e == Err_Ok then Just <$> peek mm else pure Nothing
 
 matrixMultiply :: Matrix -> Matrix -> Matrix
 matrixMultiply m n = unsafeLocalState $
-   with m $ \mm ->
-   with n $ \nm ->
+   with m \mm ->
+   with n \nm ->
     [C.block|void {
       FT_Matrix_Multiply($(FT_Matrix * mm),$(FT_Matrix * nm));
     }|] *> peek nm
@@ -669,8 +669,8 @@ instance Default Matrix where
 
 vectorTransform :: Vector -> Matrix -> Vector
 vectorTransform v m = unsafeLocalState $
-  with v $ \vp ->
-    with m $ \mp ->
+  with v \vp ->
+    with m \mp ->
       [C.block|void { FT_Vector_Transform($(FT_Vector * vp),$(FT_Matrix * mp)); }|] *> peek vp
 
 instance Default Vector where

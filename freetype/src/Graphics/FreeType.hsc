@@ -6,6 +6,7 @@
 {-# language RecordWildCards #-}
 {-# language OverloadedStrings #-}
 {-# language LambdaCase #-}
+{-# language BlockArguments #-}
 {-# options_ghc -Wno-redundant-constraints #-}
 
 #include <ft2build.h>
@@ -352,8 +353,8 @@ finalize_glyph = [C.funPtr|void finalize_face(FT_Glyph g) {
 
 -- you should use new_bitmap_glyph or new_outline_glyph, etc.
 new_glyph :: MonadIO m => Library -> GlyphFormat -> m Glyph
-new_glyph library format = liftIO $ do
-  alloca $ \p -> do
+new_glyph library format = liftIO do
+  alloca \p -> do
     [C.exp|FT_Error {
       FT_New_Glyph($library:library,$(FT_Glyph_Format format),$(FT_Glyph * p))
     }|] >>= ok
@@ -372,8 +373,8 @@ instance IsGlyphRec GlyphRec
 instance IsGlyphRec OutlineGlyphRec
 
 glyph_get_cbox :: (MonadIO m, IsGlyphRec t) => ForeignPtr t -> GlyphBBoxMode -> m BBox
-glyph_get_cbox (act glyph_root -> glyph) (GlyphBBoxMode mode) = liftIO $
-  alloca $ \p ->
+glyph_get_cbox (act glyph_root -> glyph) (GlyphBBoxMode mode) = liftIO do
+  alloca \p ->
     [C.block|void {
       FT_Glyph_Get_CBox($glyph:glyph,$(uint32_t mode),$(FT_BBox * p));
     }|] *> peek p
@@ -382,12 +383,12 @@ glyph_root :: IsGlyphRec t => Diff t GlyphRec
 glyph_root = Diff 0
 
 glyph_transform :: (MonadIO m, IsGlyphRec t) => ForeignPtr t -> Matrix -> Vector -> m ()
-glyph_transform (act glyph_root -> glyph) m v = liftIO $
+glyph_transform (act glyph_root -> glyph) m v = liftIO do
   [C.exp|FT_Error { FT_Glyph_Transform($glyph:glyph,$matrix:m,$vector:v) }|] >>= ok
 
 get_glyph :: MonadIO m => GlyphSlot -> m Glyph
-get_glyph slot = liftIO $
-  alloca $ \p -> do
+get_glyph slot = liftIO do
+  alloca \p -> do
     [C.block|FT_Error {
       FT_GlyphSlot g = $glyph-slot:slot;
       FT_Error error = FT_Get_Glyph(g,$(FT_Glyph * p));
@@ -397,9 +398,9 @@ get_glyph slot = liftIO $
     peek p >>= newForeignPtr finalize_glyph
 
 glyph_to_bitmap :: (MonadIO m, IsGlyphRec t) => ForeignPtr t -> RenderMode -> Vector -> Bool -> m BitmapGlyph
-glyph_to_bitmap (act glyph_root -> glyph) mode origin (fromIntegral . fromEnum -> destroy) = liftIO $
-  withForeignPtr glyph $ \pgr ->
-    with pgr $ \pglyph -> do
+glyph_to_bitmap (act glyph_root -> glyph) mode origin (fromIntegral . fromEnum -> destroy) = liftIO do
+  withForeignPtr glyph \pgr ->
+    with pgr \pglyph -> do
       [C.exp|FT_Error { FT_Glyph_To_Bitmap($(FT_Glyph * pglyph),$(FT_Render_Mode mode),$vector:origin,$(FT_Bool destroy)) }|] >>= ok
       ngr <- peek pglyph
       act (inv glyph_root) <$>
@@ -408,8 +409,8 @@ glyph_to_bitmap (act glyph_root -> glyph) mode origin (fromIntegral . fromEnum -
         else [C.block|void { FT_Reference_Library($(FT_Glyph ngr)->library); }|] *> newForeignPtr finalize_glyph ngr
 
 glyph_copy :: (MonadIO m, IsGlyphRec t) => ForeignPtr t -> m (ForeignPtr t)
-glyph_copy (act glyph_root -> glyph) = liftIO $
-  alloca $ \p -> do
+glyph_copy (act glyph_root -> glyph) = liftIO do
+  alloca \p -> do
     [C.block|FT_Error {
       FT_Glyph g = $glyph:glyph;
       FT_Error error = FT_Glyph_Copy(g,$(FT_Glyph * p));
@@ -440,8 +441,8 @@ finalize_memory_face = [C.funPtr|void finalize_memory_face(void * stable_ptr, FT
 --
 -- This ensures that we can free things in order.
 new_face :: MonadIO m => Library -> FilePath -> Int -> m Face
-new_face library path (fromIntegral -> i) = liftIO $
-  alloca $ \p -> do
+new_face library path (fromIntegral -> i) = liftIO do
+  alloca \p -> do
     [C.exp|FT_Error {
       FT_New_Face($library:library,$str:path,$(FT_Long i),$(FT_Face * p))
     }|] >>= ok
@@ -449,8 +450,8 @@ new_face library path (fromIntegral -> i) = liftIO $
     peek p >>= newForeignPtr finalize_face
 
 new_memory_face :: MonadIO m => Library -> ByteString -> Int -> m Face
-new_memory_face library bs@(PS bsfp _ _) (fromIntegral -> i) = liftIO $
-  alloca $ \p -> do
+new_memory_face library bs@(PS bsfp _ _) (fromIntegral -> i) = liftIO do
+  alloca \p -> do
     [C.exp|FT_Error {
       FT_New_Memory_Face($library:library,$bs-ptr:bs,$bs-len:bs,$(FT_Long i),$(FT_Face * p))
     }|] >>= ok
@@ -473,7 +474,7 @@ new_memory_face library bs@(PS bsfp _ _) (fromIntegral -> i) = liftIO $
 -- For the most part this should already be done for you through the API provided in Haskell,
 -- but you may need this if you transfer the face to another library.
 reference_face :: MonadIO m => Face -> m ()
-reference_face face = liftIO $
+reference_face face = liftIO do
   [C.exp|FT_Error { FT_Reference_Face($face:face)}|] >>= ok
 
 -- | Remove a reference to a face
@@ -481,54 +482,58 @@ reference_face face = liftIO $
 -- For the most part this should already be done for you through the API provided in Haskell,
 -- but you may need this if you claim ownership of a face from another library.
 done_face :: MonadIO m => Face -> m ()
-done_face face = liftIO $ [C.exp|FT_Error { FT_Done_Face($face:face) }|] >>= ok
+done_face face = liftIO do [C.exp|FT_Error { FT_Done_Face($face:face) }|] >>= ok
 
 get_char_index :: MonadIO m => Face -> Word32 -> m Word32
 get_char_index face c = liftIO [C.exp|FT_UInt { FT_Get_Char_Index($face:face,$(FT_ULong c)) }|]
 
 -- | Returns the charmap's first code and the glyph index of the first character code, 0 if the charmap is empty.
 get_first_char :: MonadIO m => Face -> m (Word32, Word32)
-get_first_char face = liftIO $
-  alloca $ \agindex ->
+get_first_char face = liftIO do
+  alloca \agindex ->
     (,) <$> [C.exp|FT_UInt { FT_Get_First_Char($face:face,$(FT_UInt * agindex)) }|] <*> peek agindex
 
 get_next_char :: MonadIO m => Face -> Word32 -> m (Word32, Word32)
-get_next_char face c = liftIO $
-  alloca $ \agindex ->
+get_next_char face c = liftIO do
+  alloca \agindex ->
     (,) <$> [C.exp|FT_UInt { FT_Get_Next_Char($face:face,$(FT_ULong c),$(FT_UInt * agindex)) }|] <*> peek agindex
 
 -- | Normally this is used to read additional information for the face object, such as attaching an AFM file that comes
 -- with a Type 1 font to get the kerning values and other metrics.
 attach_file :: MonadIO m => Face -> FilePath -> m ()
-attach_file face path = liftIO $ [C.exp|FT_Error { FT_Attach_File($face:face,$str:path) }|] >>= ok
+attach_file face path = liftIO do [C.exp|FT_Error { FT_Attach_File($face:face,$str:path) }|] >>= ok
 
 set_pixel_sizes :: MonadIO m => Face -> Int -> Int -> m ()
-set_pixel_sizes face (fromIntegral -> pixel_width) (fromIntegral -> pixel_height) = liftIO $
+set_pixel_sizes face (fromIntegral -> pixel_width) (fromIntegral -> pixel_height) = liftIO do
   [C.exp|FT_Error { FT_Set_Pixel_Sizes($face:face,$(FT_UInt pixel_width),$(FT_UInt pixel_height)) }|] >>= ok
 
 get_name_index :: MonadIO m => Face -> ByteString -> m Word32
 get_name_index face name = liftIO [C.exp|FT_UInt { FT_Get_Name_Index($face:face,$bs-cstr:name) }|]
 
 load_char :: MonadIO m => Face -> Word32 -> LoadFlags -> m ()
-load_char face char_code (LoadFlags load_flags) = liftIO $ [C.exp|FT_Error { FT_Load_Char($face:face,$(FT_ULong char_code),$(FT_Int32 load_flags)) }|] >>= ok
+load_char face char_code (LoadFlags load_flags) = liftIO do
+  [C.exp|FT_Error { FT_Load_Char($face:face,$(FT_ULong char_code),$(FT_Int32 load_flags)) }|] >>= ok
 
 load_glyph :: MonadIO m => Face -> Word32 -> LoadFlags -> m ()
-load_glyph face glyph_index (LoadFlags load_flags) = liftIO $ [C.exp|FT_Error { FT_Load_Glyph($face:face,$(FT_ULong glyph_index),$(FT_Int32 load_flags)) }|] >>= ok
+load_glyph face glyph_index (LoadFlags load_flags) = liftIO do
+  [C.exp|FT_Error { FT_Load_Glyph($face:face,$(FT_ULong glyph_index),$(FT_Int32 load_flags)) }|] >>= ok
 
 -- | Returns whether the face object contains kerning data that can be accessed with 'get_kerning'
 has_fixed_sizes :: MonadIO m => Face -> m Bool
-has_fixed_sizes face = liftIO $ [C.exp|int { FT_HAS_FIXED_SIZES($face:face) }|] <&> (/=0)
+has_fixed_sizes face = liftIO do
+  [C.exp|int { FT_HAS_FIXED_SIZES($face:face) }|] <&> (/=0)
 
 --face_fixed_sizes :: MonadIO m => Face -> m (Maybe [BitmapSize])
 --face_fixed_sizes = liftIO $ withForeignPtr
 
 -- | Returns whether the face object contains kerning data that can be accessed with 'get_kerning'
 has_kerning :: MonadIO m => Face -> m Bool
-has_kerning face = liftIO $ [C.exp|int { FT_HAS_KERNING($face:face) }|] <&> (/=0)
+has_kerning face = liftIO do
+  [C.exp|int { FT_HAS_KERNING($face:face) }|] <&> (/=0)
 
 get_kerning :: MonadIO m => Face -> Word32 -> Word32 -> KerningMode -> m Vector
-get_kerning face left_glyph right_glyph (KerningMode kern_mode) = liftIO $
-  alloca $ \v -> do
+get_kerning face left_glyph right_glyph (KerningMode kern_mode) = liftIO do
+  alloca \v -> do
     [C.exp|FT_Error {
       FT_Get_Kerning(
         $face:face,
@@ -542,49 +547,49 @@ get_kerning face left_glyph right_glyph (KerningMode kern_mode) = liftIO $
 
 -- | returns true whenever a face object contains horizontal metrics (this is true for all font formats though).
 has_horizontal :: MonadIO m => Face -> m Bool
-has_horizontal face = liftIO $ [C.exp|int { FT_HAS_HORIZONTAL($face:face) }|] <&> (/=0)
+has_horizontal face = liftIO do [C.exp|int { FT_HAS_HORIZONTAL($face:face) }|] <&> (/=0)
 
 -- | returns true whenever a face object contains real vertical metrics (and not only synthesized ones).
 has_vertical :: MonadIO m => Face -> m Bool
-has_vertical face = liftIO $ [C.exp|int { FT_HAS_VERTICAL($face:face) }|] <&> (/=0)
+has_vertical face = liftIO do [C.exp|int { FT_HAS_VERTICAL($face:face) }|] <&> (/=0)
 
 -- | returns true whenever a face object contains some glyph names that can be accessed through FT_Get_Glyph_Name.
 has_glyph_names :: MonadIO m => Face -> m Bool
-has_glyph_names face = liftIO $ [C.exp|int { FT_HAS_GLYPH_NAMES($face:face) }|] <&> (/=0)
+has_glyph_names face = liftIO do [C.exp|int { FT_HAS_GLYPH_NAMES($face:face) }|] <&> (/=0)
 
 -- | returns true whenever a face object contains a font whose format is based on the SFNT storage scheme. This usually means: TrueType fonts, OpenType fonts, as well as SFNT-based embedded bitmap fonts.
 --
 -- If this is true, all functions defined in FT_SFNT_NAMES_H and FT_TRUETYPE_TABLES_H are available.
 is_sfnt :: MonadIO m => Face -> m Bool
-is_sfnt face = liftIO $ [C.exp|int { FT_IS_SFNT($face:face) }|] <&> (/=0)
+is_sfnt face = liftIO do [C.exp|int { FT_IS_SFNT($face:face) }|] <&> (/=0)
 
 -- | returns true whenever a face object contains a scalable font face (true for TrueType, Type 1, Type 42, CID, OpenType/CFF, and PFR font formats).
 is_scalable :: MonadIO m => Face -> m Bool
-is_scalable face = liftIO $ [C.exp|int { FT_IS_SCALABLE($face:face) }|] <&> (/=0)
+is_scalable face = liftIO do [C.exp|int { FT_IS_SCALABLE($face:face) }|] <&> (/=0)
 
 -- | returns true whenever a face object contains a font face that contains fixed-width (or ‘monospace’, ‘fixed-pitch’, etc.) glyphs.
 is_fixed_width :: MonadIO m => Face -> m Bool
-is_fixed_width face = liftIO $ [C.exp|int { FT_IS_FIXED_WIDTH($face:face) }|] <&> (/=0)
+is_fixed_width face = liftIO do [C.exp|int { FT_IS_FIXED_WIDTH($face:face) }|] <&> (/=0)
 
 -- | returns true whenever a face object contains a CID-keyed font. See the discussion of FT_FACE_FLAG_CID_KEYED for more details.
 --
 -- If this macro is true, all functions defined in FT_CID_H are available.
 is_cid_keyed :: MonadIO m => Face -> m Bool
-is_cid_keyed face = liftIO $ [C.exp|int { FT_IS_CID_KEYED($face:face) }|] <&> (/=0)
+is_cid_keyed face = liftIO do [C.exp|int { FT_IS_CID_KEYED($face:face) }|] <&> (/=0)
 
 -- | A macro that returns true whenever a face represents a ‘tricky’ font. See the discussion of FT_FACE_FLAG_TRICKY for more details.
 is_tricky :: MonadIO m => Face -> m Bool
-is_tricky face = liftIO $ [C.exp|int { FT_IS_TRICKY($face:face) }|] <&> (/=0)
+is_tricky face = liftIO do [C.exp|int { FT_IS_TRICKY($face:face) }|] <&> (/=0)
 
 -- | returns true whenever a face object is a named instance of a GX or OpenType variation font.
 --
 -- [Since 2.9] Changing the design coordinates with FT_Set_Var_Design_Coordinates or FT_Set_Var_Blend_Coordinates does not influence the return value of this macro (only FT_Set_Named_Instance does that).
 is_named_instance :: MonadIO m => Face -> m Bool
-is_named_instance face = liftIO $ [C.exp|int { FT_IS_NAMED_INSTANCE($face:face) }|] <&> (/=0)
+is_named_instance face = liftIO do [C.exp|int { FT_IS_NAMED_INSTANCE($face:face) }|] <&> (/=0)
 
 -- | returns true whenever a face object has been altered by FT_Set_MM_Design_Coordinates, FT_Set_Var_Design_Coordinates, or  FT_Set_Var_Blend_Coordinates.
 is_variation :: MonadIO m => Face -> m Bool
-is_variation face = liftIO $ [C.exp|int { FT_IS_VARIATION($face:face) }|] <&> (/=0)
+is_variation face = liftIO do [C.exp|int { FT_IS_VARIATION($face:face) }|] <&> (/=0)
 
 -- | Select a given charmap by its encoding tag
 select_charmap :: MonadIO m => Face -> Encoding -> m ()
@@ -592,15 +597,15 @@ select_charmap face encoding = liftIO $ [C.exp|FT_Error { FT_Select_Charmap($fac
 
 -- | returns true whenever a face object contains tables for color glyphs.
 has_color :: MonadIO m => Face -> m Bool
-has_color face = liftIO $ [C.exp|int { FT_HAS_COLOR($face:face) }|] <&> (/=0)
+has_color face = liftIO do [C.exp|int { FT_HAS_COLOR($face:face) }|] <&> (/=0)
 
 -- | Retrieves the faces associated glyph slot.
 face_glyph :: MonadIO m => Face -> m GlyphSlot
-face_glyph face = liftIO $ childPtr face <$> [C.exp|FT_GlyphSlot { $face:face->glyph }|]
+face_glyph face = liftIO do childPtr face <$> [C.exp|FT_GlyphSlot { $face:face->glyph }|]
 
 -- | Retrieves the glyphslot's associated face.
 glyphslot_face :: MonadIO m => GlyphSlot -> m Face
-glyphslot_face slot = liftIO $ childPtr slot <$> [C.exp|FT_Face { $glyph-slot:slot->face }|]
+glyphslot_face slot = liftIO do childPtr slot <$> [C.exp|FT_Face { $glyph-slot:slot->face }|]
 
 -- | The number of faces in the font file. Some font formats can have multiple faces in a single font file.
 #diff FaceRec, FT_FaceRec, face_num_faces, num_faces, Int32
@@ -664,11 +669,11 @@ glyphslot_face slot = liftIO $ childPtr slot <$> [C.exp|FT_Face { $glyph-slot:sl
 --
 -- In case the font doesn't provide a specific family name entry, FreeType tries to synthesize one, deriving it from other name entries.
 face_family_name :: MonadIO m => Face -> m (Maybe String)
-face_family_name face = liftIO $ [C.exp|const char * { $face:face->family_name }|] >>= maybePeek peekCString
+face_family_name face = liftIO do [C.exp|const char * { $face:face->family_name }|] >>= maybePeek peekCString
 
 -- | The face's style name. This is an ASCII string, usually in English, that describes the typeface's style (like @Italic@, @Bold@, @Condensed@, etc). Not all font formats provide a style name, so this field is optional, and can be set to NULL. As for 'face_family_name', some formats provide localized and Unicode versions of this string. Applications should use the format-specific interface to access them.
 face_style_name :: MonadIO m => Face -> m (Maybe String)
-face_style_name face = liftIO $ [C.exp|const char * { $face:face->style_name }|] >>= maybePeek peekCString
+face_style_name face = liftIO do [C.exp|const char * { $face:face->style_name }|] >>= maybePeek peekCString
 
 -- | [Since 2.10] The glyph index passed as an argument to 'load_glyph' while initializing the glyph slot.
 #diff GlyphSlotRec, FT_GlyphSlotRec, glyphslot_glyph_index, glyph_index, Word32
@@ -711,11 +716,11 @@ face_style_name face = liftIO $ [C.exp|const char * { $face:face->style_name }|]
 -- | Retrieve a description of a given subglyph. Only use it if glyph->format is FT_GLYPH_FORMAT_COMPOSITE; an error is thrown otherwise.
 face_get_subglyph_info :: MonadIO m => GlyphSlot -> Word32 -> m SubGlyphInfo
 face_get_subglyph_info slot sub_index = liftIO $
-  alloca $ \p_index ->
-  alloca $ \p_flags ->
-  alloca $ \p_arg1 ->
-  alloca $ \p_arg2 ->
-  alloca $ \p_transform -> do
+  alloca \p_index ->
+  alloca \p_flags ->
+  alloca \p_arg1 ->
+  alloca \p_arg2 ->
+  alloca \p_transform -> do
     [C.exp|FT_Error {
       FT_Get_SubGlyph_Info(
         $glyph-slot:slot,
@@ -738,12 +743,12 @@ face_get_subglyph_info slot sub_index = liftIO $
 --
 -- Possible values are @"TrueType"@, @"Type 1"@, @"BDF"@, @"PCF"@, @"Type 42"@, @"CID Type 1"@, @"CFF"@, @"PFR"@, and @"Windows FNT"@.
 get_font_format :: MonadIO m => Face -> m ByteString
-get_font_format face = liftIO $
+get_font_format face = liftIO do
   [C.exp|const char * { FT_Get_Font_Format($face:face) }|] >>= ByteString.packCString
 
 -- | returns true whenever a face object contains some multiple masters. The functions provided by FT_MULTIPLE_MASTERS_H are then available to choose the exact design you want.
 has_multiple_masters :: MonadIO m => Face -> m Bool
-has_multiple_masters face = liftIO $
+has_multiple_masters face = liftIO do
   [C.exp|int { FT_HAS_MULTIPLE_MASTERS($face:face) }|] <&> (/=0)
 
 -- | Set the transformation that is applied to glyph images when they are loaded into a glyph slot through 'load_glyph'. The transformation is only applied to scalable image formats after the glyph has been loaded. It means that hinting is unaltered by the transformation and is performed on the character size given in the last call to 'set_char_size' or 'set_pixel_sizes'
@@ -756,8 +761,8 @@ set_transform face m v = liftIO [C.block|void { FT_Set_Transform($face:face,$mat
 
 -- this will use fixed memory allocation functions, but allows us to avoid the FT_Init_FreeType and FT_Done_FreeType global mess.
 new_uninitialized_library :: MonadIO m => m Library
-new_uninitialized_library = liftIO $
-  alloca $ \p -> do
+new_uninitialized_library = liftIO do
+  alloca \p -> do
     [C.exp|FT_Error { FT_New_Library(&hs_memory,$(FT_Library * p))}|] >>= ok
     peek p >>= foreignLibrary
 
@@ -768,7 +773,7 @@ set_default_properties :: MonadIO m => Library -> m ()
 set_default_properties library = liftIO [C.block|void { FT_Set_Default_Properties($fptr-ptr:(FT_Library library)); }|]
 
 init_library :: MonadIO m => m Library
-init_library = liftIO $ do
+init_library = liftIO do
   l <- new_uninitialized_library
   add_default_modules l
   set_default_properties l
@@ -778,36 +783,38 @@ init_library = liftIO $ do
 --
 -- For the most part this should already be done for you through the API provided in Haskell.
 reference_library :: MonadIO m => Library -> m ()
-reference_library library = liftIO $ [C.exp|FT_Error { FT_Reference_Library($fptr-ptr:(FT_Library library))}|] >>= ok
+reference_library library = liftIO do [C.exp|FT_Error { FT_Reference_Library($fptr-ptr:(FT_Library library))}|] >>= ok
 
 -- | Remove a reference to a library, destroying the object if none remain.
 --
 -- For the most part this should already be done for you through the API provided in Haskell.
 done_library :: MonadIO m => Library -> m ()
-done_library library = liftIO $ [C.exp|FT_Error { FT_Done_Library($fptr-ptr:(FT_Library library))}|] >>= ok
+done_library library = liftIO do [C.exp|FT_Error { FT_Done_Library($fptr-ptr:(FT_Library library))}|] >>= ok
 
 -- | Useful when dynamic linking, as we can't rely on the patterns above which were determined at compile time.
 library_version  :: MonadIO m => Library -> m Version
-library_version library = liftIO $ allocaArray 3 $ \ver -> do
-  [C.block|void {
-     FT_Int * ver = $(FT_Int * ver);
-     FT_Library_Version($fptr-ptr:(FT_Library library),ver,ver+1,ver+2);
-  }|]
-  a <- peek ver
-  b <- peek (advancePtr ver 1)
-  c <- peek (advancePtr ver 2)
-  pure $ makeVersion [fromIntegral a, fromIntegral b, fromIntegral c]
+library_version library = liftIO do
+  allocaArray 3 \ver -> do
+    [C.block|void {
+       FT_Int * ver = $(FT_Int * ver);
+       FT_Library_Version($fptr-ptr:(FT_Library library),ver,ver+1,ver+2);
+    }|]
+    a <- peek ver
+    b <- peek (advancePtr ver 1)
+    c <- peek (advancePtr ver 2)
+    pure $ makeVersion [fromIntegral a, fromIntegral b, fromIntegral c]
 
 library_version_string :: MonadIO m => Library -> m String
 library_version_string library = showVersion <$> library_version library
 
 property_set :: MonadIO m => Library -> ByteString -> ByteString -> Ptr a -> m ()
-property_set library module_name property_name (castPtr -> value) = liftIO $
+property_set library module_name property_name (castPtr -> value) = liftIO do
   [C.exp|FT_Error { FT_Property_Set($fptr-ptr:(FT_Library library),$bs-cstr:module_name,$bs-cstr:property_name,$(void * value))}|] >>= ok
 
 property_get :: MonadIO m => Library -> ByteString -> ByteString -> Ptr a -> m ()
-property_get library module_name property_name (castPtr -> value) = liftIO $
+property_get library module_name property_name (castPtr -> value) = liftIO do
   [C.exp|FT_Error { FT_Property_Get($fptr-ptr:(FT_Library library),$bs-cstr:module_name,$bs-cstr:property_name,$(void * value))}|] >>= ok
 
 render_glyph :: MonadIO m => GlyphSlot -> RenderMode -> m ()
-render_glyph slot render_mode = liftIO $ [C.exp|FT_Error { FT_Render_Glyph($glyph-slot:slot,$(FT_Render_Mode render_mode)) }|] >>= ok
+render_glyph slot render_mode = liftIO do
+  [C.exp|FT_Error { FT_Render_Glyph($glyph-slot:slot,$(FT_Render_Mode render_mode)) }|] >>= ok

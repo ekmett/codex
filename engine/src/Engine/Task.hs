@@ -3,6 +3,7 @@
 {-# language LambdaCase #-}
 {-# language TupleSections #-}
 {-# language RankNTypes #-}
+{-# language BlockArguments #-}
 -- | Used to send work to the main thread when working with non-thread safe libraries
 --
 -- Usage:
@@ -33,11 +34,11 @@ type GivenTasks = (?tasks :: TChan Task)
 
 withTasks :: MonadIO m => (GivenTasks => IO () -> m ()) -> m ()
 withTasks k = do
-  (broadcastChan,listenerChan) <- liftIO $ atomically $ do
+  (broadcastChan,listenerChan) <- liftIO $ atomically do
     broadcastChan <- newBroadcastTChan 
     (broadcastChan,) <$> dupTChan broadcastChan
   let ?tasks = broadcastChan
-  k $ fix $ \loop -> 
+  k $ fix \loop -> 
     atomically (tryReadTChan listenerChan) >>= \case
       Just a  -> a *> loop
       Nothing -> pure ()

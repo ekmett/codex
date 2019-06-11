@@ -1,5 +1,6 @@
 {-# language ScopedTypeVariables #-}
 {-# language DefaultSignatures #-}
+{-# language BlockArguments #-}
 {-# language DeriveFunctor #-}
 {-# language TypeFamilies #-}
 {-# language StrictData #-}
@@ -92,68 +93,68 @@ newtype Watch s a = Watch { runWatch :: Unique -> Dep s -> ST s a }
   deriving (Functor)
 
 instance Applicative (Watch s) where
-  pure a = Watch $ \ _ _ -> pure a
+  pure a = Watch \ _ _ -> pure a
   {-# inlinable pure #-}
-  Watch m <*> Watch n = Watch $ \u d -> m u d <*> n u d
+  Watch m <*> Watch n = Watch \u d -> m u d <*> n u d
   {-# inlinable (<*>) #-}
-  Watch m *> Watch n = Watch $ \u d -> m u d *> n u d
+  Watch m *> Watch n = Watch \u d -> m u d *> n u d
   {-# inlinable (*>) #-}
-  Watch m <* Watch n = Watch $ \u d -> m u d <* n u d
+  Watch m <* Watch n = Watch \u d -> m u d <* n u d
   {-# inlinable (<*) #-}
-  liftA2 f (Watch m) (Watch n) = Watch $ \u d -> liftA2 f (m u d) (n u d)
+  liftA2 f (Watch m) (Watch n) = Watch \u d -> liftA2 f (m u d) (n u d)
   {-# inlinable liftA2 #-}
 
 instance Monad (Watch s) where
-  Watch m >>= f = Watch $ \u d -> do
+  Watch m >>= f = Watch \u d -> do
     a <- m u d
     runWatch (f a) u d
   {-# inline (>>=) #-}
-  Watch m >> Watch n = Watch $ \u d -> m u d >> n u d
+  Watch m >> Watch n = Watch \u d -> m u d >> n u d
   {-# inlinable (>>) #-}
 
-  fail s = Watch $ \_ _ -> unsafeIOToST $ MonadFail.fail s
+  fail s = Watch \_ _ -> unsafeIOToST $ MonadFail.fail s
   {-# inlinable fail #-}
 
 --instance MonadBase (ST s) (Watch s) where
 --  liftBase m = Watch $ \_ _ -> m
 
 instance s ~ RealWorld => MonadUnliftIO (Watch s) where
-  askUnliftIO = Watch $ \u d ->
-    ioToPrim $ withUnliftIO $ \k ->
-      return $ UnliftIO $ \ m ->
+  askUnliftIO = Watch \u d ->
+    ioToPrim $ withUnliftIO \k ->
+      return $ UnliftIO \ m ->
         unliftIO k $ stToIO $ runWatch m u d
   {-# inline askUnliftIO #-}
   withRunInIO inner =
-    Watch $ \u d -> ioToPrim $ withRunInIO $ \run ->
-      inner $ \m -> run $ stToIO $ runWatch m u d
+    Watch \u d -> ioToPrim $ withRunInIO \run ->
+      inner \m -> run $ stToIO $ runWatch m u d
   {-# inline withRunInIO #-}
 
 instance MonadUnliftPrim (Watch s) where
-  askUnliftPrim = Watch $ \u d -> do
-    withUnliftIOST $ \k ->
-      return $ UnliftPrim $ \ m ->
+  askUnliftPrim = Watch \u d -> do
+    withUnliftIOST \k ->
+      return $ UnliftPrim \ m ->
         unliftPrim k $ stToPrim $ runWatch m u d
   {-# inline askUnliftPrim #-}
   withRunInPrim inner =
-    Watch $ \u d -> withRunInPrim $ \run ->
-      inner $ \m -> run $ stToPrim $ runWatch m u d
+    Watch \u d -> withRunInPrim \run ->
+      inner \m -> run $ stToPrim $ runWatch m u d
   {-# inline withRunInPrim #-}
 
 instance MonadFail (Watch s) where
-  fail s = Watch $ \_ _ -> unsafeIOToST $ MonadFail.fail s
+  fail s = Watch \_ _ -> unsafeIOToST $ MonadFail.fail s
   {-# inlinable fail #-}
 
 instance s ~ RealWorld => MonadIO (Watch s) where
-  liftIO m = Watch $ \_ _ -> unsafeIOToST m
+  liftIO m = Watch \_ _ -> unsafeIOToST m
   {-# inlinable liftIO #-}
 
 instance PrimMonad (Watch s) where
   type PrimState (Watch s) = s
-  primitive m = Watch $ \_ _ -> primitive m
+  primitive m = Watch \_ _ -> primitive m
   {-# inlinable primitive #-}
 
 instance MonadWatch (Watch s) where
-  readRef (Ref (Deps deps) _ src) = Watch $ \ u d -> do
+  readRef (Ref (Deps deps) _ src) = Watch \ u d -> do
     modifyMutVar deps $ HashMap.insert u d
     readMutVar src
   {-# inlinable readRef #-}
