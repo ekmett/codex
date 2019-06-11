@@ -1,5 +1,6 @@
 {-# language PatternSynonyms #-}
 {-# language TemplateHaskell #-}
+{-# language BlockArguments #-}
 {-# language QuasiQuotes #-}
 -- |
 -- Copyright :  (c) 2019 Edward Kmett
@@ -29,7 +30,7 @@ C.context C.baseCtx
 C.include "<hb.h>"
 
 version :: MonadIO m => m Version
-version = liftIO $ allocaArray 3 $ \abc -> do
+version = liftIO $ allocaArray 3 \abc -> do
   [C.block|void {
      unsigned int * abc = $(unsigned int * abc);
      hb_version(abc,abc+1,abc+2);
@@ -40,5 +41,5 @@ version = liftIO $ allocaArray 3 $ \abc -> do
   pure $ makeVersion [fromIntegral a,fromIntegral b,fromIntegral c]
 
 version_string :: MonadIO m => m String
-version_string = liftIO $ [C.exp|const char * { hb_version_string() }|] >>= peekCString
-
+version_string = liftIO do
+  [C.exp|const char * { hb_version_string() }|] >>= peekCString

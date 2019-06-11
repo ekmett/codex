@@ -1,5 +1,6 @@
 {-# language TemplateHaskell #-}
 {-# language PatternSynonyms #-}
+{-# language BlockArguments #-}
 {-# language ViewPatterns #-}
 {-# language QuasiQuotes #-}
 {-# language LambdaCase #-}
@@ -101,13 +102,13 @@ set_is_subset s t = unsafeIOToPrim $ [C.exp|hb_bool_t { hb_set_is_subset($set:s,
 
 -- | Start with SET_VALUE_INVALID
 set_next :: PrimMonad m => Set (PrimState m) -> Codepoint -> m (Maybe Codepoint)
-set_next s c = unsafeIOToPrim $ with c $ \p -> do
+set_next s c = unsafeIOToPrim $ with c \p -> do
   b <- [C.exp|hb_bool_t { hb_set_next($set:s,$(hb_codepoint_t * p)) }|]
   if cbool b then Just <$> peek p else pure Nothing
 
 -- | Start with SET_VALUE_INVALID
 set_next_range :: PrimMonad m => Set (PrimState m) -> Codepoint -> m (Maybe (Codepoint, Codepoint))
-set_next_range s c = unsafeIOToPrim $ allocaArray 2 $ \p -> do
+set_next_range s c = unsafeIOToPrim $ allocaArray 2 \p -> do
   let q = advancePtr p 1
   poke q c
   b <- [C.exp|hb_bool_t { hb_set_next_range($set:s,$(hb_codepoint_t * p),$(hb_codepoint_t * q)) }|]
@@ -120,13 +121,13 @@ set_next_range s c = unsafeIOToPrim $ allocaArray 2 $ \p -> do
 
 -- | Start with SET_VALUE_INVALID
 set_previous :: PrimMonad m => Set (PrimState m) -> Codepoint -> m (Maybe Codepoint)
-set_previous s c = unsafeIOToPrim $ with c $ \p -> do
+set_previous s c = unsafeIOToPrim $ with c \p -> do
   b <- [C.exp|hb_bool_t { hb_set_previous($set:s,$(hb_codepoint_t * p)) }|]
   if cbool b then Just <$> peek p else pure Nothing
 
 -- | Start with SET_VALUE_INVALID
 set_previous_range :: PrimMonad m => Set (PrimState m) -> Codepoint -> m (Maybe (Codepoint, Codepoint))
-set_previous_range s c = unsafeIOToPrim $ allocaArray 2 $ \p -> do
+set_previous_range s c = unsafeIOToPrim $ allocaArray 2 \p -> do
   let q = advancePtr p 1
   poke p c
   b <- [C.exp|hb_bool_t { hb_set_previous_range($set:s,$(hb_codepoint_t * p),$(hb_codepoint_t * q)) }|]

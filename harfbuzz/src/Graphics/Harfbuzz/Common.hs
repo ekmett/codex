@@ -4,6 +4,7 @@
 {-# language TemplateHaskell #-}
 {-# language PatternSynonyms #-}
 {-# language ScopedTypeVariables #-}
+{-# language BlockArguments #-}
 -- |
 -- Copyright :  (c) 2019 Edward Kmett
 -- License   :  BSD-2-Clause OR Apache-2.0
@@ -100,6 +101,6 @@ tag_from_string :: String -> Tag
 tag_from_string = fromString
 
 tag_to_string :: Tag -> String
-tag_to_string t = unsafeLocalState $ allocaBytes 4 $ \buf -> do
+tag_to_string t = unsafeLocalState $ allocaBytes 4 \buf -> do
   [C.exp|void { hb_tag_to_string($(hb_tag_t t),$(char * buf)) }|]
   peekCStringLen (buf,4)

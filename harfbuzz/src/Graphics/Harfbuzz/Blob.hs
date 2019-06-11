@@ -2,6 +2,7 @@
 {-# language TypeFamilies #-}
 {-# language ViewPatterns #-}
 {-# language QuasiQuotes #-}
+{-# language BlockArguments #-}
 -- |
 -- Copyright :  (c) 2019 Edward Kmett
 -- License   :  BSD-2-Clause OR Apache-2.0
@@ -77,13 +78,13 @@ blob_make_immutable b = unsafeIOToPrim [C.block|void { hb_blob_make_immutable($b
 
 -- | hb_blob_get_data is unsafe under ForeignPtr management, this is safe
 with_blob_data :: PrimBase m => Blob (PrimState m) -> (ConstCStringLen -> m r) -> m r
-with_blob_data (Blob bfp) k = unsafeIOToPrim $ withForeignPtr bfp $ \bp -> alloca $ \ip -> do
+with_blob_data (Blob bfp) k = unsafeIOToPrim $ withForeignPtr bfp \bp -> alloca $ \ip -> do
   s <- [C.exp|const char * { hb_blob_get_data($(hb_blob_t * bp),$(unsigned int * ip)) }|]
   i <- peek ip
   unsafePrimToIO $ k (constant s, fromIntegral i)
 
 with_blob_data_writable :: PrimBase m => Blob (PrimState m) -> (CStringLen -> m r) -> m r
-with_blob_data_writable (Blob bfp) k = unsafeIOToPrim $ withForeignPtr bfp $ \bp -> alloca $ \ip -> do
+with_blob_data_writable (Blob bfp) k = unsafeIOToPrim $ withForeignPtr bfp \bp -> alloca $ \ip -> do
   s <- [C.exp|char * { hb_blob_get_data_writable($(hb_blob_t * bp),$(unsigned int * ip)) }|]
   i <- peek ip
   unsafePrimToIO $ k (s, fromIntegral i)

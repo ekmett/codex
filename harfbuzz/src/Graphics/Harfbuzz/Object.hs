@@ -1,4 +1,5 @@
 {-# language TemplateHaskell #-}
+{-# language BlockArguments #-}
 {-# language TypeFamilies #-}
 {-# language QuasiQuotes #-}
 -- |
@@ -43,7 +44,7 @@ key_create_many :: (PrimMonad m, FTraversable t) => t proxy -> m (t Key)
 key_create_many types = unsafeIOToPrim $
   evalState (ftraverse step types) <$> mallocForeignPtrBytes (flength types) where
     step :: proxy a -> State (ForeignPtr Key_) (Key a)
-    step _ = state $ \s -> (Key s, plusForeignPtr s 1)
+    step _ = state \s -> (Key s, plusForeignPtr s 1)
 
 class IsObject t where
   type Rec t :: *
@@ -61,7 +62,7 @@ object_destroy = unsafeIOToPrim . _destroy
 {-# inline object_destroy #-}
 
 object_set_user_data :: (PrimMonad m, IsObject t) => t (PrimState m) -> Key a -> a -> Bool -> m Bool
-object_set_user_data t k v replace = unsafeIOToPrim $ do
+object_set_user_data t k v replace = unsafeIOToPrim do
   v' <- newStablePtr v
   cbool <$> _set_user_data t (coerce k) (castStablePtrToPtr v') hs_free_stable_ptr (boolc replace)
 {-# inline object_set_user_data #-}

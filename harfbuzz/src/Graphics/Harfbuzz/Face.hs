@@ -1,5 +1,6 @@
 {-# language TemplateHaskell #-}
 {-# language PatternSynonyms #-}
+{-# language BlockArguments #-}
 {-# language ViewPatterns #-}
 {-# language QuasiQuotes #-}
 {-# language LambdaCase #-}
@@ -74,10 +75,10 @@ face_create b (fromIntegral -> i) = unsafeIOToPrim $
   [C.exp|hb_face_t * { hb_face_create($blob:b,$(int i)) }|] >>= foreignFace
 
 face_create_for_tables :: PrimBase m => (Face (PrimState m) -> Tag -> m (Blob (PrimState m))) -> m (Face (PrimState m))
-face_create_for_tables fun = unsafeIOToPrim $ do
-  (castFunPtr -> f) <- mkReferenceTableFunc $ \ pface tag _ -> do
+face_create_for_tables fun = unsafeIOToPrim do
+  (castFunPtr -> f) <- mkReferenceTableFunc \ pface tag _ -> do
     face <- [C.exp|hb_face_t * { hb_face_reference($(hb_face_t * pface)) }|] >>= foreignFace
-    unsafePrimToIO $ do
+    unsafePrimToIO do
       b <- fun face tag
       object_reference b
   [C.block|hb_face_t * {

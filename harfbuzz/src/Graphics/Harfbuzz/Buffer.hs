@@ -2,6 +2,7 @@
 {-# language PatternSynonyms #-}
 {-# language ViewPatterns #-}
 {-# language QuasiQuotes #-}
+{-# language BlockArguments #-}
 -- |
 -- Copyright :  (c) 2019 Edward Kmett
 -- License   :  BSD-2-Clause OR Apache-2.0
@@ -150,14 +151,14 @@ buffer_add_char buffer = buffer_add buffer . c2w
 
 buffer_add_string :: PrimMonad m => Buffer (PrimState m) -> String -> Int -> Int -> m ()
 buffer_add_string buffer text (fromIntegral -> item_offset) (fromIntegral -> item_length) = unsafeIOToPrim $
-  withCWStringLen text $ \(castPtr -> cwstr,fromIntegral -> len) ->
+  withCWStringLen text \(castPtr -> cwstr,fromIntegral -> len) ->
     [C.block|void {
       hb_buffer_add_utf16($buffer:buffer,$(const uint16_t * cwstr),$(int len),$(unsigned int item_offset),$(int item_length));
     }|]
 
 buffer_add_text :: PrimMonad m => Buffer (PrimState m) -> Text -> Int -> Int -> m ()
 buffer_add_text buffer text (fromIntegral -> item_offset) (fromIntegral -> item_length) = unsafeIOToPrim $
-  Text.withCStringLen text $ \(cstr,fromIntegral -> len) ->
+  Text.withCStringLen text \(cstr,fromIntegral -> len) ->
     [C.block|void {
       hb_buffer_add_utf8($buffer:buffer,$(const char * cstr),$(int len),$(unsigned int item_offset),$(int item_length));
     }|]
@@ -179,7 +180,7 @@ buffer_append buffer source (fromIntegral -> start) (fromIntegral -> end) = unsa
   [C.block|void { hb_buffer_append($buffer:buffer,$buffer:source,$(unsigned int start),$(unsigned int end)); }|]
 
 buffer_get_glyph_positions :: PrimMonad m => Buffer (PrimState m) -> m (Vector GlyphPosition)
-buffer_get_glyph_positions b = unsafeIOToPrim $ alloca $ \plen -> do
+buffer_get_glyph_positions b = unsafeIOToPrim $ alloca \plen -> do
   positions <- [C.exp|hb_glyph_position_t * { hb_buffer_get_glyph_positions($buffer:b,$(unsigned int * plen)) }|]
   len <- peek plen
   peekVector (fromIntegral len) positions -- we don't own the array, its valid as long as the buffer is unmodified, so don't deallocate
@@ -187,7 +188,7 @@ buffer_get_glyph_positions b = unsafeIOToPrim $ alloca $ \plen -> do
 -- @hb_buffer_get_glyph_infos@ only gives us access to @hb_glyph_info_glyph_flags@, so just map
 -- that over the list rather than trying to deal with memory management on an opaque object we know nothing about.
 buffer_get_glyph_infos :: PrimMonad m => Buffer (PrimState m) -> m (Vector GlyphInfo)
-buffer_get_glyph_infos b = unsafeIOToPrim $ alloca $ \plen -> do
+buffer_get_glyph_infos b = unsafeIOToPrim $ alloca \plen -> do
   pinfos <- [C.exp|hb_glyph_info_t * { hb_buffer_get_glyph_infos($buffer:b,$(unsigned int * plen)) }|]
   len <- peek plen
   peekVector (fromIntegral len) pinfos
@@ -204,8 +205,8 @@ buffer_normalize_glyphs b = unsafeIOToPrim [C.block|void { hb_buffer_normalize_g
 -- TODO: wrapper that provides a lazy bytestring for a given window without fiddling with buffer sizes
 buffer_serialize_glyphs :: PrimMonad m => Buffer (PrimState m) -> Int -> Int -> Int -> Font (PrimState m) -> BufferSerializeFormat -> BufferSerializeFlags -> m (Int, ByteString)
 buffer_serialize_glyphs b (fromIntegral -> start) (fromIntegral -> end) bs@(fromIntegral -> buf_size) font format flags = unsafeIOToPrim $
-  allocaBytes bs $ \ buf ->
-    alloca $ \pbuf_consumed -> do
+  allocaBytes bs \ buf ->
+    alloca \pbuf_consumed -> do
        n <- [C.exp|unsigned int {
          hb_buffer_serialize_glyphs(
            $buffer:b,
@@ -225,7 +226,7 @@ buffer_serialize_glyphs b (fromIntegral -> start) (fromIntegral -> end) bs@(from
 
 buffer_deserialize_glyphs :: PrimMonad m => Buffer (PrimState m) -> ByteString -> Font (PrimState m) -> BufferSerializeFormat -> m (Bool, Int)
 buffer_deserialize_glyphs buffer bs font format = unsafeIOToPrim $
-  alloca $ \pdelta -> do
+  alloca \pdelta -> do
     b <- [C.block|hb_bool_t {
       const char * bs = $bs-ptr:bs;
       const char * end_ptr;
@@ -245,8 +246,8 @@ buffer_deserialize_glyphs buffer bs font format = unsafeIOToPrim $
 
 -- | Register a callback for buffer messages
 buffer_set_message_func :: PrimBase m => Buffer (PrimState m) -> (Buffer (PrimState m) -> Font (PrimState m) -> ByteString -> m ()) -> m ()
-buffer_set_message_func b hfun = unsafeIOToPrim $ do
-  (castFunPtr -> f) <- mkBufferMessageFunc $ \pbuffer pfont cmsg _ -> do
+buffer_set_message_func b hfun = unsafeIOToPrim do
+  (castFunPtr -> f) <- mkBufferMessageFunc \pbuffer pfont cmsg _ -> do
     buffer <- [C.exp|hb_buffer_t * { hb_buffer_reference($(hb_buffer_t * pbuffer)) }|] >>= foreignBuffer
     font <- [C.exp|hb_font_t * { hb_font_reference($(hb_font_t * pfont)) }|] >>= foreignFont
     msg <- ByteString.packCString cmsg
@@ -294,8 +295,8 @@ buffer_content_type b = unsafeStateVar g s where
 -- | Subsumes @hb_buffer_get_segment_properties@ and @hb_buffer_set_segment_properties@
 buffer_segment_properties :: Buffer s -> StateVar s SegmentProperties
 buffer_segment_properties b = unsafeStateVar g s where
-  g = alloca $ \props -> [C.block|void { hb_buffer_get_segment_properties($buffer:b,$(hb_segment_properties_t * props)); }|] *> peek props
-  s v = with v $ \props -> [C.block|void { hb_buffer_set_segment_properties($buffer:b,$(const hb_segment_properties_t * props)); }|]
+  g = alloca \props -> [C.block|void { hb_buffer_get_segment_properties($buffer:b,$(hb_segment_properties_t * props)); }|] *> peek props
+  s v = with v \props -> [C.block|void { hb_buffer_set_segment_properties($buffer:b,$(const hb_segment_properties_t * props)); }|]
 
 -- | Subsumes @hb_buffer_get_unicode_funcs@ and @hb_buffer_set_unicode_funcs@
 buffer_unicode_funcs :: Buffer s -> StateVar s (UnicodeFuncs s)

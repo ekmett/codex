@@ -1,4 +1,5 @@
 {-# language TemplateHaskell #-}
+{-# language BlockArguments #-}
 {-# language ViewPatterns #-}
 {-# language QuasiQuotes #-}
 {-# language LambdaCase #-}
@@ -73,16 +74,16 @@ unicode_funcs_make_immutable :: PrimMonad m => UnicodeFuncs (PrimState m) -> m (
 unicode_funcs_make_immutable b = unsafeIOToPrim [C.block|void { hb_unicode_funcs_make_immutable($unicode-funcs:b); }|]
 
 unicode_funcs_set_combining_class_func :: PrimBase m => UnicodeFuncs (PrimState m) -> (Char -> m UnicodeCombiningClass) -> m ()
-unicode_funcs_set_combining_class_func uf fun = unsafeIOToPrim $ do
-  (castFunPtr -> f) <- mkUnicodeCombiningClassFunc $ \ _ c _ -> unsafePrimToIO (fun c)
+unicode_funcs_set_combining_class_func uf fun = unsafeIOToPrim do
+  (castFunPtr -> f) <- mkUnicodeCombiningClassFunc \ _ c _ -> unsafePrimToIO (fun c)
   [C.block|void {
     hb_unicode_combining_class_func_t f = $(hb_unicode_combining_class_func_t f);
     hb_unicode_funcs_set_combining_class_func($unicode-funcs:uf,f,f,(hb_destroy_func_t)hs_free_fun_ptr);
   }|]
 
 unicode_funcs_set_compose_func :: PrimBase m => UnicodeFuncs (PrimState m) -> (Char -> Char -> m (Maybe Char)) -> m ()
-unicode_funcs_set_compose_func uf fun = unsafeIOToPrim $ do
-  (castFunPtr -> f) <- mkUnicodeComposeFunc $ \ _ a b c _ -> unsafePrimToIO (fun a b) >>= \case
+unicode_funcs_set_compose_func uf fun = unsafeIOToPrim do
+  (castFunPtr -> f) <- mkUnicodeComposeFunc \ _ a b c _ -> unsafePrimToIO (fun a b) >>= \case
      Nothing -> pure $ boolc False
      Just ab -> boolc True <$ poke c ab
   [C.block|void {
@@ -91,8 +92,8 @@ unicode_funcs_set_compose_func uf fun = unsafeIOToPrim $ do
   }|]
 
 unicode_funcs_set_decompose_func :: PrimBase m => UnicodeFuncs (PrimState m) -> (Char -> m (Maybe (Char,Char))) -> m ()
-unicode_funcs_set_decompose_func uf fun = unsafeIOToPrim $ do
-  (castFunPtr -> f) <- mkUnicodeDecomposeFunc $ \ _ a pb pc _ -> unsafePrimToIO (fun a) >>= \case
+unicode_funcs_set_decompose_func uf fun = unsafeIOToPrim do
+  (castFunPtr -> f) <- mkUnicodeDecomposeFunc \ _ a pb pc _ -> unsafePrimToIO (fun a) >>= \case
      Nothing -> pure $ boolc False
      Just (b,c) -> boolc True <$ (poke pb b *> poke pc c)
   [C.block|void {
@@ -101,24 +102,24 @@ unicode_funcs_set_decompose_func uf fun = unsafeIOToPrim $ do
   }|]
 
 unicode_funcs_set_general_category_func :: PrimBase m => UnicodeFuncs (PrimState m) -> (Char -> m UnicodeGeneralCategory) -> m ()
-unicode_funcs_set_general_category_func uf fun = unsafeIOToPrim $ do
-  (castFunPtr -> f) <- mkUnicodeGeneralCategoryFunc $ \ _ c _ -> unsafePrimToIO (fun c)
+unicode_funcs_set_general_category_func uf fun = unsafeIOToPrim do
+  (castFunPtr -> f) <- mkUnicodeGeneralCategoryFunc \ _ c _ -> unsafePrimToIO (fun c)
   [C.block|void {
     hb_unicode_general_category_func_t f = $(hb_unicode_general_category_func_t f);
     hb_unicode_funcs_set_general_category_func($unicode-funcs:uf,f,f,(hb_destroy_func_t)hs_free_fun_ptr);
   }|]
 
 unicode_funcs_set_mirroring_func :: PrimBase m => UnicodeFuncs (PrimState m) -> (Char -> m Char) -> m ()
-unicode_funcs_set_mirroring_func uf fun = unsafeIOToPrim $ do
-  (castFunPtr -> f) <- mkUnicodeMirroringFunc $ \ _ a _ -> unsafePrimToIO (fun a)
+unicode_funcs_set_mirroring_func uf fun = unsafeIOToPrim do
+  (castFunPtr -> f) <- mkUnicodeMirroringFunc \ _ a _ -> unsafePrimToIO (fun a)
   [C.block|void {
     hb_unicode_mirroring_func_t f = $(hb_unicode_mirroring_func_t f);
     hb_unicode_funcs_set_mirroring_func($unicode-funcs:uf,f,f,(hb_destroy_func_t)hs_free_fun_ptr);
   }|]
 
 unicode_funcs_set_script_func :: PrimBase m => UnicodeFuncs (PrimState m) -> (Char -> m Script) -> m ()
-unicode_funcs_set_script_func uf fun = unsafeIOToPrim $ do
-  (castFunPtr -> f) <- mkUnicodeScriptFunc $ \ _ a _ -> unsafePrimToIO (fun a)
+unicode_funcs_set_script_func uf fun = unsafeIOToPrim do
+  (castFunPtr -> f) <- mkUnicodeScriptFunc \ _ a _ -> unsafePrimToIO (fun a)
   [C.block|void {
     hb_unicode_script_func_t f = $(hb_unicode_script_func_t f);
     hb_unicode_funcs_set_script_func($unicode-funcs:uf,f,f,(hb_destroy_func_t)hs_free_fun_ptr);
@@ -128,12 +129,12 @@ unicode_combining_class :: PrimMonad m => UnicodeFuncs (PrimState m) -> Char -> 
 unicode_combining_class uf (c2w -> codepoint) = unsafeIOToPrim [C.exp|hb_unicode_combining_class_t { hb_unicode_combining_class($unicode-funcs:uf,$(hb_codepoint_t codepoint)) }|]
 
 unicode_compose :: PrimMonad m => UnicodeFuncs (PrimState m) -> Char -> Char -> m (Maybe Char)
-unicode_compose uf (c2w -> a) (c2w -> b) = unsafeIOToPrim $ alloca $ \c -> do
+unicode_compose uf (c2w -> a) (c2w -> b) = unsafeIOToPrim $ alloca \c -> do
   ok <- [C.exp|hb_bool_t { hb_unicode_compose($unicode-funcs:uf,$(hb_codepoint_t a),$(hb_codepoint_t b),$(hb_codepoint_t * c)) }|]
   if cbool ok then Just . w2c <$> peek c else pure Nothing
 
 unicode_decompose :: PrimMonad m => UnicodeFuncs (PrimState m) -> Char -> m (Maybe (Char, Char))
-unicode_decompose uf (c2w -> a) = unsafeIOToPrim $ allocaArray 2 $ \ pbc -> do
+unicode_decompose uf (c2w -> a) = unsafeIOToPrim $ allocaArray 2 \ pbc -> do
   ok <- [C.block|hb_bool_t {
     hb_codepoint_t * pbc = $(hb_codepoint_t * pbc);
     return hb_unicode_decompose($unicode-funcs:uf,$(hb_codepoint_t a),pbc,pbc+1);
