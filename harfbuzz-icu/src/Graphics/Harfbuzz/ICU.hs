@@ -2,6 +2,7 @@
 {-# language OverloadedStrings #-}
 {-# language TemplateHaskell #-}
 {-# language PatternSynonyms #-}
+{-# language BlockArguments #-}
 {-# language ViewPatterns #-}
 {-# language QuasiQuotes #-}
 -- |
@@ -26,6 +27,7 @@ import Foreign.C.Types (CInt)
 import Foreign.Storable
 import Graphics.Harfbuzz.Internal (harfbuzzCtx, Script(..), UnicodeFuncs, foreignUnicodeFuncs)
 import qualified Language.C.Inline as C
+import qualified Language.C.Inline.Unsafe as U
 import qualified Language.C.Inline.Context as C
 import qualified Language.C.Types as C
 
@@ -42,16 +44,16 @@ C.include "<hb.h>"
 C.include "<hb-icu.h>"
 
 icu_get_unicode_funcs :: PrimMonad m => m (UnicodeFuncs (PrimState m))
-icu_get_unicode_funcs = unsafeIOToPrim $ do
-  [C.exp|hb_unicode_funcs_t * { hb_unicode_funcs_reference(hb_icu_get_unicode_funcs()) }|] >>= foreignUnicodeFuncs
+icu_get_unicode_funcs = unsafeIOToPrim do
+  [U.exp|hb_unicode_funcs_t * { hb_unicode_funcs_reference(hb_icu_get_unicode_funcs()) }|] >>= foreignUnicodeFuncs
 
 icu_script_from_script :: Script -> IcuScript
 icu_script_from_script s =
-  [C.pure|UScriptCode { hb_icu_script_from_script($(hb_script_t s)) }|]
+  [U.pure|UScriptCode { hb_icu_script_from_script($(hb_script_t s)) }|]
 
 icu_script_to_script :: IcuScript -> Script
 icu_script_to_script s = 
-  [C.pure|hb_script_t { hb_icu_script_to_script($(UScriptCode s)) }|]
+  [U.pure|hb_script_t { hb_icu_script_to_script($(UScriptCode s)) }|]
 
 pattern ICU_SCRIPT :: Script -> IcuScript
 pattern ICU_SCRIPT x <- (icu_script_to_script -> x) where
