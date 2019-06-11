@@ -93,7 +93,8 @@ listenToDir dir = case ?directoryWatcher of
   DirectoryWatcher wm paths -> liftIO $
     watchDir wm dir (const True) $ \e ->
       withMVar paths pure >>= \hm -> do
-        for_ (HashMap.lookup (eventPath e) hm) $ \(r,_) -> do
+        canon <- canonicalizePath (eventPath e)
+        for_ (HashMap.lookup canon hm) $ \(r,_) -> do
           writeRef r (Just e)
 
 listenToTree :: (GivenDirectoryWatcher, MonadIO m) => FilePath -> m StopListening
@@ -101,7 +102,8 @@ listenToTree dir = case ?directoryWatcher of
   DirectoryWatcher wm paths -> liftIO $
     watchTree wm dir (const True) $ \e ->
       withMVar paths pure >>= \hm -> do
-        for_ (HashMap.lookup (eventPath e) hm) $ \(r,_) -> do
+        canon <- canonicalizePath (eventPath e)
+        for_ (HashMap.lookup canon hm) $ \(r,_) -> do
           writeRef r (Just e)
 
 -- | This contains the last event associated with a given file. However, it only contains
@@ -110,13 +112,13 @@ listenToTree dir = case ?directoryWatcher of
 onFileEvent :: (GivenDirectoryWatcher, MonadIO m) => FilePath -> m (IOThunk (Maybe Event))
 onFileEvent fp = case ?directoryWatcher of
   DirectoryWatcher _ fes -> liftIO $ do
-    afp <- makeAbsolute fp
-    modifyMVar fes $ \hm -> case HashMap.lookup afp hm of
+    canon <- canonicalizePath fp
+    modifyMVar fes $ \hm -> case HashMap.lookup canon hm of
       Just (_,t) -> pure (hm,t)
       Nothing -> do
         r <- newRef Nothing
         t <- delay (readRef r)
-        pure (HashMap.insert afp (r,t) hm, t)
+        pure (HashMap.insert canon (r,t) hm, t)
 
 -- | invalidated every time the file changes so long as we are watching the containing directory
 readWatchedFile :: (GivenDirectoryWatcher, MonadIO m) => FilePath -> m (IOThunk Strict.ByteString)
