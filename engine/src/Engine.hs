@@ -16,7 +16,7 @@ import Data.Text
 import Data.Watch.Directory
 import Engine.Display
 import Engine.Exception
-import Engine.Include.Cache
+import Engine.Include
 import Engine.Meter
 import Engine.Input
 import Engine.Task
