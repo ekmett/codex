@@ -1,6 +1,7 @@
 {-# language ImplicitParams #-}
 {-# language RankNTypes #-}
 {-# language ConstraintKinds #-}
+{-# language BlockArguments #-}
 -- |
 -- Usage:
 --
@@ -37,7 +38,7 @@ import System.IO
 updateFPS :: GivenWindow => IORef Meter -> IO ()
 updateFPS meter = do
   t <- now
-  m <- liftIO $ atomicModifyIORef meter $ \m -> let m' = tick t m in (m',m')
+  m <- liftIO $ atomicModifyIORef meter \m -> let m' = tick t m in (m',m')
   windowTitle ?window $= pack (showString "(fps: " $ showFFloat (Just 1) (fps m) ")")
 
 type GivenSetupInfo = (GivenShaderDir, GivenIncludeCache, GivenWindow)
@@ -45,30 +46,26 @@ type GivenFrameInfo = (GivenInput, GivenEvents)
 
 -- TODO: Option parsing
 withEngine :: MonadUnliftIO m => (GivenSetupInfo => ((GivenFrameInfo => m a) -> m ()) -> m ()) -> m ()
-withEngine k = withRunInIO $ \run1 -> do
+withEngine k = withRunInIO \run1 -> do
   shaderDir <- canonicalizePath "shaders" -- for now
-  liftIO $ do
+  let ?shaderDir = shaderDir
+  liftIO do
     setUncaughtExceptionHandler $ putStrLn . displayException
     hSetBuffering stdout NoBuffering
   meter <- newIORef def
-  withDirectoryWatcher $ withTasks $ \pumpTasks -> do
+  withDirectoryWatcher $ withTasks \pumpTasks -> do
     stopListeningToShaderDir <- listenToTree shaderDir
-    let ?shaderDir = shaderDir
-    withWindow $ do
+    withWindow do
       inputRef <- newIORef def
-      withIncludeCache $ do
+      withIncludeCache do
         -- user setup 
-        run1 $ k $ \draw -> withRunInIO $ \run2 -> do
-          _ <- trying _Shutdown $ forever $ do
-            events <- SDL.pollEvents
-            let ?events = events -- allow user access to current frame events
+        run1 $ k \draw -> withRunInIO \run2 -> do
+          _ <- trying _Shutdown $ forever do
+            _events <- SDL.pollEvents; let ?events = _events
             handleWindowEvents
-            _input <- atomicModifyIORef inputRef $ join (,) . handleInputEvents; let ?input = _input
-
-            -- draw user content for the frame
+            _input <- atomicModifyIORef inputRef $ join (,) . handleInputEvents
+            let ?input = _input
             _ <- run2 draw
-
-            -- back to the engine
             SDL.glSwapWindow ?window
             updateFPS meter
             pumpTasks
