@@ -1,59 +1,77 @@
 {-# language ImplicitParams #-}
 {-# language RankNTypes #-}
+{-# language ConstraintKinds #-}
+-- |
+-- Usage:
+--
+-- @
+-- main = withEngine $ \drive ->
+--   bracket setupResources teardownResources $ \resources -> drive $ do
+--     ... use resources here to draw a frame
+
 module Engine
-( withEngine
+( GivenEvents
+, withEngine
 ) where
 
-import Control.Concurrent.MVar
 import Control.Exception
 import Control.Exception.Lens
 import Control.Monad
 import Control.Monad.IO.Unlift
 import Data.Default
-import qualified Data.HashMap.Strict as HashMap
 import Data.IORef
 import Data.Text
 import Data.Watch.Directory
-import Engine.Display
 import Engine.Exception
-import Engine.Include
 import Engine.Meter
-import Engine.Input
+import Engine.SDL
+import Engine.Shader.Include
 import Engine.Task
 import Engine.Time
 import GHC.Conc (setUncaughtExceptionHandler)
 import Numeric
 import SDL
+import System.Directory
 import System.IO
 
-updateFPS :: GivenDisplay => IORef Meter -> IO ()
+updateFPS :: GivenWindow => IORef Meter -> IO ()
 updateFPS meter = do
   t <- now
   m <- liftIO $ atomicModifyIORef meter $ \m -> let m' = tick t m in (m',m')
-  withMVar (?display) $ \d -> do
-    windowTitle (_displayWindow d) $= pack (showString "engine (fps: " $ showFFloat (Just 1) (fps m) ")")
+  windowTitle ?window $= pack (showString "(fps: " $ showFFloat (Just 1) (fps m) ")")
 
-withEngine :: MonadUnliftIO m => ((GivenIncludeCache, GivenInput, GivenDisplay) => (m a -> m ()) -> m ()) -> m ()
+type GivenSetupInfo = (GivenShaderDir, GivenIncludeCache, GivenWindow)
+type GivenFrameInfo = (GivenInput, GivenEvents)
+
+-- TODO: Option parsing
+withEngine :: MonadUnliftIO m => (GivenSetupInfo => ((GivenFrameInfo => m a) -> m ()) -> m ()) -> m ()
 withEngine k = withRunInIO $ \run1 -> do
+  shaderDir <- canonicalizePath "shaders" -- for now
   liftIO $ do
     setUncaughtExceptionHandler $ putStrLn . displayException
     hSetBuffering stdout NoBuffering
   meter <- newIORef def
   withDirectoryWatcher $ withTasks $ \pumpTasks -> do
-    (window, _display) <- newDisplay; let ?display = _display
-    _input <- liftIO $ newIORef def; let ?input = _input
-    _includes <- newMVar (HashMap.empty :: IncludeCache); let ?includes = _includes
-    _ <- listenToTree "shaders"
-    run1 $ k $ \draw -> withRunInIO $ \run2 -> do
-      _ <- trying _Shutdown $ forever $ do
-        events <- SDL.pollEvents
-        handleInputEvents events
-        handleDisplayEvents events
-        _ <- run2 draw
-        SDL.glSwapWindow window
-        updateFPS meter
-        pumpTasks
-      pure ()
+    stopListeningToShaderDir <- listenToTree shaderDir
+    let ?shaderDir = shaderDir
+    withWindow $ do
+      inputRef <- newIORef def
+      withIncludeCache $ do
+        -- user setup 
+        run1 $ k $ \draw -> withRunInIO $ \run2 -> do
+          _ <- trying _Shutdown $ forever $ do
+            events <- SDL.pollEvents
+            let ?events = events -- allow user access to current frame events
+            handleWindowEvents
+            _input <- atomicModifyIORef inputRef $ join (,) . handleInputEvents; let ?input = _input
 
-    SDL.destroyWindow window
-    SDL.quit
+            -- draw user content for the frame
+            _ <- run2 draw
+
+            -- back to the engine
+            SDL.glSwapWindow ?window
+            updateFPS meter
+            pumpTasks
+          pure ()
+        -- user teardown
+    stopListeningToShaderDir

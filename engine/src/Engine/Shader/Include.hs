@@ -3,6 +3,7 @@
 {-# language ImplicitParams #-}
 {-# language LambdaCase #-}
 {-# language OverloadedStrings #-}
+{-# language RankNTypes #-}
 {-# language StrictData #-}
 {-# language TupleSections #-}
 {-# language TypeFamilies #-}
@@ -20,12 +21,18 @@
 -- indicated, it'll behave mostly like a c preprocessor.
 --
 -- (Modulo handling X-Macros and recursion correctly.)
-module Engine.Include
+module Engine.Shader.Include
 ( absolve, absolves
+, GivenShaderDir
+, shaderPathToRealPath
+, realPathToShaderPath
 , flattenIncludes
 , paths
 , Body(..)
 , deps
+, newIncludeCache
+, withIncludeCache
+, IncludeMap
 , IncludeCache
 , GivenIncludeCache
 , directives
@@ -60,9 +67,14 @@ import Text.Parsnip as P
 -- * Body
 --------------------------------------------------------------------------------
 
+type GivenShaderDir = (?shaderDir :: FilePath)
+
 -- | Shader paths start with "/", so peel that off and attach a given base path.
-shaderPathToRealPath :: FilePath -> FilePath -> FilePath 
-shaderPathToRealPath base path = base </> makeRelative "/" path
+shaderPathToRealPath :: GivenShaderDir => FilePath -> FilePath 
+shaderPathToRealPath path = ?shaderDir </> makeRelative "/" path
+
+realPathToShaderPath :: GivenShaderDir => FilePath -> FilePath
+realPathToShaderPath path = "/" </> makeRelative ?shaderDir path
 
 -- | Contains a set of bytestrings which together form the shader
 -- along with a list of interleaved bytestrings and include paths
@@ -88,8 +100,8 @@ paths f (Body xs v ys) = Body xs v <$> traverse (traverse f) ys
 -- Used for shaders made out of multiple bytestrings.
 --
 -- Currently assumes each one can be parsed independently.
-absolves :: FilePath -> [ByteString] -> Body
-absolves = foldMap . absolve
+absolves :: GivenShaderDir => [ByteString] -> Body
+absolves = foldMap absolve
 
 -- | Produce a body containing absolute filepaths
 --
@@ -97,10 +109,10 @@ absolves = foldMap . absolve
 -- shaderDir <- canonicalizePath "shaders"
 -- absolve shaderDir "some shader body"
 -- @
-absolve :: FilePath -> ByteString -> Body
-absolve f bs = case parse (directives include) bs of
+absolve :: GivenShaderDir => ByteString -> Body
+absolve bs = case parse (directives include) bs of
   Left j        -> Body [bs] [located j "preprocessing failed, dependencies incomplete"] [Left bs]
-  Right content -> Body [bs] [] $ fmap (shaderPathToRealPath f) <$> content
+  Right content -> Body [bs] [] $ fmap shaderPathToRealPath <$> content
 
 -- | Used to polyfill an approximation of 'glCompileShaderIncludeARB'.
 ----
@@ -124,34 +136,41 @@ flattenIncludes env = getAp . go [] where
 -- * Cache
 --------------------------------------------------------------------------------
 
-type IncludeCache = HashMap FilePath (IOThunk Body)
+type IncludeMap = HashMap FilePath (IOThunk Body)
+type IncludeCache = MVar IncludeMap
+type GivenIncludeCache = (?includes :: IncludeCache)
 
-type GivenIncludeCache = (?includes :: MVar IncludeCache, GivenDirectoryWatcher)
+newIncludeCache :: MonadIO m => m IncludeCache
+newIncludeCache = liftIO $ newMVar HashMap.empty
+
+withIncludeCache :: MonadIO m => (GivenIncludeCache => m a) -> m a 
+withIncludeCache m = do
+  c <- newIncludeCache
+  let ?includes = c
+  m
 
 -- returns a thunk that has data dependencies on all includes mentioned
-deps :: (GivenIncludeCache, MonadIO m) => FilePath -> Body -> m (IOThunk IncludeCache)
-deps base body = liftIO $ delay $ execStateT (forOf_ paths body $ cache base) HashMap.empty
+deps :: (GivenIncludeCache, GivenShaderDir, GivenDirectoryWatcher, MonadIO m) => Body -> m (IOThunk IncludeMap)
+deps body = liftIO $ delay $ execStateT (forOf_ paths body cache) HashMap.empty
 
 -- | Path should be absolute
-includes :: (GivenIncludeCache, MonadIO m) => FilePath -> FilePath -> m (IOThunk Body)
-includes base path = liftIO $ do
-  modifyMVar ?includes $ \m -> case m^.at path of
-    Just body -> pure (m,body)
-    Nothing -> do
-      body <- delay $ do
-        thunk <- readWatchedFile path
-        absolve base <$> force thunk
-      pure (HashMap.insert path body m,body)
+includes :: (GivenIncludeCache, GivenShaderDir, GivenDirectoryWatcher) => FilePath -> IO (IOThunk Body)
+includes path = modifyMVar ?includes $ \m -> case m^.at path of
+  Just body -> pure (m,body)
+  Nothing -> do
+    body <- delay $ do
+      thunk <- readWatchedFile path
+      absolve <$> force thunk
+    pure (HashMap.insert path body m,body)
 
-cache :: (GivenIncludeCache, MonadWatch m, PrimState m ~ RealWorld) => FilePath -> FilePath -> StateT IncludeCache m ()
-cache base = go where
-  go path = use (at path) >>= \case
-    Just _ -> pure ()
-    Nothing -> do
-      bt <- ioToPrim $ includes base path
-      at path ?= bt
-      body <- force bt
-      forOf_ paths body go -- walk the body
+cache :: (GivenIncludeCache, GivenShaderDir, GivenDirectoryWatcher) => FilePath -> StateT IncludeMap (Watch RealWorld) ()
+cache path = use (at path) >>= \case
+  Just _ -> pure ()
+  Nothing -> do
+    bt <- ioToPrim $ includes path
+    at path ?= bt
+    body <- force bt
+    forOf_ paths body cache -- walk the body
 {-# inline cache #-}
 
 --------------------------------------------------------------------------------
@@ -224,7 +243,6 @@ trim lo hi = B.unsafeTake (hi - lo) . B.unsafeDrop lo
 cut :: [Run a] -> Parser [Either ByteString a]
 cut xs0 = input <&> \bs -> go bs 0 xs0 where
   go bs i [] | bs' <- B.unsafeDrop i bs = [Left bs' | not $ B.null bs']
-    
   go bs i (Run j k a:xs) 
     | bs' <- trim i j bs, not $ B.null bs' = Left bs' : Right a : go bs k xs
     | otherwise = Right a : go bs k xs

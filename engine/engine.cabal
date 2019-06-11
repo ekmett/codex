@@ -35,6 +35,8 @@ common base
     containers,
     data-default,
     directory,
+    either,
+    filepath,
     fingertree,
     gl,
     glow,
@@ -64,16 +66,14 @@ library
   hs-source-dirs: src
   exposed-modules:
     Engine
-    Engine.Display
     Engine.Exception
-    Engine.Include.Body
-    Engine.Include.Cache
-    Engine.Include.Parser
-    Engine.Input
     Engine.Meter
+    Engine.Shader.Include
     Engine.SDL
     Engine.Task
     Engine.Time
+
+--    Engine.Shader
 
 executable example
   import: executable
