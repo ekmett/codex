@@ -1,6 +1,7 @@
 {-# language TemplateHaskell #-}
 {-# language QuasiQuotes #-}
 {-# language ViewPatterns #-}
+{-# language BlockArguments #-}
 {-# language OverloadedStrings #-}
 {-# language LambdaCase #-}
 -- |
@@ -53,7 +54,7 @@ font_face_key = unsafeLocalState $ HB.Key <$> newForeignPtr_ [C.pure|hb_user_dat
 --
 -- This will keep the freetype face alive until the harfbuzz object is destroyed.
 hb_ft_face_create :: MonadIO m => FT.Face -> m (HB.Face RealWorld)
-hb_ft_face_create ftface = liftIO $ do
+hb_ft_face_create ftface = liftIO do
   face <- [C.exp|hb_face_t * { hb_ft_face_create($fptr-ptr:(FT_Face ftface), NULL) }|] >>= HB.foreignFace
   face <$ HB.object_set_user_data face face_face_key (Right ftface) True -- keeps the ft font alive.
 
@@ -61,14 +62,14 @@ hb_ft_face_create ftface = liftIO $ do
 --
 -- This will keep the freetype face alive until the harfbuzz object is destroyed.
 hb_ft_font_create :: MonadIO m => FT.Face -> m (HB.Font RealWorld)
-hb_ft_font_create ftface = liftIO $ do
+hb_ft_font_create ftface = liftIO do
   font <- [C.exp|hb_font_t * { hb_ft_font_create($fptr-ptr:(FT_Face ftface), NULL) }|] >>= HB.foreignFont
   font <$ HB.object_set_user_data font font_face_key ftface True -- keeps the ft font alive
 
 -- | Create a harfbuzz face that references our freetype face. Repeated calls
 -- will retrieve the same harfbuzz face. Reference management should be automatic.
 hb_ft_face_create_cached :: MonadIO m => FT.Face -> m (HB.Face RealWorld)
-hb_ft_face_create_cached ftface@(ForeignPtr _ guts) = liftIO $ do
+hb_ft_face_create_cached ftface@(ForeignPtr _ guts) = liftIO do
   Ptr addr <- [C.block|hb_face_t * {
     hb_face_t * face = hb_ft_face_create_cached($fptr-ptr:(FT_Face ftface));
     hb_face_destroy(face); /* avoid off-by-1 reference counting bug */
