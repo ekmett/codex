@@ -6,6 +6,7 @@
 {-# language RankNTypes #-}
 {-# language TypeApplications #-}
 {-# language LambdaCase #-}
+{-# language AllowAmbiguousTypes #-}
 {-# language PolyKinds #-}
 {-# language CPP #-}
 module Text.Parsnip.Parser
@@ -96,8 +97,9 @@ input = absolute \b _ -> SimpleOK b 0
 rest :: KnownBase s => Parser s ByteString
 rest = relative \b -> SimpleOK b 0
 
-
--- | 'snip' is a smidge faster, and easier to type, if less fun to say.
+-- | 'snip' is a smidge faster, easier to type, if less fun to say, and
+-- doesn't need you to fiddle with explicit type application to actually
+-- apply.
 -- 
 -- The benefit of this combinator is that it is easy to come up with numbers
 -- of bytes into a file, and this combinator will automatically trim the
@@ -105,17 +107,23 @@ rest = relative \b -> SimpleOK b 0
 -- illegal 'Mark' will error in 'toEnum'/'fromEnum'/'succ' or whatever other
 -- combinator tries to produce one out of range to maintain the invariant
 -- that a mark is always a well formed location in the content.
-betwixt :: KnownBase s => Int -> Int -> Parser s ByteString
-betwixt i j = absolute $ \bs _ -> SimpleOK (B.take (j - i) $ B.drop i bs) 0
+betwixt :: forall s. KnownBase s => Int -> Int -> ByteString
+betwixt i j = B.take (j-i) $ B.drop i $ bytes $ reflectBase @s
 
 -- | 'mark' is generally faster
 pos :: forall s. KnownBase s => Parser s Int
-pos = case reflectBase @s of
-  !(Base _ _ q _) -> Parser \ p s -> OK (I# (minusAddr# p q)) p s where
+pos = Parser \ p s ->
+  let result = I# (minusAddr# p case reflectBase @s of !(Base _ _ q _) -> q)
+  in OK result p s
 {-# inline pos #-}
+
+loc :: KnownBase s => Parser s Location
+loc = markLocation <$> mark
+{-# inline loc #-}
 
 -- | Actually looking at one of these is pretty slow, as it has to do a linear
 -- scan to figure out its line number for display.
-loc :: forall s. KnownBase s => Parser s Location
-loc = location <$> input <*> pos 
-{-# inline loc #-}
+markLocation :: forall s. KnownBase s => Mark s -> Location
+markLocation (Mark (Ptr p)) = case reflectBase @s of
+  !b@(Base _ _ l _) -> location (bytes b) (I# (minusAddr# p l))
+{-# inline markLocation #-}

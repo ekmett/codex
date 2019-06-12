@@ -99,9 +99,9 @@ release (Mk q) = Parser \_ s -> OK () q s
 -- and applying it to a combinator simply recognizes the content rather than returns
 -- it. 'snipping' a 'ByteString' is significantly cheaper than assembling one from
 -- smaller fragments.
-snip :: forall s. KnownBase s => Mark s -> Mark s -> Parser s ByteString
+snip :: forall s. KnownBase s => Mark s -> Mark s -> ByteString
 snip = case reflectBase @s of
-  !(Base x g _ _) -> \(Mk i) (Mk j) -> Parser \p s -> OK (mkBS x g (minusAddr# i j)) p s
+  !(Base x g _ _) -> \(Mk i) (Mk j) -> mkBS x g (minusAddr# i j)
 
 snipping :: forall s a. KnownBase s => Parser s a -> Parser s ByteString
 snipping = case reflectBase @s of

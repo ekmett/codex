@@ -189,12 +189,20 @@ try (Parser m) = Parser $ \p s -> case m p s of
 -- * Super-unsafe literal parsers
 ---------------------------------------------------------------------------------------
 
--- super unsafe
+-- | super-duper unsafe. Fabricates bytestrings that directly reference constant memory
 litN :: Addr# -> CSize -> Parser s ByteString
 litN q n = Parser \p s -> case io (c_strncmp p q n) s of
-  (# t, 0 #) -> OK (unsafeLiteralByteStringN q n) (p `plusAddr#` csize n) t
-  (# t, _ #) -> Fail p t
+    (# t, 0 #) -> OK bs (p `plusAddr#` csize n) t
+    (# t, _ #) -> Fail p t
+  where bs = unsafeLiteralByteStringN q n
 
+-- | Super unsafe. Fabricates a bytestring that directly reference constant memory.
+--
+-- Usage: 
+--
+-- @
+-- hello = lit "hello"#
+-- @
 lit :: Addr# -> Parser s ByteString
 lit q = litN q (pure_strlen q)
 
@@ -208,9 +216,24 @@ unsafeLiteralForeignPtr addr = ForeignPtr addr literalForeignPtrContents
 
 unsafeLiteralByteStringN :: Addr# -> CSize -> ByteString
 unsafeLiteralByteStringN p n = PS (unsafeLiteralForeignPtr p) 0 (fromIntegral n)
+{-# noinline unsafeLiteralByteStringN #-}
 
 --unsafeLiteralByteString :: Addr# -> ByteString
 --unsafeLiteralByteString p = unsafeLiteralByteStringN p (pure_strlen p)
+
+-- Given a 'Base' you can do two things with it. While in a Parser, you're allowed to
+-- access the memory between the start and end addresses, as they'll be alive.
+--
+-- However, you can always reconstruct a bytestring from the oriignal (non-0 terminated
+-- data using 'bytes', and that will remain valid forever or until appropriately
+-- garbage collected.
+--
+-- In general, in a Parser you should try to access the memory in the null-terminated
+-- region for cache locality.
+--
+-- Afterwards, or to report bytestrings, you should trim them off the original, this
+-- way, no additional memory needs to be copied, and the garbage collector will just
+-- manage the storage of the bytestrings you cut off of the parent for you.
 
 data Base s = Base 
   Addr# -- the start of a valid bytestring

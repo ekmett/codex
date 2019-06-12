@@ -49,6 +49,7 @@ library
     Text.Parsnip.Char8
     Text.Parsnip.Location
     Text.Parsnip.Parser
+    Text.Parsnip.Word8
     Text.Parsnip.Internal.Mark
     Text.Parsnip.Internal.Parser
     Text.Parsnip.Internal.Private
