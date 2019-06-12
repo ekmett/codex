@@ -42,39 +42,39 @@ spec = testSpec "spec" $ do -- Hspec.after_ performMajorGC $ do
     it "can load a file" $ do
       lib <- init_library
       face <- new_face lib "test/fonts/SourceCodePro-Regular.otf" 0
-      has_multiple_masters face `shouldReturn` False
+      has_multiple_masters face `shouldBe` False
       get_char_index face (c2w 'a') `shouldReturn` 28 -- mined from the font itself
       get_first_char face `shouldReturn` (c2w ' ',1)
       get_next_char face (c2w ' ') `shouldReturn` (c2w '!',918)
-      get_font_format face `shouldReturn` "CFF"
+      get_font_format face `shouldBe` "CFF"
     it "can load a variable otf font (from memory)" $ do
       lib <- init_library
       blob <- ByteString.readFile "test/fonts/SourceCodeVariable-Roman.otf"
       face <- new_memory_face lib blob 0
-      has_multiple_masters face `shouldReturn` True
+      has_multiple_masters face `shouldBe` True
       get_char_index face (c2w 'a') `shouldReturn` 28 -- mined from the font itself
-      get_font_format face `shouldReturn` "CFF"
+      get_font_format face `shouldBe` "CFF"
       get_first_char face `shouldReturn` (c2w ' ',1)
       set_pixel_sizes face 32 32 -- we can set the current pixel size
     it "can load a variable ttf font" $ do
       lib <- init_library
       face <- new_face lib "test/fonts/SourceCodeVariable-Roman.ttf" 0
-      has_multiple_masters face `shouldReturn` True
+      has_multiple_masters face `shouldBe` True
       get_char_index face (c2w 'a') `shouldReturn` 28 -- mined from the font itself
       get_first_char face `shouldReturn` (c2w ' ',1)
-      get_font_format face `shouldReturn` "TrueType"
+      get_font_format face `shouldBe` "TrueType"
     it "can load sanskrit font" $ do
       lib <- init_library
       face <- new_face lib "test/fonts/Sanskrit2003.ttf" 0
-      has_multiple_masters face `shouldReturn` False
+      has_multiple_masters face `shouldBe` False
 
 golden :: IO TestTree
 golden = do
   lib <- init_library
   face <- new_face lib "test/fonts/SourceCodePro-Regular.otf" 0
   set_pixel_sizes face 0 64
-  bitmap <- act glyphslot_bitmap_ <$> face_glyph face
-  let goldenChar :: Char -> TestTree
+  let bitmap = act glyphslot_bitmap_ $ face_glyph face
+      goldenChar :: Char -> TestTree
       goldenChar c = goldenVsFile g g a $ do
           load_char face (fromIntegral $ fromEnum c) LOAD_RENDER
           image <- withForeignPtr bitmap $ \p -> do

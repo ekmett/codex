@@ -357,6 +357,7 @@ import GHC.ForeignPtr
 import GHC.Ptr
 import Numeric.Fixed
 import qualified Language.C.Inline as C
+import qualified Language.C.Inline.Unsafe as U
 import qualified Language.C.Inline.Context as C
 import qualified Language.C.Types as C
 import Graphics.FreeType.Private
@@ -647,14 +648,14 @@ angleDiff angle1 angle2 = [C.pure|FT_Angle { FT_Angle_Diff($(FT_Angle angle1),$(
 matrixInvert:: Matrix -> Maybe Matrix
 matrixInvert m = unsafeLocalState $
   with m \mm -> do
-    e <- [C.exp|FT_Error { FT_Matrix_Invert($(FT_Matrix * mm))}|]
+    e <- [U.exp|FT_Error { FT_Matrix_Invert($(FT_Matrix * mm))}|]
     if e == Err_Ok then Just <$> peek mm else pure Nothing
 
 matrixMultiply :: Matrix -> Matrix -> Matrix
 matrixMultiply m n = unsafeLocalState $
    with m \mm ->
    with n \nm ->
-    [C.block|void {
+    [U.block|void {
       FT_Matrix_Multiply($(FT_Matrix * mm),$(FT_Matrix * nm));
     }|] *> peek nm
 
@@ -671,14 +672,18 @@ vectorTransform :: Vector -> Matrix -> Vector
 vectorTransform v m = unsafeLocalState $
   with v \vp ->
     with m \mp ->
-      [C.block|void { FT_Vector_Transform($(FT_Vector * vp),$(FT_Matrix * mp)); }|] *> peek vp
+      [U.block|void { FT_Vector_Transform($(FT_Vector * vp),$(FT_Matrix * mp)); }|] *> peek vp
 
 instance Default Vector where
   def = Vector 0 0
 
+-- | If you are using this, you are probably doing something wrong. See 'new_memory_face' and 'new_face'
+-- for an example of how to do it right.
 foreignFace :: Ptr FaceRec -> IO Face
 foreignFace = newForeignPtr [C.funPtr| void free_face(FT_Face f) { FT_Done_Face(f); } |]
 
+-- | If you are using this, you are probably doing something wrong. See 'new_memory_face' and 'new_face'
+-- for an example of how to do it right.
 foreignLibrary :: Ptr LibraryRec -> IO Library
 foreignLibrary = newForeignPtr [C.funPtr| void free_library(FT_Library l) { FT_Done_Library(l); }|]
 
