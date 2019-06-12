@@ -5,6 +5,7 @@
 {-# language FlexibleContexts #-}
 {-# language TypeOperators #-}
 {-# language PolyKinds #-}
+{-# language BlockArguments #-}
 {-# language DeriveDataTypeable #-}
 {-# language DeriveFoldable #-}
 {-# language DeriveFunctor #-}
@@ -424,22 +425,22 @@ instance Block Mat2 where
   alignment430 _ = 8  -- vec2
   sizeOf430    _ = 16 -- 2 columns, each vec2 in size
   isStruct _ = False
-  read140 p (Diff o) = liftIO $ do
+  read140 p (Diff o) = liftIO do
     V2 a c <- peekByteOff p o
     V2 b d <- peekByteOff p (o + 16)
     return $ V2 (V2 a b) (V2 c d)
   write140 p (Diff o)
     (V2 (V2 a b)
-        (V2 c d)) = liftIO $ do
+        (V2 c d)) = liftIO do
     pokeByteOff p o        (V2 a b)
     pokeByteOff p (o + 16) (V2 c d)
-  read430 p (Diff o) = liftIO $ do
+  read430 p (Diff o) = liftIO do
     V2 a c <- peekByteOff p o
     V2 b d <- peekByteOff p (o + 8)
     return $ V2 (V2 a b) (V2 c d)
   write430 p (Diff o)
     (V2 (V2 a b)
-        (V2 c d)) = liftIO $ do
+        (V2 c d)) = liftIO do
     pokeByteOff p o       (V2 a b)
     pokeByteOff p (o + 8) (V2 c d)
 
@@ -449,13 +450,13 @@ instance Block DMat2 where
   alignment430 _ = 16 -- dvec2 = vec4 in size
   sizeOf430    _ = 32 -- 2 columns, perfect fit!
   isStruct _ = False
-  read140 p (Diff o) = liftIO $ do
+  read140 p (Diff o) = liftIO do
     V2 a c <- peekByteOff p o
     V2 b d <- peekByteOff p (o + 16)
     return $ V2 (V2 a b) (V2 c d)
   write140 p (Diff o)
     (V2 (V2 a b)
-        (V2 c d)) = liftIO $ do
+        (V2 c d)) = liftIO do
     pokeByteOff p o        (V2 a b)
     pokeByteOff p (o + 16) (V2 c d)
   read430 = read140
@@ -467,14 +468,14 @@ instance Block Mat3x2 where
   alignment430 _ = 16 -- per vec4, despite being vec3s
   sizeOf430    _ = 32 -- 2 columns, each rounded up to vec4 size
   isStruct _ = False
-  read140 p (Diff o) = liftIO $ do
+  read140 p (Diff o) = liftIO do
     V3 a c e <- peekByteOff p o
     V3 b d f <- peekByteOff p (o + 16)
     return $ V3 (V2 a b) (V2 c d) (V2 e f)
   write140 p (Diff o)
     (V3 (V2 a b)
         (V2 c d)
-        (V2 e f)) = liftIO $ do
+        (V2 e f)) = liftIO do
     pokeByteOff p o        (V3 a b e)
     pokeByteOff p (o + 16) (V3 c d f)
   read430 = read140
@@ -486,14 +487,14 @@ instance Block DMat3x2 where
   alignment430 _ = 32 -- dvec3s = 24, rounded up to 2*vec4 in size
   sizeOf430    _ = 64 -- 2 columns, each rounded up to 2*vec4 size
   isStruct _ = False
-  read140 p (Diff o) = liftIO $ do
+  read140 p (Diff o) = liftIO do
     V3 a c e <- peekByteOff p o
     V3 b d f <- peekByteOff p (o + 32)
     return $ V3 (V2 a b) (V2 c d) (V2 e f)
   write140 p (Diff o)
     (V3 (V2 a b)
         (V2 c d)
-        (V2 e f)) = liftIO $ do
+        (V2 e f)) = liftIO do
     pokeByteOff p o        (V3 a b e)
     pokeByteOff p (o + 32) (V3 c d f)
   read430 = read140
@@ -505,7 +506,7 @@ instance Block Mat4x2 where
   alignment430 _ = 16 -- per vec4
   sizeOf430    _ = 32 -- 2 columns
   isStruct _ = False
-  read140 p (Diff o) = liftIO $ do
+  read140 p (Diff o) = liftIO do
     V4 a c e g <- peekByteOff p o
     V4 b d f h <- peekByteOff p (o + 16)
     return $ V4 (V2 a b) (V2 c d) (V2 e f) (V2 g h)
@@ -513,7 +514,7 @@ instance Block Mat4x2 where
     (V4 (V2 a b)
         (V2 c d)
         (V2 e f)
-        (V2 g h)) = liftIO $ do
+        (V2 g h)) = liftIO do
     pokeByteOff p o        (V4 a b e g)
     pokeByteOff p (o + 16) (V4 c d f h)
   read430 = read140
@@ -525,7 +526,7 @@ instance Block DMat4x2 where
   alignment430 _ = 32 -- per dvec4 = 2*vec4
   sizeOf430    _ = 64 -- 2 columns
   isStruct _ = False
-  read140 p (Diff o) = liftIO $ do
+  read140 p (Diff o) = liftIO do
     V4 a c e g <- peekByteOff p o
     V4 b d f h <- peekByteOff p (o + 32)
     return $ V4 (V2 a b) (V2 c d) (V2 e f) (V2 g h)
@@ -533,7 +534,7 @@ instance Block DMat4x2 where
     (V4 (V2 a b)
         (V2 c d)
         (V2 e f)
-        (V2 g h)) = liftIO $ do
+        (V2 g h)) = liftIO do
     pokeByteOff p o        (V4 a b e g)
     pokeByteOff p (o + 32) (V4 c d f h)
   read430 = read140
@@ -545,7 +546,7 @@ instance Block Mat2x3 where
   alignment430 _ = 8  -- per vec2
   sizeOf430    _ = 24 -- 3 columns, each a vec2 in size
   isStruct  _ = False
-  read140 p (Diff o) = liftIO $ do
+  read140 p (Diff o) = liftIO do
     V2 a d <- peekByteOff p o
     V2 b e <- peekByteOff p (o + 16)
     V2 c f <- peekByteOff p (o + 32)
@@ -553,11 +554,11 @@ instance Block Mat2x3 where
                 (V3 d e f)
   write140 p (Diff o)
     (V2 (V3 a b c)
-        (V3 d e f)) = liftIO $ do
+        (V3 d e f)) = liftIO do
     pokeByteOff p o        (V2 a d)
     pokeByteOff p (o + 16) (V2 b e)
     pokeByteOff p (o + 32) (V2 c f)
-  read430 p (Diff o) = liftIO $ do
+  read430 p (Diff o) = liftIO do
     V2 a d <- peekByteOff p o
     V2 b e <- peekByteOff p (o + 8)
     V2 c f <- peekByteOff p (o + 16)
@@ -565,7 +566,7 @@ instance Block Mat2x3 where
                 (V3 d e f)
   write430 p (Diff o)
     (V2 (V3 a b c)
-        (V3 d e f)) = liftIO $ do
+        (V3 d e f)) = liftIO do
     pokeByteOff p o        (V2 a d)
     pokeByteOff p (o + 8)  (V2 b e)
     pokeByteOff p (o + 16) (V2 c f)
@@ -576,7 +577,7 @@ instance Block DMat2x3 where
   alignment430 _ = 16 -- a dvec2 is one vec4 in size
   sizeOf430    _ = 48 -- 3 columns, each a vec4 in size
   isStruct     _ = False
-  read140 p (Diff o) = liftIO $ do
+  read140 p (Diff o) = liftIO do
     V2 a d <- peekByteOff p o
     V2 b e <- peekByteOff p (o + 16)
     V2 c f <- peekByteOff p (o + 32)
@@ -584,7 +585,7 @@ instance Block DMat2x3 where
                 (V3 d e f)
   write140 p (Diff o)
     (V2 (V3 a b c)
-        (V3 d e f)) = liftIO $ do
+        (V3 d e f)) = liftIO do
     pokeByteOff p o        (V2 a d)
     pokeByteOff p (o + 16) (V2 b e)
     pokeByteOff p (o + 32) (V2 c f)
@@ -597,7 +598,7 @@ instance Block Mat3 where
   alignment430 _ = 16 -- a dvec2 is one vec4 in size
   sizeOf430    _ = 48 -- 3 columns, each a vec4 in size
   isStruct _ = False
-  read140 p (Diff o) = liftIO $ do
+  read140 p (Diff o) = liftIO do
     V3 a d g <- peekByteOff p o
     V3 b e h <- peekByteOff p (o + 16)
     V3 c f i <- peekByteOff p (o + 24)
@@ -607,7 +608,7 @@ instance Block Mat3 where
   write140 p (Diff o)
     (V3 (V3 a b c)
         (V3 d e f)
-        (V3 g h i)) = liftIO $ do
+        (V3 g h i)) = liftIO do
     pokeByteOff p o        (V3 a d g)
     pokeByteOff p (o + 16) (V3 b e h)
     pokeByteOff p (o + 32) (V3 c f i)
@@ -620,7 +621,7 @@ instance Block DMat3 where
   alignment430 _ = 32 -- a dvec2 is one vec4 in size
   sizeOf430    _ = 96 -- 3 columns, each a vec4 in size
   isStruct _ = False
-  read140 p (Diff o) = liftIO $ do
+  read140 p (Diff o) = liftIO do
     V3 a d g <- peekByteOff p o
     V3 b e h <- peekByteOff p (o + 32)
     V3 c f i <- peekByteOff p (o + 64)
@@ -630,7 +631,7 @@ instance Block DMat3 where
   write140 p (Diff o)
     (V3 (V3 a b c)
         (V3 d e f)
-        (V3 g h i)) = liftIO $ do
+        (V3 g h i)) = liftIO do
     pokeByteOff p o        (V3 a d g)
     pokeByteOff p (o + 32) (V3 b e h)
     pokeByteOff p (o + 64) (V3 c f i)
@@ -643,7 +644,7 @@ instance Block Mat4x3 where
   alignment430 _ = 16 -- per vec4
   sizeOf430    _ = 48 -- 3 columns
   isStruct _ = False
-  read140 p (Diff o) = liftIO $ do
+  read140 p (Diff o) = liftIO do
     V4 a d g j <- peekByteOff p o
     V4 b e h k <- peekByteOff p (o + 16)
     V4 c f i l <- peekByteOff p (o + 32)
@@ -655,7 +656,7 @@ instance Block Mat4x3 where
     (V4 (V3 a b c)
         (V3 d e f)
         (V3 g h i)
-        (V3 j k l)) = liftIO $ do
+        (V3 j k l)) = liftIO do
     pokeByteOff p o        (V4 a d g j)
     pokeByteOff p (o + 16) (V4 b e h k)
     pokeByteOff p (o + 32) (V4 c f i l)
@@ -668,7 +669,7 @@ instance Block DMat4x3 where
   alignment430 _ = 32 -- dvec4 is 2*vec4 in size
   sizeOf430    _ = 48 -- 3 columns
   isStruct _ = False
-  read140 p (Diff o) = liftIO $ do
+  read140 p (Diff o) = liftIO do
     V4 a d g j <- peekByteOff p o
     V4 b e h k <- peekByteOff p (o + 32)
     V4 c f i l <- peekByteOff p (o + 64)
@@ -680,7 +681,7 @@ instance Block DMat4x3 where
     (V4 (V3 a b c)
         (V3 d e f)
         (V3 g h i)
-        (V3 j k l)) = liftIO $ do
+        (V3 j k l)) = liftIO do
     pokeByteOff p o        (V4 a d g j)
     pokeByteOff p (o + 32) (V4 b e h k)
     pokeByteOff p (o + 64) (V4 c f i l)
@@ -693,7 +694,7 @@ instance Block Mat2x4 where
   alignment430 _ = 8  -- 2 rows, each a vec2 in size
   sizeOf430    _ = 32 -- 4 columns
   isStruct _ = False
-  read140 p (Diff o) = liftIO $ do
+  read140 p (Diff o) = liftIO do
     V2 a e <- peekByteOff p o
     V2 b f <- peekByteOff p (o + 16)
     V2 c g <- peekByteOff p (o + 32)
@@ -702,12 +703,12 @@ instance Block Mat2x4 where
                 (V4 e f g h)
   write140 p (Diff o)
     (V2 (V4 a b c d)
-        (V4 e f g h)) = liftIO $ do
+        (V4 e f g h)) = liftIO do
     pokeByteOff p o        (V2 a e)
     pokeByteOff p (o + 16) (V2 b f)
     pokeByteOff p (o + 32) (V2 c g)
     pokeByteOff p (o + 48) (V2 d h)
-  read430 p (Diff o) = liftIO $ do
+  read430 p (Diff o) = liftIO do
     V2 a e <- peekByteOff p o
     V2 b f <- peekByteOff p (o + 8)
     V2 c g <- peekByteOff p (o + 16)
@@ -716,7 +717,7 @@ instance Block Mat2x4 where
                 (V4 e f g h)
   write430 p (Diff o)
     (V2 (V4 a b c d)
-        (V4 e f g h)) = liftIO $ do
+        (V4 e f g h)) = liftIO do
     pokeByteOff p o        (V2 a e)
     pokeByteOff p (o + 8) (V2 b f)
     pokeByteOff p (o + 16) (V2 c g)
@@ -728,7 +729,7 @@ instance Block DMat2x4 where
   alignment430 _ = 16 -- 2 rows, and dvec2 = vec4 in size
   sizeOf430    _ = 64 -- 4 columns, perfect fit
   isStruct _ = False
-  read140 p (Diff o) = liftIO $ do
+  read140 p (Diff o) = liftIO do
     V2 a e <- peekByteOff p o
     V2 b f <- peekByteOff p (o + 16)
     V2 c g <- peekByteOff p (o + 32)
@@ -737,7 +738,7 @@ instance Block DMat2x4 where
                 (V4 e f g h)
   write140 p (Diff o)
     (V2 (V4 a b c d)
-        (V4 e f g h)) = liftIO $ do
+        (V4 e f g h)) = liftIO do
     pokeByteOff p o        (V2 a e)
     pokeByteOff p (o + 16) (V2 b f)
     pokeByteOff p (o + 32) (V2 c g)
@@ -751,7 +752,7 @@ instance Block Mat3x4 where
   alignment430 _ = 16 -- 3 rows, but vec3 rounds up to vec4
   sizeOf430    _ = 64 -- 4 columns, each rounded up to 16 bytes each
   isStruct _ = False
-  read140 p (Diff o) = liftIO $ do
+  read140 p (Diff o) = liftIO do
     V3 a e i <- peekByteOff p o
     V3 b f j <- peekByteOff p (o + 16)
     V3 c g k <- peekByteOff p (o + 32)
@@ -762,7 +763,7 @@ instance Block Mat3x4 where
   write140 p (Diff o)
     (V3 (V4 a b c d)
         (V4 e f g h)
-        (V4 i j k l)) = liftIO $ do
+        (V4 i j k l)) = liftIO do
     pokeByteOff p o        (V3 a e i)
     pokeByteOff p (o + 16) (V3 b f j)
     pokeByteOff p (o + 32) (V3 c g k)
@@ -776,7 +777,7 @@ instance Block DMat3x4 where
   alignment430 _ = 32  -- 3 rows, but dvec3 rounds up to 2*vec4
   sizeOf430    _ = 128 -- 4 columns, each rounded up to 32 bytes each
   isStruct _ = False
-  read140 p (Diff o) = liftIO $ do
+  read140 p (Diff o) = liftIO do
     V3 a e i <- peekByteOff p o
     V3 b f j <- peekByteOff p (o + 32)
     V3 c g k <- peekByteOff p (o + 64)
@@ -787,7 +788,7 @@ instance Block DMat3x4 where
   write140 p (Diff o)
     (V3 (V4 a b c d)
         (V4 e f g h)
-        (V4 i j k l)) = liftIO $ do
+        (V4 i j k l)) = liftIO do
     pokeByteOff p o        (V3 a e i)
     pokeByteOff p (o + 32) (V3 b f j)
     pokeByteOff p (o + 64) (V3 c g k)
@@ -801,7 +802,7 @@ instance Block Mat4 where
   alignment430 _ = 16
   sizeOf430    _ = 64
   isStruct _ = False
-  read140 p (Diff o) = liftIO $ do
+  read140 p (Diff o) = liftIO do
     V4 a e i m <- peekByteOff p o
     V4 b f j n <- peekByteOff p (o + 16)
     V4 c g k q <- peekByteOff p (o + 32)
@@ -814,7 +815,7 @@ instance Block Mat4 where
     (V4 (V4 a b c d)
         (V4 e f g h)
         (V4 i j k l)
-        (V4 m n q r)) = liftIO $ do
+        (V4 m n q r)) = liftIO do
     pokeByteOff p o        (V4 a e i m)
     pokeByteOff p (o + 16) (V4 b f j n)
     pokeByteOff p (o + 32) (V4 c g k q)
@@ -828,7 +829,7 @@ instance Block DMat4 where
   alignment430 _ = 32
   sizeOf430    _ = 128
   isStruct _ = False
-  read140 p (Diff o) = liftIO $ do
+  read140 p (Diff o) = liftIO do
     V4 a e i m <- peekByteOff p o
     V4 b f j n <- peekByteOff p (o + 32)
     V4 c g k q <- peekByteOff p (o + 64)
@@ -841,7 +842,7 @@ instance Block DMat4 where
     (V4 (V4 a b c d)
         (V4 e f g h)
         (V4 i j k l)
-        (V4 m n q r)) = liftIO $ do
+        (V4 m n q r)) = liftIO do
     pokeByteOff p o        (V4 a e i m)
     pokeByteOff p (o + 32) (V4 b f j n)
     pokeByteOff p (o + 64) (V4 c g k q)
@@ -855,7 +856,7 @@ instance Block (Complex Float) where
   alignment430 _ = 8
   sizeOf430    _ = 8
   isStruct     _ = True
-  read140 p (Diff o) = liftIO $ do
+  read140 p (Diff o) = liftIO do
     V2 a b <- peekByteOff p o
     return $ a :+ b
   write140 p (Diff o) (a :+ b) = liftIO $ pokeByteOff p o (V2 a b)
@@ -868,7 +869,7 @@ instance Block (Complex Double) where
   alignment430   = alignment140
   sizeOf430      = sizeOf140
   isStruct     _ = True
-  read140 p (Diff o) = liftIO $ do
+  read140 p (Diff o) = liftIO do
     V2 a b <- peekByteOff p o
     return $ a :+ b
   write140 p (Diff o) (a :+ b) = liftIO $ pokeByteOff p o (V2 a b)
@@ -882,7 +883,7 @@ instance Block (Quaternion Float) where
   alignment430   = alignment140
   sizeOf430      = sizeOf140
   isStruct     _ = True
-  read140 p (Diff o) = liftIO $ do
+  read140 p (Diff o) = liftIO do
     V4 a b c d <- peekByteOff p o
     return $ Quaternion d (V3 a b c)
   write140 p (Diff o) (Quaternion d (V3 a b c)) = liftIO $ pokeByteOff p o (V4 a b c d)
@@ -895,7 +896,7 @@ instance Block (Quaternion Double) where
   alignment430   = alignment140
   sizeOf430      = sizeOf140
   isStruct     _ = True
-  read140 p (Diff o) = liftIO $ do
+  read140 p (Diff o) = liftIO do
     V4 a b c d <- peekByteOff p o
     return $ Quaternion d (V3 a b c)
   write140 p (Diff o) (Quaternion d (V3 a b c)) = liftIO $ pokeByteOff p o (V4 a b c d)
@@ -912,13 +913,13 @@ instance (Dim n, Block a) => Block (V n a) where
   alignment430 _ = alignment430 (Proxy :: Proxy a)
   sizeOf140 _ = roundUp (sizeOf140 (Proxy :: Proxy a)) (alignment140 (Proxy :: Proxy a)) * reflectDim (Proxy :: Proxy n)
   sizeOf430 _ = roundUp (sizeOf430 (Proxy :: Proxy a)) (alignment430 (Proxy :: Proxy a)) * reflectDim (Proxy :: Proxy n)
-  read140 p (Diff o) = liftIO $ sequence $ tabulate $ \i -> read140 p $ Diff (o + i*d) where
+  read140 p (Diff o) = liftIO $ sequence $ tabulate \i -> read140 p $ Diff (o + i*d) where
     d = roundUp (sizeOf140 (Proxy :: Proxy a)) (alignment140 (Proxy :: Proxy a))
-  write140 p (Diff o) v = liftIO $ iforM_ v $ \i -> write140 p (Diff (o + i*d)) where
+  write140 p (Diff o) v = liftIO $ iforM_ v \i -> write140 p (Diff (o + i*d)) where
     d = roundUp (sizeOf140 (Proxy :: Proxy a)) (alignment140 (Proxy :: Proxy a))
-  read430 p (Diff o) = liftIO $ sequence $ tabulate $ \i -> read430 p $ Diff (o + i*d) where
+  read430 p (Diff o) = liftIO $ sequence $ tabulate \i -> read430 p $ Diff (o + i*d) where
     d = roundUp (sizeOf430 (Proxy :: Proxy a)) (alignment430 (Proxy :: Proxy a))
-  write430 p (Diff o) v = liftIO $ iforM_ v $ \i -> write430 p (Diff (o + i*d)) where
+  write430 p (Diff o) v = liftIO $ iforM_ v \i -> write430 p (Diff (o + i*d)) where
     d = roundUp (sizeOf430 (Proxy :: Proxy a)) (alignment430 (Proxy :: Proxy a))
 
 -- | @roundUp k n@ rounds up k up to an integral multiple of n

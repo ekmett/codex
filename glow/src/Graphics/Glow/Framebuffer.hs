@@ -1,8 +1,9 @@
 {-# language CPP #-}
 {-# language DeriveDataTypeable #-}
-{-# language DeriveGeneric      #-}
-{-# language PatternSynonyms    #-}
-{-# language LambdaCase         #-}
+{-# language BlockArguments #-}
+{-# language DeriveGeneric #-}
+{-# language PatternSynonyms #-}
+{-# language LambdaCase #-}
 -- |
 -- Copyright :  (c) 2014-2019 Edward Kmett
 -- License   :  BSD-2-Clause OR Apache 2.0
@@ -131,13 +132,13 @@ instance Show FramebufferError where
 instance Object Framebuffer where
   object = coerce
   isa i = (GL_FALSE /=) `liftM` glIsFramebuffer (coerce i)
-  deletes xs = liftIO $ allocaArray n $ \p -> do
+  deletes xs = liftIO $ allocaArray n \p -> do
     pokeArray p (coerce xs)
     glDeleteFramebuffers (fromIntegral n) p
     where n = length xs
 
 instance Gen Framebuffer where
-  gens n = liftIO $ allocaArray n $ \p -> do
+  gens n = liftIO $ allocaArray n \p -> do
     glGenFramebuffers (fromIntegral n) p
     map Framebuffer <$> peekArray n p
 

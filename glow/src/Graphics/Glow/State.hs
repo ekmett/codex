@@ -1,4 +1,6 @@
-{-# language PatternSynonyms #-} {-# language GeneralizedNewtypeDeriving #-}
+{-# language PatternSynonyms #-}
+{-# language GeneralizedNewtypeDeriving #-}
+{-# language BlockArguments #-}
 {-# language RankNTypes #-}
 {-# language LambdaCase #-}
 {-# options_ghc -Wno-missing-pattern-synonym-signatures -Wno-incomplete-patterns #-}
@@ -100,8 +102,8 @@ instance Default DepthFunc where
   def = DepthFuncLEqual
 
 depthFunc :: Lens' StateBits DepthFunc
-depthFunc f (StateBits s) = f (toEnum $ fromIntegral $ s .&. DEPTHFUNC_MASK) <&>
-  \e -> StateBits $ (s .&. complement DEPTHFUNC_MASK) .|. fromIntegral (fromEnum e)
+depthFunc f (StateBits s) = f (toEnum $ fromIntegral $ s .&. DEPTHFUNC_MASK) <&> \e ->
+  StateBits $ (s .&. complement DEPTHFUNC_MASK) .|. fromIntegral (fromEnum e)
 
 data StencilFunc
   = StencilFuncAlways
@@ -183,8 +185,8 @@ stencilOpFail  = enum STENCIL_OP_FAIL_MASK STENCIL_OP_FAIL_SHIFT
 stencilOpZFail = enum STENCIL_OP_ZFAIL_MASK STENCIL_OP_ZFAIL_SHIFT
 
 enum :: Enum a => Word64 -> Int -> Lens' StateBits a
-enum mask i f (StateBits s) = f (toEnum $ fromIntegral $ unsafeShiftR (s .&. mask) i) <&>
-  \e -> StateBits $ (s .&. complement mask) .|. unsafeShiftL (fromIntegral $ fromEnum e) i
+enum mask i f (StateBits s) = f (toEnum $ fromIntegral $ unsafeShiftR (s .&. mask) i) <&> \e ->
+  StateBits $ (s .&. complement mask) .|. unsafeShiftL (fromIntegral $ fromEnum e) i
 
 bitmask :: Word64 -> Lens' StateBits Bool
 bitmask i f (StateBits s) = f (s .&. i /= 0) <&> StateBits . bool (s .&. complement i) (s .|. i)
@@ -320,7 +322,7 @@ printStateBits s = do
   putStrLn $ "stencilOp " ++ show (s^.stencilOpFail) ++ " " ++ show (s^.stencilOpZFail) ++ " " ++ show (s^.stencilOpPass)
 
 stateBits :: StateVar StateBits
-stateBits = StateVar (get glowStateBits) $ \s@(StateBits sb) -> do
+stateBits = StateVar (get glowStateBits) \s@(StateBits sb) -> do
   StateBits currentStateBits <- get glowStateBits
   glowStateBits $= s
 
@@ -333,22 +335,36 @@ stateBits = StateVar (get glowStateBits) $ \s@(StateBits sb) -> do
       field l = views l (fromIntegral . glenum) s
       {-# inline field #-}
 
-  unless (diff == 0) $ do
-    when (changed DEPTHFUNC_MASK) $ glDepthFunc $ field depthFunc
-    when (changed BLEND_MASK) $
+  unless (diff == 0) do
+
+    when (changed DEPTHFUNC_MASK) do
+      glDepthFunc $ field depthFunc
+
+    when (changed BLEND_MASK) do
       if sb .&. BLEND_MASK == 0 then glDisable GL_BLEND
       else do
         glEnable GL_BLEND
         glBlendFuncSeparate
           (field srcBlendFuncRGB) (field dstBlendFuncRGB)
           (field srcBlendFuncAlpha) (field dstBlendFuncAlpha)
-    when (changed BLEND_EQUATION_MASK) $ glBlendEquationSeparate (field blendEquationRGB) (field blendEquationAlpha)
-    when (changed DEPTH_MASK) $ glDepthMask (glflag DEPTH_MASK)
-    when (changed COLOR_MASK) $ glColorMask (glflag RED_MASK) (glflag GREEN_MASK) (glflag BLUE_MASK) (glflag ALPHA_MASK)
-    when (changed POLYGON_MODE_LINE) $ glPolygonMode GL_FRONT_AND_BACK $ bool GL_FILL GL_LINE $ flag POLYGON_MODE_LINE
-    when (changed STENCIL_FUNC_FIELDS_MASK) $ glStencilFunc
-      (field stencilFunc) (views stencilFuncRef fromIntegral s) (views stencilFuncMask fromIntegral s)
-    when (changed STENCIL_OP_MASK) $ glStencilOp (field stencilOpFail) (field stencilOpZFail) (field stencilOpPass)
+
+    when (changed BLEND_EQUATION_MASK) do
+      glBlendEquationSeparate (field blendEquationRGB) (field blendEquationAlpha)
+
+    when (changed DEPTH_MASK) do
+      glDepthMask (glflag DEPTH_MASK)
+
+    when (changed COLOR_MASK) do
+      glColorMask (glflag RED_MASK) (glflag GREEN_MASK) (glflag BLUE_MASK) (glflag ALPHA_MASK)
+
+    when (changed POLYGON_MODE_LINE) do
+      glPolygonMode GL_FRONT_AND_BACK $ bool GL_FILL GL_LINE $ flag POLYGON_MODE_LINE
+
+    when (changed STENCIL_FUNC_FIELDS_MASK) do
+      glStencilFunc (field stencilFunc) (views stencilFuncRef fromIntegral s) (views stencilFuncMask fromIntegral s)
+
+    when (changed STENCIL_OP_MASK) do
+      glStencilOp (field stencilOpFail) (field stencilOpZFail) (field stencilOpPass)
 
 setCommonState :: MonadIO m => m ()
 setCommonState = do
@@ -358,4 +374,5 @@ setCommonState = do
   glDisable GL_POLYGON_OFFSET_LINE
   glDisable GL_STENCIL_TEST
   glEnable GL_DEPTH_TEST
-  stateBits $= do def & forceState .~ True
+  stateBits $= do
+    def & forceState .~ True

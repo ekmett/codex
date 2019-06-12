@@ -1,4 +1,5 @@
 {-# language DeriveDataTypeable #-}
+{-# language BlockArguments #-}
 {-# language DeriveGeneric #-}
 -- |
 -- Copyright :  (c) 2014-2019 Edward Kmett
@@ -34,13 +35,13 @@ newtype VertexArray = VertexArray GLuint deriving (Eq,Ord,Show,Read,Typeable,Dat
 instance Object VertexArray where
   object = coerce
   isa i = (GL_FALSE /=) <$> glIsVertexArray (coerce i)
-  deletes xs = liftIO $ allocaArray n $ \p -> do
+  deletes xs = liftIO $ allocaArray n \p -> do
     pokeArray p (coerce xs)
     glDeleteVertexArrays (fromIntegral n) p
     where n = length xs
 
 instance Gen VertexArray where
-  gens n = liftIO $ allocaArray n $ \p -> do
+  gens n = liftIO $ allocaArray n \p -> do
     glGenVertexArrays (fromIntegral n) p
     map VertexArray <$> peekArray n p
 

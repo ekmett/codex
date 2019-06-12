@@ -4,6 +4,7 @@
 {-# language FlexibleInstances #-}
 {-# language FlexibleContexts #-}
 {-# language TypeFamilies #-}
+{-# language BlockArguments #-}
 -- |
 -- Copyright :  (c) 2014-2019 Edward Kmett
 -- License   :  BSD-2-Clause OR Apache-2.0
@@ -80,8 +81,8 @@ uniformMatrices
   -> (GLint -> GLsizei -> GLboolean -> Ptr y -> IO ())
   -> UniformLocation -> f (g (h a)) -> m ()
 uniformMatrices rowMajor columnMajor loc xs
-  | canTranspose = liftIO $ withArrayLen (              toList xs) $ \n p -> rowMajor    loc (fromIntegral n) GL_TRUE  (castPtr p)
-  | otherwise    = liftIO $ withArrayLen (transpose <$> toList xs) $ \n p -> columnMajor loc (fromIntegral n) GL_FALSE (castPtr p)
+  | canTranspose = liftIO $ withArrayLen (              toList xs) \n p -> rowMajor    loc (fromIntegral n) GL_TRUE  (castPtr p)
+  | otherwise    = liftIO $ withArrayLen (transpose <$> toList xs) \n p -> columnMajor loc (fromIntegral n) GL_FALSE (castPtr p)
 
 uniformMat4s :: (MonadIO m, Foldable f)  => UniformLocation -> f Mat4 -> m ()
 uniformMat4s = uniformMatrices glUniformMatrix4fv glUniformMatrix4fv
@@ -297,7 +298,7 @@ showUniformType d = \case
   t -> showsPrec d t
 
 uniformTypeName :: UniformType -> Maybe String
-uniformTypeName = \ case
+uniformTypeName = \case
   GL_FLOAT -> Just "float"
   GL_FLOAT_VEC2 -> Just "vec2"
   GL_FLOAT_VEC3 -> Just "vec3"

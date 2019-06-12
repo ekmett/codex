@@ -9,6 +9,7 @@
 {-# language DeriveFunctor #-}
 {-# language DeriveTraversable #-}
 {-# language DeriveGeneric #-}
+{-# language BlockArguments #-}
 -- |
 -- Copyright :  (c) 2014-2019 Edward Kmett
 -- License   :  BSD-2-Clause OR Apache-2.0
@@ -103,7 +104,7 @@ type AttributeAccessor a b = a LayoutAnnotation -> LayoutAnnotation b
 -- 
 -- See 'setVertexAttribute' for enabling and disabling vertex attribute semantics
 vertexAttribute :: HasLayoutAnnotation a => AttributeLocation -> SettableStateVar (Maybe (AttributeAccessor a b))
-vertexAttribute = contramap (fmap (\accessor -> getLayout . accessor $ layoutAnnotation (Proxy::Proxy a))) . setVertexAttribute
+vertexAttribute = contramap (fmap \accessor -> getLayout . accessor $ layoutAnnotation (Proxy::Proxy a)) . setVertexAttribute
 
 -- | Associates the vertex attribute to the data layout in the vertex buffer. 
 -- The association is stored in the vertex array object 'OpenGL' wise, so a VAO must be bound
@@ -120,7 +121,7 @@ vertexAttribute = contramap (fmap (\accessor -> getLayout . accessor $ layoutAnn
 -- setVertexAttribute location $= 'Just' ('Layout' 3 'GL_FLOAT' False (3 * 'sizeOf' Float) 'nullPtr')
 -- @
 setVertexAttribute :: AttributeLocation -> SettableStateVar (Maybe Layout)
-setVertexAttribute l = SettableStateVar $ \case
+setVertexAttribute l = SettableStateVar \case
   Nothing -> glDisableVertexAttribArray l
   Just layout -> do
     glEnableVertexAttribArray l

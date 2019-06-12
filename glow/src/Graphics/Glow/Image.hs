@@ -1,4 +1,5 @@
 {-# language ScopedTypeVariables #-}
+{-# language BlockArguments #-}
 {-# language FlexibleContexts #-}
 {-# language TypeFamilies #-}
 -- |
@@ -133,7 +134,7 @@ packedPixelStore = do
 -- @'download' x y w h@ copies w*h region of the screen starting from position (x,y) into a JuicyPixels image
 download :: forall m a. (MonadIO m, ImageFormat a) => Int -> Int -> Int -> Int -> m (Image a)
 download x y w h
-  | w >= 0, h >= 0, n <- w * h = liftIO $ do
+  | w >= 0, h >= 0, n <- w * h = liftIO do
     fp <- mallocForeignPtrArray (compSize2D 1 fmt typ w h)
     packedPixelStore
     withForeignPtr fp $ glReadPixels (fromIntegral x) (fromIntegral y) (fromIntegral w) (fromIntegral h) fmt typ . castPtr
@@ -144,7 +145,7 @@ download x y w h
 
 -- | @'downloadM' x0 y0@ copies the screen starting at position (x,y) into an existing mutable image
 downloadM :: forall m a. (MonadIO m, ImageFormat a) => Int -> Int -> MutableImage RealWorld a -> m ()
-downloadM x y (MutableImage w h mv) = liftIO $ do
+downloadM x y (MutableImage w h mv) = liftIO do
     packedPixelStore
     MV.unsafeWith mv $ glReadPixels
       (fromIntegral x) (fromIntegral y)
@@ -159,20 +160,20 @@ class Image2D i where
   store :: MonadIO m => i -> TextureTarget -> m ()
 
 instance ImageFormat a => Image2D (Image a) where
-  upload i@(Image w h v) t l= liftIO $ do
+  upload i@(Image w h v) t l= liftIO do
     packedPixelStore
     V.unsafeWith v $ glTexSubImage2D (textureTarget t) l 0 0 (fromIntegral w) (fromIntegral h) (pixelFormat i) (pixelType i) . castPtr
     swizzle i t
-  store i@(Image w h _) t = liftIO $ do
+  store i@(Image w h _) t = liftIO do
     glTexStorage2D (textureTarget t) 1 (internalFormat i) (fromIntegral w) (fromIntegral h)
     upload i t 0
 
 instance (ImageFormat a, s ~ RealWorld) => Image2D (MutableImage s a) where
-  upload i@(MutableImage w h v) t l = liftIO $ do
+  upload i@(MutableImage w h v) t l = liftIO do
     packedPixelStore
     MV.unsafeWith v $ glTexSubImage2D (textureTarget t) l 0 0 (fromIntegral w) (fromIntegral h) (pixelFormat i) (pixelType i) . castPtr
     swizzle i t
-  store i@(MutableImage w h _) t = liftIO $ do
+  store i@(MutableImage w h _) t = liftIO do
     glTexStorage2D (textureTarget t) 1 (internalFormat i) (fromIntegral w) (fromIntegral h)
     upload i t 0
 

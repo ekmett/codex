@@ -1,5 +1,6 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
+{-# language DeriveDataTypeable #-}
+{-# language DeriveGeneric #-}
+{-# language BlockArguments #-}
 -- |
 -- Copyright :  (c) 2014-2019 Edward Kmett
 -- License   :  BSD-2-Clause OR Apache 2.0
@@ -58,13 +59,13 @@ type SamplerParameter = GLenum
 instance Object Sampler where
   object = coerce
   isa i = (GL_FALSE /=) <$> glIsSampler (coerce i)
-  deletes xs = liftIO $ allocaArray n $ \p -> do
+  deletes xs = liftIO $ allocaArray n \p -> do
     pokeArray p (coerce xs)
     glDeleteSamplers (fromIntegral n) p
     where n = length xs
 
 instance Gen Sampler where
-  gens n = liftIO $ allocaArray n $ \p -> do
+  gens n = liftIO $ allocaArray n \p -> do
     glGenSamplers (fromIntegral n) p
     map Sampler <$> peekArray n p
 

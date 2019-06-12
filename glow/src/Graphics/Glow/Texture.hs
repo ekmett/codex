@@ -4,6 +4,7 @@
 {-# language DataKinds #-}
 {-# language OverloadedLists #-}
 {-# language PatternSynonyms #-}
+{-# language BlockArguments #-}
 {-# language ViewPatterns #-}
 {-# options_ghc -Wno-missing-pattern-synonym-signatures #-}
 -- |
@@ -110,13 +111,13 @@ newtype Texture = Texture GLuint deriving (Eq,Ord,Show,Read,Typeable,Data,Generi
 instance Object Texture where
   object = coerce
   isa i = (GL_FALSE /=) `liftM` glIsTexture (coerce i)
-  deletes xs = liftIO $ allocaArray n $ \p -> do
+  deletes xs = liftIO $ allocaArray n \p -> do
     pokeArray p (coerce xs)
     glDeleteTextures (fromIntegral n) p
     where n = length xs
 
 instance Gen Texture where
-  gens n = liftIO $ allocaArray n $ \p -> do
+  gens n = liftIO $ allocaArray n \p -> do
     glGenTextures (fromIntegral n) p
     map Texture <$> peekArray n p
 

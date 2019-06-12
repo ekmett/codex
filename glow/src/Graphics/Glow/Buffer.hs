@@ -3,6 +3,7 @@
 {-# language DerivingVia #-}
 {-# language StandaloneDeriving #-}
 {-# language FlexibleContexts #-}
+{-# language BlockArguments #-}
 {-# language FlexibleInstances #-}
 {-# language GeneralizedNewtypeDeriving #-}
 {-# language PatternSynonyms #-}
@@ -128,13 +129,13 @@ instance Exception BufferException
 instance Object (Buffer a) where
   object = coerce
   isa i = (GL_FALSE /=) `liftM` glIsBuffer (coerce i)
-  deletes xs = liftIO $ allocaArray n $ \p -> do
+  deletes xs = liftIO $ allocaArray n \p -> do
     pokeArray p (coerce xs)
     glDeleteBuffers (fromIntegral n) p
     where n = length xs
 
 instance Gen (Buffer a) where
-  gens n = liftIO $ allocaArray n $ \p -> do
+  gens n = liftIO $ allocaArray n \p -> do
     glGenBuffers (fromIntegral n) p
     map Buffer <$> peekArray n p
 
@@ -170,7 +171,7 @@ newtype Alloca a = Alloca a
   deriving (Eq,Ord,Show,Read,Storable)
 
 instance Storable a => BufferData (Alloca a) where
-  withRawData a m = alloca $ \p -> poke p a *> m (castPtr p)
+  withRawData a m = alloca \p -> poke p a *> m (castPtr p)
   fromRawData _ p = peek (castPtr p)
   sizeOfData = sizeOf
   {-# inline sizeOfData #-}
@@ -195,30 +196,30 @@ bufferDataDirect :: forall a. BufferData a => Buffer a -> StateVar (BufferUsage,
 bufferDataDirect (Buffer i)
   | gl_EXT_direct_state_access = StateVar g s
   | otherwise = throw $ BufferException "gl_EXT_direct_state_access unsupported" where
-  g = alloca $ \sizePtr ->
-      alloca $ \usagePtr -> do
+  g = alloca \sizePtr ->
+      alloca \usagePtr -> do
         glGetNamedBufferParameterivEXT i GL_BUFFER_SIZE sizePtr
         glGetNamedBufferParameterivEXT i GL_BUFFER_USAGE usagePtr
         usage <- peek usagePtr
         size  <- peek sizePtr
-        allocaBytes (fromIntegral size) $ \rawPtr -> do
+        allocaBytes (fromIntegral size) \rawPtr -> do
           glGetNamedBufferSubDataEXT i 0 (fromIntegral size) (castPtr rawPtr)
           (BufferUsage $ fromIntegral usage,) <$> fromRawData (fromIntegral size) rawPtr
-  s (u,v) = withRawData v $ \ptr -> glNamedBufferDataEXT i (fromIntegral $ sizeOfData v) ptr (coerce u)
+  s (u,v) = withRawData v \ptr -> glNamedBufferDataEXT i (fromIntegral $ sizeOfData v) ptr (coerce u)
 
 -- | uploading data to the currently at 'BufferTarget' bound buffer
 bufferData :: forall a. BufferData a => BufferTarget -> StateVar (BufferUsage, a)
 bufferData (BufferTarget t _) = StateVar g s where
-  g = alloca $ \sizePtr ->
-      alloca $ \usagePtr -> do
+  g = alloca \sizePtr ->
+      alloca \usagePtr -> do
         glGetBufferParameteriv t GL_BUFFER_SIZE sizePtr
         glGetBufferParameteriv t GL_BUFFER_USAGE usagePtr
         usage <- BufferUsage . fromIntegral <$> peek usagePtr
         size  <- peek sizePtr
-        allocaBytes (fromIntegral size) $ \rawPtr -> do
+        allocaBytes (fromIntegral size) \rawPtr -> do
           glGetBufferSubData t 0 (fromIntegral size) (castPtr rawPtr)
           (usage,) <$> fromRawData (fromIntegral size) rawPtr
-  s (u,v) = withRawData v $ \ptr -> glBufferData t (fromIntegral $ sizeOfData v) ptr (coerce u)
+  s (u,v) = withRawData v \ptr -> glBufferData t (fromIntegral $ sizeOfData v) ptr (coerce u)
 
 -- * Buffer Types
 

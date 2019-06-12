@@ -1,6 +1,7 @@
 {-# language DeriveDataTypeable #-}
 {-# language DeriveGeneric #-}
 {-# language PatternSynonyms #-}
+{-# language BlockArguments #-}
 {-# language LambdaCase #-}
 -- |
 -- Copyright :  (c) 2014-2019 Edward Kmett
@@ -42,13 +43,13 @@ newtype Renderbuffer a = Renderbuffer GLuint deriving (Eq,Ord,Show,Read,Typeable
 instance Object (Renderbuffer a) where
   object = coerce
   isa i = (GL_FALSE /=) `liftM` glIsRenderbuffer (coerce i)
-  deletes xs = liftIO $ allocaArray n $ \p -> do
+  deletes xs = liftIO $ allocaArray n \p -> do
     pokeArray p (coerce xs)
     glDeleteRenderbuffers (fromIntegral n) p
     where n = length xs
 
 instance Gen (Renderbuffer a) where
-  gens n = liftIO $ allocaArray n $ \p -> do
+  gens n = liftIO $ allocaArray n \p -> do
     glGenRenderbuffers (fromIntegral n) p
     map Renderbuffer <$> peekArray n p
 

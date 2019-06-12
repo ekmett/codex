@@ -1,3 +1,4 @@
+{-# language BlockArguments #-}
 -- |
 -- Copyright :  (c) 2019 Edward Kmett and Sean Chalmers
 --              (c) 2014 Edward Kmett 
@@ -82,12 +83,12 @@ detachShader (Program p) (Shader s) = glDetachShader p s
 
 -- @'numAttachedShaders' program@ returns the number of shader objects attached to @program@.
 numAttachedShaders :: MonadIO m => Program -> m Int
-numAttachedShaders p = fromIntegral <$> get (programParameter1 p GL_ATTACHED_SHADERS)
+numAttachedShaders p = liftIO $ fromIntegral <$> get (programParameter1 p GL_ATTACHED_SHADERS)
 
 attachedShaders :: MonadIO m => Program -> m [Shader]
-attachedShaders p = do
+attachedShaders p = liftIO do
   numShaders <- numAttachedShaders p
-  ids <- liftIO $ allocaArray numShaders $ \buf -> do
+  ids <- allocaArray numShaders \buf -> do
     glGetAttachedShaders (object p) (fromIntegral numShaders) nullPtr buf
     peekArray numShaders buf
   return $ map Shader ids
@@ -96,7 +97,7 @@ linkProgram :: MonadIO m => Program -> m ()
 linkProgram = glLinkProgram . object
 
 buildProgram :: MonadIO m => Shader -> Shader -> m Program
-buildProgram vs fs = do
+buildProgram vs fs = liftIO do
   program <- glCreateProgram
   let p = Program program
 
@@ -110,7 +111,7 @@ buildProgram vs fs = do
 
   status <- validateStatus p
 
-  liftIO . unless (linkOK && status) $ do
+  unless (linkOK && status) do
     hPutStrLn stderr "GL.linkProgram error"
     plog <- programInfoLog p
     Char8.hPutStrLn stderr plog
@@ -127,12 +128,12 @@ linkStatus :: MonadIO m => Program -> m Bool
 linkStatus p = (GL_FALSE /=) <$> get (programParameter1 p GL_LINK_STATUS)
 
 programInfoLog :: MonadIO m => Program -> m Strict.ByteString
-programInfoLog p = liftIO $ do
+programInfoLog p = liftIO do
   l <- fromIntegral <$> get (programParameter1 p GL_INFO_LOG_LENGTH)
   if l <= 1
     then return Strict.empty
-    else liftIO $ alloca $ \pl ->
-      Strict.createUptoN l $ \ps -> do
+    else liftIO $ alloca \pl ->
+      Strict.createUptoN l \ps -> do
         glGetProgramInfoLog (object p) (fromIntegral l) pl (castPtr ps)
         return $ l-1
 
@@ -198,7 +199,7 @@ programBinaryLength p = fromIntegral <$> get (programParameter1 p GL_PROGRAM_BIN
 
 -- | @'programComputeWorkgroupSize' program@ returns three integers containing the local work group size of the compute program as specified by its input layout qualifier(s). @program@ must be the name of a program object that has been previously linked successfully and contains a binary for the compute shader stage.
 programComputeWorkGroupSize :: MonadIO m => Program -> m (Int, Int, Int)
-programComputeWorkGroupSize (Program p) = liftIO $ allocaArray 3 $ \q -> do
+programComputeWorkGroupSize (Program p) = liftIO $ allocaArray 3 \q -> do
   glGetProgramiv p GL_COMPUTE_WORK_GROUP_SIZE q
   a <- peek q
   b <- peekElemOff q 1
@@ -245,13 +246,13 @@ currentProgram = StateVar
 -- create a separable 'Program' from source with 'glCreateShaderProgram' but
 -- with 'GL_ARB_shading_language_include' support.
 createShaderProgramInclude :: MonadIO m => ShaderType -> Lazy.ByteString -> [FilePath] -> m Program
-createShaderProgramInclude shaderTy source paths = do
-  s <- createShader shaderTy
+createShaderProgramInclude shaderType source paths = liftIO do
+  s <- createShader shaderType
   shaderSource s $= source
   compileShaderInclude s paths
   compiled <- compileStatus s
   prog <- gen
-  when compiled $ do
+  when compiled do
     programSeparable prog $= True
     attachShader prog s
     linkProgram prog

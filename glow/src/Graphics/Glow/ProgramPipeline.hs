@@ -1,5 +1,6 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
+{-# language DeriveDataTypeable #-}
+{-# language BlockArguments #-}
+{-# language DeriveGeneric #-}
 -- |
 -- Copyright :  (c) 2014 Edward Kmett and Jan-Philip Loos
 -- License   :  BSD2
@@ -56,13 +57,13 @@ type PipelineStage = GLbitfield
 instance Object ProgramPipeline where
   object = coerce
   isa i = (GL_FALSE /=) <$> glIsProgramPipeline (coerce i)
-  deletes xs = liftIO $ allocaArray n $ \p -> do
+  deletes xs = liftIO $ allocaArray n \p -> do
     pokeArray p (coerce xs)
     glDeleteProgramPipelines (fromIntegral n) p
     where n = length xs
 
 instance Gen ProgramPipeline where
-  gens n = liftIO $ allocaArray n $ \p -> do
+  gens n = liftIO $ allocaArray n \p -> do
     glGenProgramPipelines (fromIntegral n) p
     map ProgramPipeline <$> peekArray n p
 
@@ -80,12 +81,12 @@ activeShaderProgram p = StateVar g s where
   s = glActiveShaderProgram (coerce p) . coerce . fromMaybe def
 
 programPipelineInfoLog :: MonadIO m => ProgramPipeline -> m Strict.ByteString
-programPipelineInfoLog p = liftIO $ do
+programPipelineInfoLog p = liftIO do
   l <- fromIntegral <$> get (programPipelineParameter1 p GL_INFO_LOG_LENGTH)
   if l <= 1
     then return Strict.empty
-    else liftIO $ alloca $ \pl ->
-      Strict.createUptoN l $ \ps ->
+    else liftIO $ alloca \pl ->
+      Strict.createUptoN l \ps ->
         (l-1) <$ glGetProgramPipelineInfoLog (object p) (fromIntegral l) pl (castPtr ps)
 
 -- * Validation

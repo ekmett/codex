@@ -1,5 +1,6 @@
 {-# language LambdaCase #-}
 {-# language BangPatterns #-}
+{-# language BlockArguments #-}
 {-# language PatternSynonyms #-}
 -- |
 -- Copyright :  (c) 2019 Edward Kmett and Sean Chalmers
@@ -109,22 +110,22 @@ instance Object Shader where
   delete (Shader s) = glDeleteShader s
 
 getShader :: MonadIO m => Shader -> GLenum -> m GLint
-getShader s p = liftIO $ alloca $ \q -> glGetShaderiv (shaderId s) p q >> peek q
+getShader s p = liftIO $ alloca \q -> glGetShaderiv (shaderId s) p q >> peek q
 
 shaderInfoLog :: MonadIO m => Shader -> m ByteString
 shaderInfoLog s = do
   l <- shaderInfoLogLength s
   if l <= 1
     then return Strict.empty
-    else liftIO $ alloca $ \pl ->
-      Strict.createUptoN l $ \ps -> do
+    else liftIO $ alloca \pl ->
+      Strict.createUptoN l \ps -> do
         glGetShaderInfoLog (shaderId s) (fromIntegral l) pl (castPtr ps)
         return $ l - 1
 
 withCStrings :: [String] -> (Int -> Ptr CString -> IO a) -> IO a
 withCStrings all_xs f = go 0 [] all_xs where
-  go !n acc (x:xs) = withCString x $ \s -> go (n + 1) (s:acc) xs
-  go !n acc [] = allocaArray n $ \p -> do
+  go !n acc (x:xs) = withCString x \s -> go (n + 1) (s:acc) xs
+  go !n acc [] = allocaArray n \p -> do
     pokeArray p (reverse acc)
     f n p
 
@@ -154,14 +155,14 @@ shaderInfoLogLength :: MonadIO m => Shader -> m Int
 shaderInfoLogLength s = fromIntegral <$> getShader s GL_INFO_LOG_LENGTH
 
 buildShaderFrom :: MonadIO m => ShaderType -> ByteString -> m Shader
-buildShaderFrom stype src = liftIO $ do
+buildShaderFrom stype src = liftIO do
   let
     chunks = Lazy.toChunks (Lazy.fromStrict src)
 
     go :: Shader -> Int -> [Strict.ByteString] -> Ptr (Ptr GLchar) -> Ptr GLint -> IO ()
     go s i (Strict.PS fp o l:cs) ps pl = do
       pokeElemOff pl i (fromIntegral l)
-      withForeignPtr fp $ \p -> do
+      withForeignPtr fp \p -> do
         pokeElemOff ps i (castPtr p `plusPtr` o)
         go s (i+1) cs ps pl
 
@@ -170,8 +171,8 @@ buildShaderFrom stype src = liftIO $ do
 
   s <- Shader <$> glCreateShader (getShaderType stype)
 
-  allocaArray (length chunks) $ \ps ->
-    allocaArray (length chunks) $ \pl ->
+  allocaArray (length chunks) \ps ->
+    allocaArray (length chunks) \pl ->
       go s 0 chunks ps pl
 
   compileShader s
@@ -189,23 +190,23 @@ buildShaderFrom stype src = liftIO $ do
 shaderSource :: Shader -> StateVar Lazy.ByteString
 shaderSource (Shader sh) = StateVar g s where
   g :: IO Lazy.ByteString
-  g = alloca $ \pl -> do
+  g = alloca \pl -> do
     l <- glGetShaderiv sh GL_SHADER_SOURCE_LENGTH pl >> peek pl
     let l' = fromIntegral l
     if l <= 1
       then return Lazy.empty
       else do
-        chunk <- Strict.createUptoN l' $ \ps -> (l'-1) <$ glGetShaderSource sh l pl (castPtr ps)
+        chunk <- Strict.createUptoN l' \ps -> (l'-1) <$ glGetShaderSource sh l pl (castPtr ps)
         return $ Lazy.fromChunks [chunk]
 
   s :: Lazy.ByteString -> IO ()
-  s bs = allocaArray (length chunks) $ \ps -> allocaArray (length chunks) $ \pl -> go 0 chunks ps pl
+  s bs = allocaArray (length chunks) \ps -> allocaArray (length chunks) \pl -> go 0 chunks ps pl
     where chunks = Lazy.toChunks bs
 
   go :: Int -> [Strict.ByteString] -> Ptr (Ptr GLchar) -> Ptr GLint -> IO ()
   go i (Strict.PS fp o l:cs) ps pl = do
    pokeElemOff pl i (fromIntegral l)
-   withForeignPtr fp $ \p -> do
+   withForeignPtr fp \p -> do
      pokeElemOff ps i (castPtr p `plusPtr` o)
      go (i+1) cs ps pl
   go i [] ps pl = glShaderSource sh (fromIntegral i) ps pl
@@ -227,9 +228,9 @@ shaderSource (Shader sh) = StateVar g s where
 -- Falls back to doing nothing if 'gl_ARB_shading_langauge_include' isn't available.
 buildNamedStrings :: MonadIO m => [(FilePath, Strict.ByteString)] -> (FilePath -> String) -> m ()
 buildNamedStrings includes tweak = liftIO $ when gl_ARB_shading_language_include $
-  for_ includes $ \(fp',body) ->
-    withCStringLen (tweak fp') $ \ (name, namelen) ->
-      Strict.unsafeUseAsCString body $ \string ->
+  for_ includes \(fp',body) ->
+    withCStringLen (tweak fp') \(name, namelen) ->
+      Strict.unsafeUseAsCString body \string ->
         glNamedStringARB GL_SHADER_INCLUDE_ARB (fromIntegral namelen) name (fromIntegral $ Strict.length body) string
 
 -- | Compile a shader with @#include@ support (if available).
@@ -246,5 +247,5 @@ buildNamedStrings includes tweak = liftIO $ when gl_ARB_shading_language_include
 compileShaderInclude :: MonadIO m => Shader -> [FilePath] -> m ()
 compileShaderInclude (Shader s) path
   | gl_ARB_shading_language_include =
-    liftIO $ withCStrings path $ \n cpcs -> glCompileShaderIncludeARB s (fromIntegral n) cpcs nullPtr
+    liftIO $ withCStrings path \n cpcs -> glCompileShaderIncludeARB s (fromIntegral n) cpcs nullPtr
   | otherwise = glCompileShader s
