@@ -18,6 +18,8 @@ extra-doc-files:
 data-files:
   shaders/*.frag,
   shaders/*.vert
+extra-source-files:
+  cbits/*.h
 
 source-repository head
   type: git
@@ -28,6 +30,8 @@ common base
   ghc-options:
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
     -Wredundant-constraints -Widentities -Wmissing-export-lists
+  include-dirs: cbits
+  c-sources: cbits/parsnip.c
   build-depends:
     attoparsec,
     base >= 4.11 && < 5,
