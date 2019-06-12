@@ -1,5 +1,6 @@
 {-# language MultiWayIf #-}
 {-# language TypeFamilies #-}
+{-# language BlockArguments #-}
 {-# language DeriveTraversable #-}
 
 module Text.Parsnip.Char8
@@ -50,13 +51,13 @@ letter_iso8859_15 = satisfy A.isAlpha_iso8859_15
 {-# inline letter_iso8859_15 #-}
 
 satisfy :: (Char -> Bool) -> Parser Char
-satisfy p = Parser $ \bs i -> if 
+satisfy p = Parser \bs i -> if 
   | B.length bs > i, a <- B.w2c (B.unsafeIndex bs i), p a -> OK a (i + 1)
   | otherwise -> Fail i
 {-# inline satisfy #-}
 
 char :: Char -> Parser Char
-char x = Parser $ \bs i -> if
+char x = Parser \bs i -> if
   | B.length bs > i, B.w2c (B.unsafeIndex bs i) == x -> OK x (i + 1)
   | otherwise -> Fail i
 {-# inline char #-}
@@ -66,7 +67,7 @@ anyChar = satisfy $ const True
 {-# inline anyChar #-}
 
 takeWhile :: (Char -> Bool) -> Parser ByteString
-takeWhile p = Parser $ \bs i -> let r = C.takeWhile p $ B.drop i bs in OK r (i + B.length r)
+takeWhile p = Parser \bs i -> let r = C.takeWhile p $ B.drop i bs in OK r (i + B.length r)
 {-# inline [1] takeWhile #-}
 
 {-# RULES
@@ -77,13 +78,13 @@ takeWhile p = Parser $ \bs i -> let r = C.takeWhile p $ B.drop i bs in OK r (i +
   #-}
 
 takeUntilChar :: Char -> Parser ByteString
-takeUntilChar c = Parser $ \bs i -> case B.unsafeDrop i bs of
+takeUntilChar c = Parser \bs i -> case B.unsafeDrop i bs of
   rest -> case B.elemIndex (B.c2w c) rest of
     Nothing -> OK rest (B.length bs)
     Just n -> OK (B.unsafeTake n rest) (i + n)
 
 dropWhile :: (Char -> Bool) -> Parser ()
-dropWhile p = Parser $ \bs i -> OK () $ case C.findIndex (not . p) (B.unsafeDrop i bs) of
+dropWhile p = Parser \bs i -> OK () $ case C.findIndex (not . p) (B.unsafeDrop i bs) of
   Nothing -> B.length bs
   Just j -> j + i
 {-# inline [1] dropWhile #-}
@@ -96,7 +97,7 @@ dropWhile p = Parser $ \bs i -> OK () $ case C.findIndex (not . p) (B.unsafeDrop
   #-}
 
 dropUntilChar :: Char -> Parser ()
-dropUntilChar c = Parser $ \bs i -> OK () $ case B.elemIndex (B.c2w c) $ B.unsafeDrop i bs of 
+dropUntilChar c = Parser \bs i -> OK () $ case B.elemIndex (B.c2w c) $ B.unsafeDrop i bs of 
   Nothing -> B.length bs
   Just n -> n + i
 {-# inline dropUntilChar #-}
@@ -110,5 +111,5 @@ takeWhile1 p = snipping (dropWhile1 p)
 {-# inline dropWhile1 #-}
 
 previousChar :: Parser (Maybe Char)
-previousChar = Parser $ \bs i -> if i == 0 then OK Nothing 0 else OK (Just $ B.w2c $ B.unsafeIndex bs $ i-1) i -- non-consuming choice 
+previousChar = Parser \bs i -> if i == 0 then OK Nothing 0 else OK (Just $ B.w2c $ B.unsafeIndex bs $ i-1) i -- non-consuming choice 
 {-# inline previousChar #-}
