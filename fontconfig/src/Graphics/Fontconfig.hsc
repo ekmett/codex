@@ -4,6 +4,7 @@
 {-# language FlexibleContexts #-}
 {-# language TemplateHaskell #-}
 {-# language PatternSynonyms #-}
+{-# language BlockArguments #-}
 {-# language DeriveAnyClass #-}
 {-# language ViewPatterns #-}
 {-# language TypeFamilies #-}
@@ -455,9 +456,9 @@ configParseAndLoad config file (marshal -> complain) = liftIO $ [C.exp|int { FcC
 
 -- | Construct a fresh object set
 objectSet :: MonadIO m => NonEmpty String -> m ObjectSet
-objectSet xs = liftIO $ do
+objectSet xs = liftIO do
   o <- [C.exp|FcObjectSet * { FcObjectSetCreate() }|]
-  for_ xs $ \x -> [C.exp|int { FcObjectSetAdd($(FcObjectSet * o),$str:x) }|] >>= check . cbool
+  for_ xs \x -> [C.exp|int { FcObjectSetAdd($(FcObjectSet * o),$str:x) }|] >>= check . cbool
   foreignObjectSet o
 {-# inlinable objectSet #-}
 
@@ -494,14 +495,14 @@ nameParse s = liftIO $ [C.exp|FcPattern * { FcNameParse($ustr:s) }|] >>= foreign
 
 -- | Converts a given pattern into standard text format.
 nameUnparse :: MonadIO m => Pattern -> m String
-nameUnparse p = liftIO $ do
+nameUnparse p = liftIO do
   cstr <- [C.exp|FcChar8 * { FcNameUnparse($pattern:p) }|]
   peekCUString cstr <* free cstr -- the return value is not static, but instead refers to newly allocated memory to be freed by the caller, per docs
 {-# inlinable nameUnparse #-}
 
 -- | Prints an easily readable version of the pattern to stdout. There is no provision for reparsing data in this format, it's just for diagnostics and debugging.
 patternPrint :: MonadIO m => Pattern -> m ()
-patternPrint p = liftIO $ do
+patternPrint p = liftIO do
   [C.block|void { FcPatternPrint($pattern:p); }|]
   hFlush stdout
 {-# inlinable patternPrint #-}
@@ -510,7 +511,7 @@ patternPrint p = liftIO $ do
 --
 -- <https://www.freedesktop.org/software/fontconfig/fontconfig-devel/fcpatternformat.html>
 patternFormat :: MonadIO m => Pattern -> String -> m (Maybe String)
-patternFormat p fmt = liftIO $ do
+patternFormat p fmt = liftIO do
   cstr <- [C.exp|FcChar8* { FcPatternFormat($pattern:p, $ustr:fmt) }|]
   if cstr == nullPtr then return Nothing else Just <$> (peekCUString cstr <* free cstr)
 
@@ -553,13 +554,14 @@ patternFilter p o = liftIO $ [C.exp|FcPattern * { FcPatternFilter($pattern:p,$ma
 -- fontversion     Version number of the font
 -- @
 patternAddInteger :: MonadIO m => Pattern -> String -> Int -> m Bool
-patternAddInteger p k (fromIntegral -> v) = liftIO $ [C.exp|int { FcPatternAddInteger($pattern:p,$str:k,$(int v)) }|] <&> cbool
+patternAddInteger p k (fromIntegral -> v) = liftIO do
+  [C.exp|int { FcPatternAddInteger($pattern:p,$str:k,$(int v)) }|] <&> cbool
 {-# inlinable patternAddInteger #-}
 
 -- | Returns the i'th value associated with the property object.
 patternGetInteger :: MonadIO m => Pattern -> String -> Int -> m (Maybe Int)
-patternGetInteger p k (fromIntegral -> i) = liftIO $
-  alloca $ \t -> do
+patternGetInteger p k (fromIntegral -> i) = liftIO do
+  alloca \t -> do
     result <- [C.exp|FcResult { FcPatternGetInteger($pattern:p,$str:k,$(int i),$(int * t)) }|]
     getResult result $ fromIntegral <$> peek t
 {-# inlinable patternGetInteger #-}
@@ -575,12 +577,13 @@ patternGetInteger p k (fromIntegral -> i) = liftIO $
 -- dpi             Target dots per inch
 -- @
 patternAddDouble :: MonadIO m => Pattern -> String -> Double -> m Bool
-patternAddDouble p k (coerce -> v) = liftIO $ [C.exp|int { FcPatternAddDouble($pattern:p,$str:k,$(double v)) }|] <&> cbool
+patternAddDouble p k (coerce -> v) = liftIO do
+  [C.exp|int { FcPatternAddDouble($pattern:p,$str:k,$(double v)) }|] <&> cbool
 {-# inline patternAddDouble #-}
 
 patternGetDouble :: MonadIO m => Pattern -> String -> Int -> m (Maybe Double)
-patternGetDouble p k (fromIntegral -> i) = liftIO $
-  alloca $ \t -> do
+patternGetDouble p k (fromIntegral -> i) = liftIO do
+  alloca \t -> do
     result <- [C.exp|FcResult { FcPatternGetDouble($pattern:p,$str:k,$(int i),$(double * t)) }|]
     getResult result $ coerce <$> peek t
 {-# inline patternGetDouble #-}
@@ -603,12 +606,13 @@ patternGetDouble p k (fromIntegral -> i) = liftIO $
 -- decorative      Whether the style is a decorative variant
 -- @
 patternAddBool :: MonadIO m => Pattern -> String -> FcBool -> m Bool
-patternAddBool p k (marshal -> v) = liftIO $ [C.exp|int { FcPatternAddBool($pattern:p,$str:k,$(int v)) }|] <&> cbool
+patternAddBool p k (marshal -> v) = liftIO do
+  [C.exp|int { FcPatternAddBool($pattern:p,$str:k,$(int v)) }|] <&> cbool
 {-# inline patternAddBool #-}
 
 patternGetBool :: MonadIO m => Pattern -> String -> Int -> m (Maybe FcBool)
-patternGetBool p k (fromIntegral -> i) = liftIO $
-  alloca $ \t -> do
+patternGetBool p k (fromIntegral -> i) = liftIO do
+  alloca \t -> do
     result <- [C.exp|FcResult { FcPatternGetBool($pattern:p,$str:k,$(int i),$(int * t)) }|]
     getResult result $ peek t <&> unmarshal'
 {-# inline patternGetBool #-}
@@ -637,12 +641,13 @@ patternGetBool p k (fromIntegral -> i) = liftIO $
 -- postscriptname  String  Font family name in PostScript
 -- @
 patternAddString :: MonadIO m => Pattern -> String -> String -> m Bool
-patternAddString p k v = liftIO $ [C.exp|int { FcPatternAddString($pattern:p,$str:k,$ustr:v) }|] <&> cbool
+patternAddString p k v = liftIO do
+  [C.exp|int { FcPatternAddString($pattern:p,$str:k,$ustr:v) }|] <&> cbool
 {-# inlinable patternAddString #-}
 
 patternGetString :: MonadIO m => Pattern -> String -> Int -> m (Maybe String)
-patternGetString p k (fromIntegral -> i) = liftIO $
-  alloca $ \t -> do
+patternGetString p k (fromIntegral -> i) = liftIO do
+  alloca \t -> do
     result <- [C.exp|FcResult { FcPatternGetString($pattern:p,$str:k,$(int i),$(unsigned char ** t)) }|]
     getResult result $ peek t >>= peekCUString -- FcPatternGet* doesn't copy, so that is on us
 {-# inlinable patternGetString #-}
@@ -662,14 +667,15 @@ defaultSubstitute p = liftIO [C.block|void { FcDefaultSubstitute($pattern:p); }|
 -- --------------------------------------------------------------
 -- charset    Unicode chars encoded by the font
 patternAddCharSet :: MonadIO m => Pattern -> String -> CharSet -> m Bool
-patternAddCharSet p k v = liftIO $ [C.exp|int { FcPatternAddCharSet($pattern:p,$str:k,$charset:v) }|] <&> cbool
+patternAddCharSet p k v = liftIO do
+  [C.exp|int { FcPatternAddCharSet($pattern:p,$str:k,$charset:v) }|] <&> cbool
 {-# inlinable patternAddCharSet #-}
 
 patternGetCharSet :: MonadIO m => Pattern -> String -> Int -> m (Maybe CharSet)
-patternGetCharSet p k (fromIntegral -> i) = liftIO $
-  alloca $ \t -> do
+patternGetCharSet p k (fromIntegral -> i) = liftIO do
+  alloca \t -> do
     result <- [C.exp|FcResult { FcPatternGetCharSet($pattern:p,$str:k,$(int i),$(FcCharSet ** t)) }|]
-    getResult result $ do
+    getResult result do
       cs <- peek t
       [C.exp|FcCharSet* { FcCharSetCopy($(FcCharSet* cs)) }|] >>= foreignCharSet -- making a copy is on us
 {-# inlinable patternGetCharSet #-}
@@ -679,23 +685,24 @@ patternAddLangSet p k v = liftIO $ [C.exp|int { FcPatternAddLangSet($pattern:p,$
 {-# inlinable patternAddLangSet #-}
 
 patternGetLangSet :: MonadIO m => Pattern -> String -> Int -> m (Maybe LangSet)
-patternGetLangSet p k (fromIntegral -> i) = liftIO $
-  alloca $ \t -> do
+patternGetLangSet p k (fromIntegral -> i) = liftIO do
+  alloca \t -> do
     result <- [C.exp|FcResult { FcPatternGetLangSet($pattern:p,$str:k,$(int i),$(FcLangSet ** t)) }|]
-    getResult result $ do
+    getResult result do
       cs <- peek t
       [C.exp|FcLangSet* { FcLangSetCopy($(FcLangSet* cs)) }|] >>= foreignLangSet -- making a copy is on us
 {-# inlinable patternGetLangSet #-}
 
 patternAddRange :: MonadIO m => Pattern -> String -> Range -> m Bool
-patternAddRange p k v = liftIO $ [C.exp|int { FcPatternAddRange($pattern:p,$str:k,$range:v) }|] <&> cbool
+patternAddRange p k v = liftIO do
+  [C.exp|int { FcPatternAddRange($pattern:p,$str:k,$range:v) }|] <&> cbool
 {-# inlinable patternAddRange #-}
 
 patternGetRange :: MonadIO m => Pattern -> String -> Int -> m (Maybe Range)
-patternGetRange p k (fromIntegral -> i) = liftIO $
-  alloca $ \t -> do
+patternGetRange p k (fromIntegral -> i) = liftIO do
+  alloca \t -> do
     result <- [C.exp|FcResult { FcPatternGetRange($pattern:p,$str:k,$(int i),$(FcRange ** t)) }|]
-    getResult result $ do
+    getResult result do
       cs <- peek t
       [C.exp|FcRange* { FcRangeCopy($(FcRange* cs)) }|] >>= foreignRange -- making a copy is on us
 {-# inlinable patternGetRange #-}
@@ -709,21 +716,25 @@ patternGetRange p k (fromIntegral -> i) = liftIO $
 -- @
 --
 patternRemove :: MonadIO m => Pattern -> String -> Int -> m Bool
-patternRemove p k (fromIntegral -> i) = liftIO $ [C.exp|int { FcPatternRemove($pattern:p,$str:k,$(int i)) }|] <&> cbool
+patternRemove p k (fromIntegral -> i) = liftIO do
+  [C.exp|int { FcPatternRemove($pattern:p,$str:k,$(int i)) }|] <&> cbool
 {-# inlinable patternRemove #-}
 
 patternHash :: MonadIO m => Pattern -> m Int
-patternHash p = liftIO $ [C.exp|int { FcPatternHash($pattern:p) }|] <&> fromIntegral
+patternHash p = liftIO do
+  [C.exp|int { FcPatternHash($pattern:p) }|] <&> fromIntegral
 {-# inlinable patternHash #-}
 
 -- | Returns the number of objects p has.
 patternObjectCount :: MonadIO m => Pattern -> m Int
-patternObjectCount p = liftIO $ [C.exp|int { FcPatternObjectCount($pattern:p) }|] <&> fromIntegral
+patternObjectCount p = liftIO do
+  [C.exp|int { FcPatternObjectCount($pattern:p) }|] <&> fromIntegral
 {-# inlinable patternObjectCount #-}
 
 -- | Deletes all values associated with the property `object', returning whether the property existed or not.
 patternDel :: MonadIO m => Pattern -> String -> m Bool
-patternDel p k = liftIO $ [C.exp|int { FcPatternDel($pattern:p, $str:k) }|] <&> cbool
+patternDel p k = liftIO do
+  [C.exp|int { FcPatternDel($pattern:p, $str:k) }|] <&> cbool
 {-# inlinable patternDel #-}
 
 --------------------------------------------------------------------------------
@@ -735,24 +746,28 @@ sizeOfDouble = sizeOf (undefined :: Double)
 {-# inline sizeOfDouble #-}
 
 rangeCreateDouble :: MonadIO m => Double -> Double -> m Range
-rangeCreateDouble (coerce -> lo) (coerce -> hi) = liftIO $ [C.exp|FcRange * { FcRangeCreateDouble($(double lo),$(double hi)) }|] >>= foreignRange
+rangeCreateDouble (coerce -> lo) (coerce -> hi) = liftIO do
+  [C.exp|FcRange * { FcRangeCreateDouble($(double lo),$(double hi)) }|] >>= foreignRange
 {-# inlinable rangeCreateDouble #-}
 
 rangeCreateInteger :: MonadIO m => Word32 -> Word32 -> m Range
-rangeCreateInteger (fromIntegral -> lo) (fromIntegral -> hi) = liftIO $ [C.exp|FcRange * { FcRangeCreateInteger($(FcChar32 lo),$(FcChar32 hi)) }|] >>= foreignRange
+rangeCreateInteger (fromIntegral -> lo) (fromIntegral -> hi) = liftIO do
+  [C.exp|FcRange * { FcRangeCreateInteger($(FcChar32 lo),$(FcChar32 hi)) }|] >>= foreignRange
 {-# inlinable rangeCreateInteger #-}
 
 rangeCopy :: MonadIO m => Range -> m Range
-rangeCopy r = liftIO $ [C.exp|FcRange * { FcRangeCopy($range:r) }|] >>= foreignRange
+rangeCopy r = liftIO do
+  [C.exp|FcRange * { FcRangeCopy($range:r) }|] >>= foreignRange
 {-# inlinable rangeCopy #-}
 
 rangeCopyPtr :: (APtr p, MonadIO m) => p Range -> m Range
-rangeCopyPtr (unsafePtr -> r) = liftIO $ [C.exp|FcRange * { FcRangeCopy($(const FcRange * r)) }|] >>= foreignRange
+rangeCopyPtr (unsafePtr -> r) = liftIO do
+  [C.exp|FcRange * { FcRangeCopy($(const FcRange * r)) }|] >>= foreignRange
 {-# inlinable rangeCopyPtr #-}
 
 rangeGetDouble :: MonadIO m => Range -> m (Maybe (Double, Double))
-rangeGetDouble r = liftIO $
-  allocaArray 2 $ \ (lo :: Ptr CDouble) -> do
+rangeGetDouble r = liftIO do
+  allocaArray 2 \ (lo :: Ptr CDouble) -> do
     let hi = lo `plusPtr` sizeOfDouble :: Ptr CDouble
     b <- [C.exp|int { FcRangeGetDouble($range:r,$(double * lo),$(double * hi)) }|]
     if cbool b
@@ -768,9 +783,9 @@ rangeGetDouble r = liftIO $
 --------------------------------------------------------------------------------
 
 fontSet :: MonadIO m => [Pattern] -> m FontSet
-fontSet ps = liftIO $ do
+fontSet ps = liftIO do
   s <- [C.exp|FcFontSet * { FcFontSetCreate() }|]
-  for_ ps $ \p ->
+  for_ ps \p ->
     [C.block|int {
       FcPattern *p = $pattern:p;
       FcPatternReference(p);
@@ -781,7 +796,7 @@ fontSet ps = liftIO $ do
 
 -- | add a pattern to a font set
 fontSetAdd :: MonadIO m => FontSet -> Pattern -> m ()
-fontSetAdd s p = liftIO $
+fontSetAdd s p = liftIO do
   [C.block|int {
     FcPattern *p = $pattern:p;
     FcPatternReference(p);
@@ -790,7 +805,7 @@ fontSetAdd s p = liftIO $
 {-# inlinable fontSetAdd #-}
 
 fontSetPrint :: MonadIO m => FontSet -> m ()
-fontSetPrint s = liftIO $ do
+fontSetPrint s = liftIO do
   [C.block|void { FcFontSetPrint($fontset:s); }|]
   hFlush stdout
 
@@ -799,7 +814,7 @@ fontSetPrint s = liftIO $ do
 
 fontSetList :: (MonadIO m, Foldable f) => Config -> f FontSet -> Pattern -> ObjectSet -> m FontSet
 fontSetList c (toList -> xs) p o = liftIO $
-  runContT (traverse (ContT . withForeignPtr . coerce) xs) $ \ys -> withArrayLen ys $ \ (fromIntegral -> nsets) sets->
+  runContT (traverse (ContT . withForeignPtr . coerce) xs) \ys -> withArrayLen ys \(fromIntegral -> nsets) sets->
     [C.exp|FcFontSet* { FcFontSetList($config:c,$(FcFontSet** sets),$(int nsets),$pattern:p,$objectset:o) }|] >>= foreignFontSet
 {-# inlineable fontSetList #-}
 
@@ -813,8 +828,8 @@ cacheCreateTagFile c = liftIO [C.block|void { FcCacheCreateTagFile($config:c); }
 
 -- | @'dirCacheLoad' dir cfg@ loads the cache for the given @dir@ if it exists, returns the cache and its filepath
 dirCacheLoad :: MonadIO m => FilePath -> Config -> m (Maybe (Cache, FilePath))
-dirCacheLoad dir cfg = liftIO $ -- withCString fdir $ \dir ->
-  alloca $ \ ppath -> do
+dirCacheLoad dir cfg = liftIO do
+  alloca \ppath -> do
    cache <- [C.exp|FcCache * { FcDirCacheLoad($ustr:dir,$config:cfg,$(FcChar8** ppath)) }|]
    if cache == nullPtr then return Nothing else do
      path <- peek ppath >>= \x -> peekCUString x <* free x
@@ -832,7 +847,7 @@ dirCacheClean dir (marshal -> v) = liftIO $ [C.exp|int { FcDirCacheClean($ustr:d
 {-# inlineable dirCacheClean #-}
 
 dirCacheRescan :: MonadIO m => FilePath -> Config -> m (Maybe Cache)
-dirCacheRescan dir c = liftIO $ do
+dirCacheRescan dir c = liftIO do
   cache <- [C.exp|FcCache* { FcDirCacheRescan($ustr:dir,$config:c) }|]
   if cache == nullPtr then return Nothing else Just <$> foreignCache cache
 {-# inline dirCacheRescan #-}
@@ -870,9 +885,9 @@ cacheCopySet c = liftIO $ [C.exp|FcFontSet* { FcCacheCopySet($cache:c) }|] >>= f
 
 -- | @'cacheSubDirs' cache@ returns a list of the sub-directories contained in this cache
 cacheSubdirs :: MonadIO m => Cache -> m [FilePath]
-cacheSubdirs (Cache fc) = liftIO $ withForeignPtr fc $ \c -> do
+cacheSubdirs (Cache fc) = liftIO $ withForeignPtr fc \c -> do
   n <- [C.exp|int { FcCacheNumSubdir($(FcCache * c)) }|]
-  for [0..n-1] $ \i ->
+  for [0..n-1] \i ->
     [C.exp|const FcChar8 * { FcCacheSubdir($(FcCache * c),$(int i)) }|] >>= peekCUString -- not freeing matches observed internal fontconfig behavior
 {-# inlinable cacheSubdirs #-}
 
@@ -1011,7 +1026,7 @@ langSetSubtract c d = liftIO $ [C.exp|FcLangSet * { FcLangSetSubtract($langset:c
 {-# inlinable langSetSubtract #-}
 
 withValue :: forall a r. Storable a => Type a -> a -> (Ptr Value -> IO r) -> IO r
-withValue (Type type_) u f = allocaBytes (#size FcValue) $ \p -> do
+withValue (Type type_) u f = allocaBytes (#size FcValue) \p -> do
   (#poke FcValue, type) p type_
   (#poke FcValue, u) p u
   f p
@@ -1021,7 +1036,7 @@ valueEqual a b = liftIO $ [C.exp|int { FcValueEqual(*$(FcValue * a),*$(FcValue *
 {-# inlinable valueEqual #-}
 
 withStringValue :: String -> (Ptr Value -> IO r) -> IO r
-withStringValue s f = withCUString s $ \p -> withValue TypeString (constant p) f
+withStringValue s f = withCUString s \p -> withValue TypeString (constant p) f
 
 withBoolValue :: Bool -> (Ptr Value -> IO r) -> IO r
 withBoolValue = withValue TypeBool . FcBool . boolc
@@ -1030,19 +1045,19 @@ withDoubleValue :: Double -> (Ptr Value -> IO r) -> IO r
 withDoubleValue = withValue TypeDouble
 
 withCharSetValue :: CharSet -> (Ptr Value -> IO r) -> IO r
-withCharSetValue cs f = withForeignPtr (coerce cs) $ \p -> withValue TypeCharSet (constant p) f
+withCharSetValue cs f = withForeignPtr (coerce cs) \p -> withValue TypeCharSet (constant p) f
 
 withLangSetValue :: LangSet -> (Ptr Value -> IO r) -> IO r
-withLangSetValue cs f = withForeignPtr (coerce cs) $ \p -> withValue TypeLangSet (constant p) f
+withLangSetValue cs f = withForeignPtr (coerce cs) \p -> withValue TypeLangSet (constant p) f
 
 withIntegerValue :: Int -> (Ptr Value -> IO r) -> IO r
 withIntegerValue cs f = withValue TypeInteger (fromIntegral cs) f
 
 withRangeValue :: Range -> (Ptr Value -> IO r) -> IO r
-withRangeValue cs f = withForeignPtr (coerce cs) $ \p -> withValue TypeRange (constant p) f
+withRangeValue cs f = withForeignPtr (coerce cs) \p -> withValue TypeRange (constant p) f
 
 withMatrixValue :: Matrix -> (Ptr Value -> IO r) -> IO r
-withMatrixValue cs f = withConst cs $ \p -> withValue TypeMatrix p f
+withMatrixValue cs f = withConst cs \p -> withValue TypeMatrix p f
 
 patternAdd :: MonadIO m => Pattern -> String -> Ptr Value -> Bool -> m Bool
 patternAdd p k v (marshal -> append) = liftIO $
@@ -1053,7 +1068,7 @@ patternAddWeak p k v (marshal -> append) = liftIO $
   [C.exp|int { FcPatternAddWeak($pattern:p,$str:k,*($(FcValue *v)),$(int append)) }|] <&> cbool
 
 matchValue :: (MonadIO m, Storable a) => Type a -> Ptr Value -> m (Maybe a)
-matchValue (Type type_) p = liftIO $ do
+matchValue (Type type_) p = liftIO do
   type2 <- (#peek FcValue, type) p
   if type_ == type2 then Just <$> (#peek FcValue, u) p else pure Nothing
 
@@ -1083,8 +1098,8 @@ matchRangeValue = matchValue TypeRange >=> traverse rangeCopyPtr
 
 patternGet :: MonadIO m => Pattern -> String -> Int -> (Ptr Value -> IO r) -> m (Maybe r)
 patternGet fp s (fromIntegral -> i) k = liftIO $
-  allocaBytes sizeOfValue $ \v ->
-    withForeignPtr (coerce fp) $ \p -> do
+  allocaBytes sizeOfValue \v ->
+    withForeignPtr (coerce fp) \p -> do
       result <- [C.exp|FcResult { FcPatternGet($(FcPattern * p),$str:s,$(int i),$(FcValue * v)) }|]
       getResult result $ k v
 
