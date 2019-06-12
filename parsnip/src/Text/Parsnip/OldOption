@@ -1,0 +1,30 @@
+module Text.Parsnip.Option
+( Option
+, Some
+, None
+, mapOption
+, setOption
+) where
+
+
+-- | Unlifted 'Maybe'
+type Option a = (# a | (##) #)
+
+pattern Some :: a -> Option a
+pattern Some a = (# a | #)
+
+pattern None :: Option a
+pattern None = (# | (##) #)
+
+{-# complete Some, None #-}
+
+mapOption :: (a -> b) -> Option a -> Option b
+mapOption f (Some a) = Some $! f a
+mapOption f None = None
+{-# inline mapOption #-}
+
+setOption :: b -> Option a -> Option b
+setOption b (Some a) = Some b
+setOption b None = None
+{-# inline setOption #-}
+

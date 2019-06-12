@@ -9,6 +9,7 @@ import qualified Data.ByteString.Char8 as B
 import Data.Maybe
 
 data Location = Location Int Int ByteString
+  deriving Show
 
 location :: ByteString -> Int -> Location
 location bs j = Location (B.count '\n' before) (j - start) content where

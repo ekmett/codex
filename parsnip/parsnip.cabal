@@ -33,7 +33,9 @@ common base
     base >= 4.11 && < 5,
     bytestring,
     containers,
-    data-default
+    data-default,
+    ghc-prim,
+    primitive
 
 library
   import: base
@@ -41,6 +43,12 @@ library
   exposed-modules:
     Text.Parsnip
     Text.Parsnip.Char8
-    Text.Parsnip.Internal
     Text.Parsnip.Location
     Text.Parsnip.Parser
+    Text.Parsnip.Internal.Mark
+    Text.Parsnip.Internal.Option
+    Text.Parsnip.Internal.Parser
+    Text.Parsnip.Internal.Private
+    Text.Parsnip.Internal.Result
+    Text.Parsnip.Internal.Simple
+    Text.Parsnip.Internal.Reflection
