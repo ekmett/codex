@@ -108,8 +108,7 @@ uploadGlyph bg (Pt x y) = do
 render :: (FT.Face, Codepoint) -> IO BitmapGlyph
 render (face,codepoint) = do
   load_glyph face codepoint LOAD_RENDER
-  glyphslot <- face_glyph face
-  glyph <- get_glyph glyphslot
+  glyph <- get_glyph $ face_glyph face
   glyph_to_bitmap glyph RENDER_MODE_NORMAL def False
 
 translate26dot6 :: V2 F26Dot6 -> BBox -> BBox
