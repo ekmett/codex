@@ -10,7 +10,6 @@ module Text.Parsnip.Char8
 import GHC.Types
 import GHC.Prim
 import Text.Parsnip.Internal.Parser
-import Text.Parsnip.Internal.Result
 
 --------------------------------------------------------------------------------
 -- * Char parsers

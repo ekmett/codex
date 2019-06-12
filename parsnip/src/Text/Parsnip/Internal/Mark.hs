@@ -2,17 +2,24 @@
 {-# language TypeApplications #-}
 {-# language ScopedTypeVariables #-}
 {-# language PatternSynonyms #-}
+{-# language BlockArguments #-}
+{-# language BangPatterns #-}
+{-# language UnboxedTuples #-}
 module Text.Parsnip.Internal.Mark
 ( Mark(Mark,Mk)
 , minusMark
+, mark, release
+, snip, snipping
 ) where
 
+import Data.ByteString
 import Data.Word
 import GHC.Arr
 import GHC.Prim
 import GHC.Ptr
 import GHC.Types
-import Text.Parsnip.Internal.Reflection
+import Text.Parsnip.Internal.Parser
+import Text.Parsnip.Internal.Private
  
 ---------------------------------------------------------------------------------------
 -- * Marks
@@ -23,36 +30,38 @@ newtype Mark s = Mark (Ptr Word8) -- unexposed, so known valid addresses
 
 pattern Mk :: Addr# -> Mark s
 pattern Mk a = Mark (Ptr a)
-{-# complete Mk #-}
+{-# complete Mk #-} -- if only...
 
-instance ReifiesBase s => Bounded (Mark s) where
-  minBound = Mk l where Base _ _ l _ = reflectBase @s
-  maxBound = Mk h where Base _ _ _ h = reflectBase @s
+instance KnownBase s => Bounded (Mark s) where
+  minBound = case reflectBase @s of
+    !(Base _ _ l _) -> Mk l
+  maxBound = case reflectBase @s of
+    !(Base _ _ _ h) -> Mk h
 
-instance ReifiesBase s => Enum (Mark s) where
+instance KnownBase s => Enum (Mark s) where
   fromEnum p = minusMark p minBound
-  toEnum (I# i)
-    | isTrue# (0# <=# i) && isTrue# (i <=# minusAddr# h l) = Mk (plusAddr# l i)
-    | otherwise = error "Mark.toEnum: Out of bounds"
-    where Base _ _ l h = reflectBase @s
-  succ (Mk p)
-    | isTrue# (ltAddr# p h) = Mk (plusAddr# p 1#)
-    | otherwise = error "Mark.succ: Out of bounds"
-    where Base _ _ _ h = reflectBase @s
-  pred (Mk p)
-    | isTrue# (ltAddr# l p) = Mk (plusAddr# p (negateInt# 1#))
-    | otherwise = error "Mark.pred: Out of bounds"
-    where Base _ _ l _ = reflectBase @s
-  enumFrom (Mk p) = ptrs1 p h
-    where Base _ _ l h = reflectBase @s
+  toEnum = case reflectBase @s of
+    !(Base _ _ l h) -> \(I# i) -> if isTrue# (0# <=# i) && isTrue# (i <=# minusAddr# h l)
+      then Mk (plusAddr# l i)
+      else error "Mark.toEnum: Out of bounds"
+  succ = case reflectBase @s of
+    !(Base _ _ _ h) -> \(Mk p) -> if isTrue# (ltAddr# p h)
+      then Mk (plusAddr# p 1#)
+      else error "Mark.succ: Out of bounds"
+  pred = case reflectBase @s of
+    !(Base _ _ l _) -> \(Mk p) -> if isTrue# (ltAddr# l p) 
+      then Mk (plusAddr# p (negateInt# 1#))
+      else error "Mark.pred: Out of bounds"
+  enumFrom = case reflectBase @s of
+    !(Base _ _ _ h) -> \(Mk p) -> ptrs1 p h
   enumFromTo (Mk p) (Mk q) = ptrs1 p q
-  enumFromThen (Mk p) (Mk q)
-    | isTrue# (gtAddr# p q) = dptrs p (minusAddr# q p) l
-    | otherwise = ptrs p (minusAddr# q p) h
-    where Base _ _ l h = reflectBase @s
-  enumFromThenTo (Mk p) (Mk q) (Mk r)
-    | isTrue# (gtAddr# p q) = dptrs p (minusAddr# q p) r
-    | otherwise = ptrs p (minusAddr# q p) r
+  enumFromThen = case reflectBase @s of
+    !(Base _ _ l h) -> \(Mk p) (Mk q) -> if isTrue# (gtAddr# p q)
+      then dptrs p (minusAddr# q p) l
+      else ptrs p (minusAddr# q p) h
+  enumFromThenTo (Mk p) (Mk q) (Mk r) = if isTrue# (gtAddr# p q) 
+    then dptrs p (minusAddr# q p) r
+    else ptrs p (minusAddr# q p) r
 
 instance Ix (Mark s) where
   range (Mk p, Mk q) = ptrs1 p q
@@ -77,3 +86,25 @@ dptrs h d l
 
 minusMark :: Mark s -> Mark s -> Int
 minusMark (Mk p) (Mk q) = I# (minusAddr# p q)
+
+-- | Record the current position
+mark :: Parser s (Mark s)
+mark = Parser \p s -> OK (Mk p) p s
+
+-- | Return to a previous location.
+release :: Mark s -> Parser s ()
+release (Mk q) = Parser \_ s -> OK () q s
+
+-- | To grab all the text covered by a given parser, consider using @snipping@
+-- and applying it to a combinator simply recognizes the content rather than returns
+-- it. 'snipping' a 'ByteString' is significantly cheaper than assembling one from
+-- smaller fragments.
+snip :: forall s. KnownBase s => Mark s -> Mark s -> Parser s ByteString
+snip = case reflectBase @s of
+  !(Base x g _ _) -> \(Mk i) (Mk j) -> Parser \p s -> OK (mkBS x g (minusAddr# i j)) p s
+
+snipping :: forall s a. KnownBase s => Parser s a -> Parser s ByteString
+snipping = case reflectBase @s of
+  !(Base b g r _) -> \(Parser m) -> Parser \p s -> case m p s of
+    (# o, q, t #) -> (# setOption (mkBS (b `plusAddr#` minusAddr# p r) g (minusAddr# q p)) o, q, t #)
+

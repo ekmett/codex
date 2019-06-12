@@ -46,9 +46,6 @@ library
     Text.Parsnip.Location
     Text.Parsnip.Parser
     Text.Parsnip.Internal.Mark
-    Text.Parsnip.Internal.Option
     Text.Parsnip.Internal.Parser
     Text.Parsnip.Internal.Private
-    Text.Parsnip.Internal.Result
     Text.Parsnip.Internal.Simple
-    Text.Parsnip.Internal.Reflection
