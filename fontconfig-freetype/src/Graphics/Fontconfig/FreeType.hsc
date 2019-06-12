@@ -1,6 +1,7 @@
 {-# language TemplateHaskell #-}
 {-# language QuasiQuotes #-}
 {-# language PatternSynonyms #-}
+{-# language BlockArguments #-}
 {-# language ViewPatterns #-}
 -- |
 -- Copyright :  (c) 2019 Edward Kmett
@@ -51,55 +52,61 @@ C.verbatim "#include FT_FREETYPE_H"
 #endif
 
 freeTypeCharIndex :: MonadIO m => Face -> Char -> m Int
-freeTypeCharIndex f (fromIntegral . fromEnum -> c) = liftIO $ [C.exp|int { FcFreeTypeCharIndex($fptr-ptr:(FT_Face f),$(FcChar32 c)) }|] <&> fromIntegral
+freeTypeCharIndex f (fromIntegral . fromEnum -> c) = liftIO do
+  [C.exp|int { FcFreeTypeCharIndex($fptr-ptr:(FT_Face f),$(FcChar32 c)) }|] <&> fromIntegral
 
 freeTypeCharSet :: MonadIO m => Face -> m CharSet
-freeTypeCharSet f = liftIO $ [C.exp|FcCharSet * { FcFreeTypeCharSet($fptr-ptr:(FT_Face f),0) }|] >>= foreignCharSet
+freeTypeCharSet f = liftIO do
+  [C.exp|FcCharSet * { FcFreeTypeCharSet($fptr-ptr:(FT_Face f),0) }|] >>= foreignCharSet
 
 freeTypeCharSetAndSpacing :: MonadIO m => Face -> m (CharSet, Spacing)
-freeTypeCharSetAndSpacing f = liftIO $ alloca $ \ip ->
-  (,) <$> ([C.exp|FcCharSet * { FcFreeTypeCharSet($fptr-ptr:(FT_Face f),0) }|] >>= foreignCharSet) <*> peek ip
+freeTypeCharSetAndSpacing f = liftIO do
+  alloca \ip ->
+    (,) <$> ([C.exp|FcCharSet * { FcFreeTypeCharSet($fptr-ptr:(FT_Face f),0) }|] >>= foreignCharSet) <*> peek ip
   
 -- | Construct a pattern representing the nth face in the file. Returns the number of faces in the file as well.
 freeTypeQuery :: MonadIO m => FilePath -> Int -> m (Pattern, Int)
-freeTypeQuery p (fromIntegral -> i) = liftIO $ alloca $ \count -> 
-  (,) <$> ([C.exp|FcPattern * { FcFreeTypeQuery($ustr:p,$(int i),0,$(int * count)) }|] >>= foreignPattern)
-      <*> (peek count <&> fromIntegral)
+freeTypeQuery p (fromIntegral -> i) = liftIO do
+  alloca \count -> 
+    (,) <$> ([C.exp|FcPattern * { FcFreeTypeQuery($ustr:p,$(int i),0,$(int * count)) }|] >>= foreignPattern)
+        <*> (peek count <&> fromIntegral)
 
 -- | Constructs patterns found in 'file'. If the id is -1 then all patterns found in the file are added to the supplied set, otherwise
 -- just the selected pattern is added. Returns the number of patterns added to the fontset and the number of faces in the file.
 freeTypeQueryAll :: MonadIO m => FilePath -> Int -> FontSet -> m (Int, Int)
-freeTypeQueryAll p (fromIntegral -> i) fs = liftIO $ alloca $ \count -> 
-  (,) <$> ([C.exp|unsigned int { FcFreeTypeQueryAll($ustr:p,$(int i),0,$(int * count),$fontset:fs) }|] <&> fromIntegral)
-      <*> (peek count <&> fromIntegral)
+freeTypeQueryAll p (fromIntegral -> i) fs = liftIO do
+  alloca \count -> 
+    (,) <$> ([C.exp|unsigned int { FcFreeTypeQueryAll($ustr:p,$(int i),0,$(int * count),$fontset:fs) }|] <&> fromIntegral)
+        <*> (peek count <&> fromIntegral)
 
 -- | Constructs a pattern representing a given font face. The FilePath and id are used soly as data for pattern elements. (FC_FILE, FC_INDEX, possibly FC_FAMILY).
 freeTypeQueryFace :: MonadIO m => Face -> FilePath -> Int -> m Pattern
-freeTypeQueryFace f p (fromIntegral -> i) = liftIO $ [C.exp|FcPattern * { FcFreeTypeQueryFace($fptr-ptr:(FT_Face f),$ustr:p,$(int i),0) }|] >>= foreignPattern
+freeTypeQueryFace f p (fromIntegral -> i) = liftIO do
+  [C.exp|FcPattern * { FcFreeTypeQueryFace($fptr-ptr:(FT_Face f),$ustr:p,$(int i),0) }|] >>= foreignPattern
 
 pattern TypeFace :: Type (Ptr FaceRec)
 pattern TypeFace = #const FcTypeFTFace
 
 withFaceValue :: Face -> (Ptr Value -> IO r) -> IO r
-withFaceValue face f = withForeignPtr face $ \p -> withValue TypeFace p f
+withFaceValue face f = withForeignPtr face \p -> withValue TypeFace p f
 
 -- note this will be an immutable face you should not edit!
 matchFaceValue :: MonadIO m => Ptr Value -> m (Maybe Face)
-matchFaceValue v = liftIO $ do
-    mf <- matchValue TypeFace v
-    for mf $ \f -> do
-      [C.block|void { FT_Reference_Face($(FT_Face f)); }|]
-      foreignFace f
+matchFaceValue v = liftIO do
+  mf <- matchValue TypeFace v
+  for mf \f -> do
+    [C.block|void { FT_Reference_Face($(FT_Face f)); }|]
+    foreignFace f
 
 patternAddFace :: MonadIO m => Pattern -> String -> Face -> m Bool
 patternAddFace p k v = liftIO $ [C.exp|int { FcPatternAddFTFace($pattern:p,$str:k,$fptr-ptr:(FT_Face v)) }|] <&> (/=0)
 {-# inlinable patternAddFace #-}
 
 patternGetFace :: MonadIO m => Pattern -> String -> Int -> m (Maybe Face)
-patternGetFace p k (fromIntegral -> i) = liftIO $
-  alloca $ \fp -> do
+patternGetFace p k (fromIntegral -> i) = liftIO do
+  alloca \fp -> do
     result <- [C.exp|FcResult { FcPatternGetFTFace($pattern:p,$str:k,$(int i),$(FT_Face * fp)) }|]
-    getResult result $ do
+    getResult result do
       f <- peek fp
       [C.block|void { FT_Reference_Face($(FT_Face f)); }|]
       foreignFace f
