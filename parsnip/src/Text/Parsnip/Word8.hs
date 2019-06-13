@@ -24,7 +24,6 @@ module Text.Parsnip.Word8
 , nextWord8, nextWord8'
 ) where
 
-import Control.Applicative
 import Data.ByteString (ByteString)
 import Data.Word
 import GHC.Prim
@@ -45,14 +44,6 @@ satisfy f = Parser \p s -> case readWord8OffAddr# p 0# s of
     then OK (W8# c) (plusAddr# p 1#) t
     else Fail p t
 {-# inline satisfy #-}
-
-word8 :: Word8 -> Parser s Word8
-word8 0 = empty
-word8 r@(W8# c) = Parser \p s -> case readWord8OffAddr# p 0# s of
-  (# t, c' #) -> if isTrue# (c `eqWord#` c')
-    then OK r (plusAddr# p 1#) t
-    else Fail p t
-{-# inline word8 #-}
 
 notWord8 :: Word8 -> Parser s Word8
 notWord8 0 = anyWord8

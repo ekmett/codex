@@ -37,7 +37,7 @@ module Engine.Shader.Include
 , IncludeCache
 , GivenIncludeCache
 , directives
-, skip
+, skipped
 , include
 ) where
 
@@ -51,9 +51,7 @@ import qualified Data.Attoparsec.ByteString.Char8 as A
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
-import qualified Data.ByteString.Unsafe as B
 import Data.Either.Validation
-import Data.Functor ((<&>))
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
 import Data.List (intercalate)
@@ -179,36 +177,36 @@ cache path = use (at path) >>= \case
 --------------------------------------------------------------------------------
 
 -- space within a line
-spaces :: Parser ()
+spaces :: Parser s ()
 spaces = skipMany $ choice 
   [ () <$ satisfy \c -> A.isSpace c && c `Prelude.notElem` vspace
-  , () <$ do "/*" *> P.breakSubstring "*/" *> "*/"
+  , () <$ do "/*" *> P.skipTillSubstring "*/" *> "*/"
   , () <$ "\\\n"
   , () <$ "\\\r\n"
   ] where vspace = "\r\n" :: [Char]
 
-token :: Parser a -> Parser a
+token :: Parser s a -> Parser s a
 token p = p <* spaces
 
-newline :: Parser ()
+newline :: Parser s ()
 newline = () <$ ("\n" <|> "\r\n")
 
 -- actually must succeed, as we use this to delimit with skipManyTill, etc.
-newlines :: Parser ()
+newlines :: Parser s ()
 newlines = skipSome $ token $ choice
-  [ "//" *> skip
+  [ "//" *> skipped
   , newline
   ]
 
-skip :: Parser ()
-skip = token anyChar `skipManyTill` newlines
+skipped :: Parser s ()
+skipped = token anyChar `skipManyTill` newlines
 
-nondirectives :: Parser ()
-nondirectives = skipSome (satisfy ('#'/=) *> skip)
+nondirectives :: Parser s ()
+nondirectives = skipSome (satisfy ('#'/=) *> skipped)
 
-data Run a = Run Int Int a
+data Run s a = Run (Mark s) (Mark s) a
 
-directive :: Parser a -> Parser (Maybe (Run a))
+directive :: Parser s a -> Parser s (Maybe (Run s a))
 directive p = do
   a <- mark
   _ <- token (char '#')
@@ -218,32 +216,30 @@ directive p = do
   pure $ Run a b <$> m
   
 -- parse (directives include) some_bytestring
--- parse (directives skip) gets all directives
+-- parse (directives skipped) gets all directives
 
-directives :: Parser a -> Parser [Either ByteString a]
+directives :: KnownBase s => Parser s a -> Parser s [Either ByteString a]
 directives p = do
   spaces
   _ <- optional newlines
   _ <- optional nondirectives
   result <- directive p `sepEndBy` optional nondirectives
   endOfInput
-  cut (catMaybes result)
+  pure $ cut $ catMaybes result
 
-include :: Parser FilePath
+include :: KnownBase s => Parser s FilePath
 include = token "include" *> file
 
-file :: Parser FilePath
+file :: KnownBase s => Parser s FilePath
 file = token $ C.unpack <$> choice
-  [ char '<' *> takeUntilChar '>' <* char '>'
-  , char '"' *> takeUntilChar '"' <* char '"'
+  [ char '<' *> tillChar '>' <* char '>'
+  , char '"' *> tillChar '"' <* char '"'
   ] 
 
-trim :: Int -> Int -> ByteString -> ByteString
-trim lo hi = B.unsafeTake (hi - lo) . B.unsafeDrop lo
-
-cut :: [Run a] -> Parser [Either ByteString a]
-cut xs0 = input <&> \bs -> go bs 0 xs0 where
-  go bs i [] | bs' <- B.unsafeDrop i bs = [Left bs' | not $ B.null bs']
-  go bs i (Run j k a:xs) 
-    | bs' <- trim i j bs, not $ B.null bs' = Left bs' : Right a : go bs k xs
-    | otherwise = Right a : go bs k xs
+cut :: KnownBase s => [Run s a] -> [Either ByteString a]
+cut = go minBound where
+  go i [] | bs <- snip i maxBound = [Left bs | not $ B.null bs]
+  go i (Run j k a:xs) 
+    | bs <- snip i j, not (B.null bs) = Left bs : ys
+    | otherwise = ys
+    where ys = Right a : go k xs

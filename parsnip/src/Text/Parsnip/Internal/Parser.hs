@@ -33,9 +33,9 @@ module Text.Parsnip.Internal.Parser
 , mapResult, setResult
 , try
 -- * Unsafe literals
-, lit, litN
+, lit, litN, word8
 -- * Guts
-, Base(..), bytes
+, Base(..), bytes, start, end
 , KnownBase(..)
 , parse
 ) where
@@ -185,6 +185,14 @@ try (Parser m) = Parser $ \p s -> case m p s of
   OK a q t -> OK a q t
   Fail _ t -> Fail p t
 
+word8 :: Word8 -> Parser s Word8
+word8 0 = empty
+word8 r@(W8# c) = Parser \p s -> case readWord8OffAddr# p 0# s of
+  (# t, c' #) -> if isTrue# (c `eqWord#` c')
+    then OK r (plusAddr# p 1#) t
+    else Fail p t
+{-# inline word8 #-}
+
 ---------------------------------------------------------------------------------------
 -- * Super-unsafe literal parsers
 ---------------------------------------------------------------------------------------
@@ -236,14 +244,24 @@ unsafeLiteralByteStringN p n = PS (unsafeLiteralForeignPtr p) 0 (fromIntegral n)
 -- manage the storage of the bytestrings you cut off of the parent for you.
 
 data Base s = Base 
-  Addr# -- the start of a valid bytestring
-  ForeignPtrContents -- memory management for that bytestring
-  Addr# -- the start of our null terminated copy of the bytestring
-  Addr# -- the end of our null terminated copy (points to the '\0')
+  { baseOriginal  :: Addr# -- the start of a valid bytestring
+  , baseContents  :: ForeignPtrContents -- memory management for that bytestring
+  , baseStart :: Addr# -- the start of our null terminated copy of the bytestring
+  , baseEnd :: Addr# -- the end of our null terminated copy (points to the '\0')
+  }
 
-bytes :: Base s -> ByteString
-bytes (Base b g p q) = mkBS b g (minusAddr# q p)
+bytes :: forall s. KnownBase s => ByteString
+bytes = case reflectBase @s of
+  !(Base b g p q) -> mkBS b g (minusAddr# q p)
 {-# inline bytes #-}
+
+start :: forall s. KnownBase s => Addr#
+start = baseStart (reflectBase @s)
+{-# inline start #-}
+
+end :: forall s. KnownBase s => Addr#
+end = baseEnd (reflectBase @s)
+{-# inline end #-}
 
 class KnownBase (s :: Type) where
   reflectBase :: Base s

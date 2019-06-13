@@ -2,6 +2,7 @@
 {-# language MagicHash #-}
 {-# language UnboxedTuples #-}
 {-# language ScopedTypeVariables #-}
+{-# language UnliftedFFITypes #-}
 {-# language BangPatterns #-}
 {-# language RankNTypes #-}
 {-# language TypeApplications #-}
@@ -17,9 +18,10 @@ module Text.Parsnip.Parser
 , atEnd
 , endOfInput
 ----------------------------
-, breakSubstring
-, drop
-, drop0
+, tillSubstring
+, skipTillSubstring
+, skip
+, skip0
 , take
 ----------------------------
 , Mark
@@ -39,11 +41,13 @@ module Text.Parsnip.Parser
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Internal as B
+import qualified Data.ByteString.Unsafe as B
+import Foreign.C.Types
 import GHC.ForeignPtr
 import GHC.Prim
 import GHC.Ptr
 import GHC.Types
-import Prelude hiding (take, drop)
+import Prelude hiding (take)
 import Text.Parsnip.Internal.Mark
 import Text.Parsnip.Internal.Parser
 import Text.Parsnip.Internal.Private
@@ -70,24 +74,46 @@ take = case reflectBase @s of
     else OK (B.PS (ForeignPtr (b `plusAddr#` minusAddr# p q) g) 0 (I# i)) (plusAddr# p i) s
 
 -- | We can do this two ways, this way is O(1) but needs KnownBase.
-drop :: forall s. KnownBase s => Int -> Parser s ()
-drop = case reflectBase @s of
-  !(Base _ _ _ r) -> \(I# i) -> Parser \p s ->
+skip :: forall s. KnownBase s => Int -> Parser s ()
+skip = \(I# i) -> Parser \p s ->
     if isTrue# (minusAddr# r p <# i)
     then Fail p s
     else OK () (plusAddr# p i) s
+  where r = end @s
 
 -- | Linear time, but no @KnownBase@ dependency.
-drop0 :: Int -> Parser s ()
-drop0 n@(I# i) = Parser \p s -> case io (c_memchr p 0 (fromIntegral n)) s of
+skip0 :: Int -> Parser s ()
+skip0 n@(I# i) = Parser \p s -> case io (c_memchr p 0 (fromIntegral n)) s of
   (# t, Ptr q #) -> if isTrue# (q `eqAddr#` nullAddr#)
     then OK () (plusAddr# p i) t
     else Fail p s
 
-breakSubstring :: KnownBase s => ByteString -> Parser s ByteString
-breakSubstring needle = relative \bs -> case p bs of
+tillSubstring :: KnownBase s => ByteString -> Parser s ByteString
+tillSubstring needle = relative \bs -> case p bs of
     (r, _) -> SimpleOK r (B.length r)
   where p = B.breakSubstring needle
+
+foreign import ccall unsafe "string.h" strstr :: Addr# -> Addr# -> IO (Ptr ())
+foreign import ccall unsafe "string.h" strlen :: Addr# -> IO CSize
+
+skipTillSubstring :: ByteString -> Parser s ()
+skipTillSubstring bneedle = case B.length bneedle of
+  0 -> pure ()
+  1 -> () <$ word8 (B.unsafeHead bneedle)
+  _ -> let fneedle = packForeignString bneedle
+    in Parser \p s -> case io
+      ( withForeignString fneedle \(Ptr cneedle)->
+          strstr p cneedle >>= \q -> if q == nullPtr
+            then plusPtr (Ptr p) . fromIntegral <$> strlen p
+            else pure q
+      ) s of (# t, Ptr r #) -> OK () r t
+
+
+--skipTillSubstring :: ByteString -> Parser s ()
+--skipTillSubstring needle = relative \bs -> case p bs of
+--    (r, _) -> SimpleOK r (B.length r)
+--  where p = B.breakSubstring needle
+
 
 -- | @input = snip minBound maxBound@
 input :: KnownBase s => Parser s ByteString
@@ -100,7 +126,7 @@ rest = relative \b -> SimpleOK b 0
 -- | 'snip' is a smidge faster, easier to type, if less fun to say, and
 -- doesn't need you to fiddle with explicit type application to actually
 -- apply.
--- 
+--
 -- The benefit of this combinator is that it is easy to come up with numbers
 -- of bytes into a file, and this combinator will automatically trim the
 -- result to the actual range of bytes available, whereas constructing an
@@ -108,13 +134,11 @@ rest = relative \b -> SimpleOK b 0
 -- combinator tries to produce one out of range to maintain the invariant
 -- that a mark is always a well formed location in the content.
 betwixt :: forall s. KnownBase s => Int -> Int -> ByteString
-betwixt i j = B.take (j-i) $ B.drop i $ bytes $ reflectBase @s
+betwixt i j = B.take (j-i) $ B.drop i $ bytes @s
 
 -- | 'mark' is generally faster
 pos :: forall s. KnownBase s => Parser s Int
-pos = Parser \ p s ->
-  let result = I# (minusAddr# p case reflectBase @s of !(Base _ _ q _) -> q)
-  in OK result p s
+pos = Parser \ p s -> OK (I# (minusAddr# p (start @s))) p s
 {-# inline pos #-}
 
 loc :: KnownBase s => Parser s Location
@@ -124,6 +148,5 @@ loc = markLocation <$> mark
 -- | Actually looking at one of these is pretty slow, as it has to do a linear
 -- scan to figure out its line number for display.
 markLocation :: forall s. KnownBase s => Mark s -> Location
-markLocation (Mark (Ptr p)) = case reflectBase @s of
-  !b@(Base _ _ l _) -> location (bytes b) (I# (minusAddr# p l))
+markLocation (Mark (Ptr p)) = location (bytes @s) (I# (minusAddr# p (start @s)))
 {-# inline markLocation #-}
