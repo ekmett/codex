@@ -5,6 +5,8 @@ parsnip
 
 This is a rather minimal parsing library for applications that do not need nice error messages.
 
+Use with a library like `parsers` or `parser-combinators` to fill in the missing functionality.
+
 Contact Information
 -------------------
 

@@ -20,7 +20,7 @@ import GHC.Ptr
 import GHC.Types
 import Text.Parsnip.Internal.Parser
 import Text.Parsnip.Internal.Private
- 
+
 ---------------------------------------------------------------------------------------
 -- * Marks
 ---------------------------------------------------------------------------------------
@@ -33,10 +33,8 @@ pattern Mk a = Mark (Ptr a)
 {-# complete Mk #-} -- if only...
 
 instance KnownBase s => Bounded (Mark s) where
-  minBound = case reflectBase @s of
-    !(Base _ _ l _) -> Mk l
-  maxBound = case reflectBase @s of
-    !(Base _ _ _ h) -> Mk h
+  minBound = Mk (start @s)
+  maxBound = Mk (end @s)
 
 instance KnownBase s => Enum (Mark s) where
   fromEnum p = minusMark p minBound
@@ -44,22 +42,19 @@ instance KnownBase s => Enum (Mark s) where
     !(Base _ _ l h) -> \(I# i) -> if isTrue# (0# <=# i) && isTrue# (i <=# minusAddr# h l)
       then Mk (plusAddr# l i)
       else error "Mark.toEnum: Out of bounds"
-  succ = case reflectBase @s of
-    !(Base _ _ _ h) -> \(Mk p) -> if isTrue# (ltAddr# p h)
+  succ (Mk p) = if isTrue# (ltAddr# p (end @s))
       then Mk (plusAddr# p 1#)
       else error "Mark.succ: Out of bounds"
-  pred = case reflectBase @s of
-    !(Base _ _ l _) -> \(Mk p) -> if isTrue# (ltAddr# l p) 
+  pred (Mk p) = if isTrue# (ltAddr# (start @s) p)
       then Mk (plusAddr# p (negateInt# 1#))
       else error "Mark.pred: Out of bounds"
-  enumFrom = case reflectBase @s of
-    !(Base _ _ _ h) -> \(Mk p) -> ptrs1 p h
+  enumFrom (Mk p) = ptrs1 p (end @s)
   enumFromTo (Mk p) (Mk q) = ptrs1 p q
   enumFromThen = case reflectBase @s of
     !(Base _ _ l h) -> \(Mk p) (Mk q) -> if isTrue# (gtAddr# p q)
       then dptrs p (minusAddr# q p) l
       else ptrs p (minusAddr# q p) h
-  enumFromThenTo (Mk p) (Mk q) (Mk r) = if isTrue# (gtAddr# p q) 
+  enumFromThenTo (Mk p) (Mk q) (Mk r) = if isTrue# (gtAddr# p q)
     then dptrs p (minusAddr# q p) r
     else ptrs p (minusAddr# q p) r
 
