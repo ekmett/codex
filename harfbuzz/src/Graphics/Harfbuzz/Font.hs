@@ -1,6 +1,7 @@
 {-# language TemplateHaskell #-}
 {-# language PatternSynonyms #-}
 {-# language BlockArguments #-}
+{-# language FlexibleContexts #-}
 {-# language ViewPatterns #-}
 {-# language QuasiQuotes #-}
 {-# language LambdaCase #-}

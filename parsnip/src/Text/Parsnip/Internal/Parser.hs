@@ -1,3 +1,4 @@
+{-# language CPP #-}
 {-# language PatternSynonyms #-}
 {-# language OverloadedStrings #-}
 {-# language MagicHash #-}
@@ -146,8 +147,10 @@ instance Monad (Parser s) where
   {-# inline (>>=) #-}
   (>>) = (*>)
   {-# inline (>>) #-}
+#if !MIN_VERSION_base(4,13,0)
   fail _ = Parser Fail
   {-# inline fail #-}
+#endif
 
 instance Alternative (Parser s) where
   Parser m <|> Parser n = Parser \ p s -> case m p s of

@@ -1,3 +1,4 @@
+{-# language CPP #-}
 {-# language ScopedTypeVariables #-}
 {-# language DefaultSignatures #-}
 {-# language BlockArguments #-}
@@ -19,7 +20,9 @@ module Data.Watch.Internal
 
 import Control.Applicative
 import Control.Concurrent.Unique
-import Control.Monad.Fail as MonadFail
+#if !MIN_VERSION_base(4,13,0)
+import Control.Monad.Fail
+#endif
 import Control.Monad.IO.Class
 import Control.Monad.IO.Unlift
 import Control.Monad.Primitive
@@ -45,6 +48,10 @@ import Data.Primitive.MutVar
 import Data.Primitive.MVar
 import Data.Type.Coercion
 import Unsafe.Coerce
+#if !MIN_VERSION_base(4,13,0)
+import Prelude hiding (fail)
+import qualified Prelude
+#endif
 
 type Dep s = ST s ()
 
@@ -112,8 +119,10 @@ instance Monad (Watch s) where
   Watch m >> Watch n = Watch \u d -> m u d >> n u d
   {-# inlinable (>>) #-}
 
-  fail s = Watch \_ _ -> unsafeIOToST $ MonadFail.fail s
+#if !MIN_VERSION_base(4,13,0)
+  fail s = Watch \_ _ -> unsafeIOToST $ fail s
   {-# inlinable fail #-}
+#endif
 
 --instance MonadBase (ST s) (Watch s) where
 --  liftBase m = Watch $ \_ _ -> m
@@ -141,7 +150,7 @@ instance MonadUnliftPrim (Watch s) where
   {-# inline withRunInPrim #-}
 
 instance MonadFail (Watch s) where
-  fail s = Watch \_ _ -> unsafeIOToST $ MonadFail.fail s
+  fail s = Watch \_ _ -> unsafeIOToST $ fail s
   {-# inlinable fail #-}
 
 instance s ~ RealWorld => MonadIO (Watch s) where

@@ -1,3 +1,4 @@
+{-# language CPP #-}
 {-# language MagicHash #-}
 {-# language TypeFamilies #-}
 {-# language GeneralizedNewtypeDeriving #-}
@@ -10,7 +11,9 @@ module Control.Monad.IOST.Unsafe
 
 import Control.Applicative
 import Control.Monad
+#if !MIN_VERSION_base(4,13,0)
 import Control.Monad.Fail
+#endif
 import Control.Monad.Fix
 import Control.Monad.Primitive
 import Data.Primitive.StateVar

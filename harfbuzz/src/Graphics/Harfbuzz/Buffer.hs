@@ -2,6 +2,7 @@
 {-# language PatternSynonyms #-}
 {-# language ViewPatterns #-}
 {-# language QuasiQuotes #-}
+{-# language FlexibleContexts #-}
 {-# language BlockArguments #-}
 -- |
 -- Copyright :  (c) 2019 Edward Kmett
