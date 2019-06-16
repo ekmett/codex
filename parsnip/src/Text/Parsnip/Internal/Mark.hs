@@ -12,7 +12,7 @@ module Text.Parsnip.Internal.Mark
 , snip, snipping
 ) where
 
-import Data.ByteString
+import Data.ByteString as B
 import Data.Word
 import GHC.Arr
 import GHC.Prim

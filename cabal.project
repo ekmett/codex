@@ -1,19 +1,30 @@
 packages: *
 
 optional-packages:
-  third-party/*,
-  third-party/cabal/Cabal,
-  third-party/cabal/cabal-install
-  third-party/hackage-security/hackage-security
+  third-party/attoparsec
+  third-party/bytes
+  third-party/cabal-doctest
+  third-party/dlist
+  third-party/hsc2hs
   third-party/inline-c/inline-c
   third-party/inline-c/inline-c-cpp
-  third-party/hxt/hxt
+  third-party/integer-logarithms
+  third-party/Juicy.Pixels
+  third-party/lens
+  third-party/zlib
+
+--  third-party/*,
+--  third-party/cabal/Cabal,
+--  third-party/cabal/cabal-install
+--  third-party/hackage-security/hackage-security
 
 cabal-lib-version: 3
 
 allow-newer:
   all:base,
+  all:Cabal,
   cabal-install:tar,
+  binary-orphans:binary,
   hackage-repo-tool:optparse-applicative,
   hackage-security:Cabal,
   hackage-security:tar,
@@ -21,4 +32,5 @@ allow-newer:
   resolv:tasty,
   tar:containers,
   unique:hashable
+  text:deepseq
 

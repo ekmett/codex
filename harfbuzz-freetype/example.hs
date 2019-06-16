@@ -182,7 +182,7 @@ main = do
   window <- SDL.createWindow "harfbuzz-freetype example" SDL.defaultWindow
     { SDL.windowInitialSize = V2 640 200
     , SDL.windowHighDPI = True
-    , SDL.windowOpenGL = Just SDL.defaultOpenGL
+    , SDL.windowGraphicsContext = SDL.OpenGLContext SDL.defaultOpenGL
       { SDL.glProfile = SDL.Core SDL.Debug 4 1
       }
     }

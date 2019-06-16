@@ -643,7 +643,7 @@ C.verbatim "#include FT_TYPES_H"
 C.verbatim "#include FT_TRIGONOMETRY_H"
 
 angleDiff :: Angle -> Angle -> Angle
-angleDiff angle1 angle2 = [C.pure|FT_Angle { FT_Angle_Diff($(FT_Angle angle1),$(FT_Angle angle2)) }|]
+angleDiff angle1 angle2 = [U.pure|FT_Angle { FT_Angle_Diff($(FT_Angle angle1),$(FT_Angle angle2)) }|]
 
 matrixInvert:: Matrix -> Maybe Matrix
 matrixInvert m = unsafeLocalState $

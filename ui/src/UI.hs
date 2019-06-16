@@ -82,7 +82,7 @@ main = do
     { SDL.windowInitialSize = V2 screenWidth screenHeight
     , SDL.windowHighDPI = True
     , SDL.windowInputGrabbed = True
-    , SDL.windowOpenGL = Just SDL.defaultOpenGL
+    , SDL.windowGraphicsContext = SDL.OpenGLContext SDL.defaultOpenGL
       { SDL.glProfile = SDL.Core SDL.Debug 4 1
       }
     }

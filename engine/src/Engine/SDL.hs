@@ -85,7 +85,7 @@ withWindow k = withRunInIO \io -> bracket create destroy \w -> let ?window = w i
       , SDL.windowHighDPI = True
       , SDL.windowResizable = True
       , SDL.windowInputGrabbed = False
-      , SDL.windowOpenGL = Just SDL.defaultOpenGL
+      , SDL.windowGraphicsContext = SDL.OpenGLContext SDL.defaultOpenGL
         { SDL.glProfile = SDL.Core SDL.Debug 4 1
         , SDL.glColorPrecision = V4 8 8 8 0
         , SDL.glStencilPrecision = 8

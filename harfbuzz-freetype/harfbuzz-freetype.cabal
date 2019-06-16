@@ -61,7 +61,7 @@ executable example
     linear,
     ptrdiff,
     random,
-    sdl2 >= 2.4.1,
+    sdl2 >= 2.5,
     StateVar,
     text,
     vector
