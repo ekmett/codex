@@ -7,6 +7,7 @@ optional-packages:
   third-party/hackage-security/hackage-security
   third-party/inline-c/inline-c
   third-party/inline-c/inline-c-cpp
+  third-party/hxt/hxt
 
 cabal-lib-version: 3
 

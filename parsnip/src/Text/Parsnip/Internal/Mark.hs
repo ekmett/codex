@@ -96,10 +96,19 @@ release (Mk q) = Parser \_ s -> OK () q s
 -- smaller fragments.
 snip :: forall s. KnownBase s => Mark s -> Mark s -> ByteString
 snip = case reflectBase @s of
-  !(Base x g _ _) -> \(Mk i) (Mk j) -> mkBS x g (minusAddr# i j)
+  !(Base x g _ _) -> \(Mk i) (Mk j) ->
+    if isTrue# (geAddr# i j)
+    then mkBS x g (minusAddr# i j)
+    else B.empty
 
 snipping :: forall s a. KnownBase s => Parser s a -> Parser s ByteString
 snipping = case reflectBase @s of
   !(Base b g r _) -> \(Parser m) -> Parser \p s -> case m p s of
-    (# o, q, t #) -> (# setOption (mkBS (b `plusAddr#` minusAddr# p r) g (minusAddr# q p)) o, q, t #)
+    (# o, q, t #) -> 
+      (# setOption
+        ( if isTrue# (geAddr# q p)
+          then mkBS (b `plusAddr#` minusAddr# p r) g (minusAddr# q p)
+          else B.empty
+        ) o
+      , q, t #)
 
