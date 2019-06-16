@@ -13,11 +13,6 @@ optional-packages:
   third-party/lens
   third-party/zlib
 
---  third-party/*,
---  third-party/cabal/Cabal,
---  third-party/cabal/cabal-install
---  third-party/hackage-security/hackage-security
-
 cabal-lib-version: 3
 
 allow-newer:

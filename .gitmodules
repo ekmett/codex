@@ -1,0 +1,3 @@
+[submodule "third-party/attoparsec"]
+	path = third-party/attoparsec
+	url = https://github.com/ekmett/attoparsec.git
