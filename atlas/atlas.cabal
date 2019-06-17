@@ -56,3 +56,24 @@ test-suite atlas-test
   build-depends:
     atlas,
     hspec
+
+-- executable example
+--   import: base
+--   main-is: example.hs
+--   ghc-options: -O2 -threaded -rtsopts -with-rtsopts=-N
+--   build-depends:
+--     atlas,
+--     bytestring,
+--     containers,
+--     data-default,
+--     gl,
+--     glow,
+--     harfbuzz-freetype,
+--     lens,
+--     linear,
+--     ptrdiff,
+--     random,
+--     sdl2 >= 2.4.1 && < 2.5,
+--     StateVar,
+--     text,
+--     vector

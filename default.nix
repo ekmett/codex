@@ -1,8 +1,25 @@
 { nixpkgs ? import ./.nix/nixpkgs.nix
-, compiler ? "default"
+, compiler ? "ghc881"
 }:
 let
   overlay = self: super: {
+    haskellPackages = super.haskellPackages.override (old: {
+      overrides = super.lib.composeExtensions (old.overrides or (_: _: {})) (hself: hsuper: {
+        ghc = super.haskell.packages.ghc881.ghc.overrideAttrs (old: rec {
+          ghcTargetPrefix = super.stdenv.lib.optionalString
+            (super.stdenv.targetPlatform != super.stdenv.hostPlatform)
+            "${super.stdenv.targetPlatform.config}-";
+
+          version = "8.8.0.20190613";
+          name = "${ghcTargetPrefix}ghc-${version}";
+          src = super.fetchurl {
+            url = "https://downloads.haskell.org/ghc/8.8.1-alpha2/ghc-${version}-src.tar.xz";
+            sha256 = "17531jabkdmlhj57mkshjfwlri2g3jgal8fw9zpkl1kbplnrivyr";
+          };
+        });
+      });
+    });
+
     # Minimum version of freetype2 is required
     freetype = super.callPackage ./.nix/freetype {};
     freetype2 = self.freetype;
@@ -63,6 +80,7 @@ let
     smawk              = ./smawk;
     watch              = ./watch;
     watch-directory    = ./watch-directory;
+    parsnip            = ./parsnip;
   };
 
   # Basic overrides to include our packages
