@@ -8,7 +8,7 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/ekmett/bytes.git
-  tag: 799cde06fe503aa6f23970eff584b6be2eacb562
+  tag: b4753cb284e1d9826b23e9d632ba695314bf7a4f
 
 source-repository-package
   type: git
@@ -24,18 +24,6 @@ source-repository-package
   type: git
   location: https://github.com/haskell/hsc2hs.git
   tag: 1ba919f9eb05da3b697223e8c7ceb7867cd50f6d
-
-source-repository-package
-  type: git
-  location: https://github.com/ekmett/inline-c.git
-  tag: 59d75eb9eb4be3ddb865f82a5b91cdf97edfe401
-  subdir: inline-c
-
-source-repository-package
-  type: git
-  location: https://github.com/ekmett/inline-c.git
-  tag: 59d75eb9eb4be3ddb865f82a5b91cdf97edfe401
-  subdir: inline-c-cpp
 
 source-repository-package
   type: git
@@ -57,8 +45,6 @@ source-repository-package
   location: https://github.com/ekmett/zlib.git
   tag: 71f71a517755fd63978da50e21d1d340357ca910
 
-cabal-lib-version: 3
-
 allow-newer:
   all:base,
   all:Cabal,
@@ -72,4 +58,3 @@ allow-newer:
   tar:containers,
   unique:hashable
   text:deepseq
-
