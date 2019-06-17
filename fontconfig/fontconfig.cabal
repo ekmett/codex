@@ -37,7 +37,6 @@ common base
 
 common lib
   import: base
-  hs-source-dirs: src
   build-tool-depends: hsc2hs:hsc2hs
   pkgconfig-depends: fontconfig >= 2.11.91
 
@@ -47,25 +46,28 @@ common lib
     inline-c,
     template-haskell
 
-library raw
+library fontconfig-raw
   import: lib
   hs-source-dirs: raw
   exposed-modules:
     Graphics.Fontconfig.Internal
     Graphics.Fontconfig.Private
 
-library core
+library fontconfig-core
   import: lib
-  hs-source-dirs: src
-  build-depends: raw
+  hs-source-dirs: core
+  build-depends: fontconfig-raw
   exposed-modules:
     Graphics.Fontconfig
 
-library fcfreetype
+library fontconfig-freetype
   import: lib
-  hs-source-dirs: fcfreetype
+  hs-source-dirs: freetype
 --  pkgconfig-depends: fontconfig >= 2.11.91, freetype2
-  build-depends: raw, core, freetype
+  build-depends:
+    fontconfig-raw,
+    fontconfig-core,
+    freetype
   exposed-modules:
     Graphics.Fontconfig.FreeType
 --
@@ -73,7 +75,9 @@ library fcfreetype
 library
   default-language: Haskell2010
   build-depends:
-    core, raw, fcfreetype
+    fontconfig-core,
+    fontconfig-freetype,
+    fontconfig-raw
   reexported-modules:
     Graphics.Fontconfig,
     Graphics.Fontconfig.Internal,
@@ -84,11 +88,3 @@ test-suite spec
   type: exitcode-stdio-1.0
   hs-source-dirs: test
   main-is: Spec.hs
---  build-depends:
---    directory,
---    filepath,
---    fontconfig,
---    hspec,
---    QuickCheck,
---    tasty,
---    tasty-hspec
