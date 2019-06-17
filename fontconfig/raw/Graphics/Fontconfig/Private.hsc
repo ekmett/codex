@@ -3,7 +3,6 @@
 {-# language TemplateHaskell #-}
 {-# language FlexibleContexts #-}
 {-# language ScopedTypeVariables #-}
-{-# language DeriveDataTypeable #-}
 {-# language DeriveAnyClass #-}
 {-# language ViewPatterns #-}
 {-# options_haddock not-home #-}
@@ -31,12 +30,12 @@ module Graphics.Fontconfig.Private
 import Control.Exception
 import Control.Monad (unless)
 import Data.Coerce
-import Data.Data (Data)
 import Data.Functor ((<&>))
 import Foreign.C.String
 import Foreign.C.Types
 import Foreign.ForeignPtr
 import Foreign.Ptr
+import GHC.Stack
 import qualified Language.C.Inline.Context as C
 import qualified Language.C.Inline.HaskellIdentifier as C
 import qualified Language.C.Types as C
@@ -71,10 +70,12 @@ marshal = fromIntegral . fromEnum
 withCUString :: String -> (Ptr CUChar -> IO r) -> IO r
 withCUString s f = withCString s (f . castPtr)
 
-data AllocationFailed = AllocationFailed deriving (Show, Data, Exception)
+data AllocationFailed = AllocationFailed CallStack deriving Show
+instance Exception AllocationFailed where
+  displayException (AllocationFailed stack) = "allocation failed\n" ++ prettyCallStack stack
 
-check :: Bool -> IO ()
-check b = unless b $ throwIO AllocationFailed
+check :: HasCallStack => Bool -> IO ()
+check b = unless b $ throwIO $ AllocationFailed callStack
 
 cbool :: CInt -> Bool
 cbool = (0/=)

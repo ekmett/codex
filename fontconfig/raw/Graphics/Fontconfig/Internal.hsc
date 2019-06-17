@@ -142,6 +142,7 @@ import Foreign.ForeignPtr
 import Foreign.Marshal.Utils
 import Foreign.Ptr
 import Foreign.Storable
+import GHC.Stack
 import qualified Language.C.Inline as C
 import qualified Language.C.Inline.Context as C
 import qualified Language.C.Types as C
@@ -258,9 +259,9 @@ statCreate = Stat <$> mallocForeignPtrBytes (#size struct stat)
 
 newtype Result = Result Int32 deriving (Eq,Show,Data)
 
-getResult :: MonadIO m => Result -> m a -> m (Maybe a)
+getResult :: (HasCallStack, MonadIO m) => Result -> m a -> m (Maybe a)
 getResult ResultMatch f = Just <$> f
-getResult ResultOutOfMemory _ = liftIO $ throwIO AllocationFailed
+getResult ResultOutOfMemory _ = liftIO $ throwIO $ AllocationFailed callStack
 getResult _ _ = pure Nothing
 
 #ifndef HLINT
