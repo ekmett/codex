@@ -1,4 +1,3 @@
-{-# language LambdaCase #-}
 {-# language TupleSections #-}
 {-# language ScopedTypeVariables #-}
 {-# options_ghc -Wno-orphans #-}
@@ -82,7 +81,7 @@ main = do
       complain = True
 
   -- Be chatty and declare what version of the library we're testing against.
-  getVersion >>= printf ("Testing against Fontconfig version: %s") . showVersion
+  getVersion >>= printf "Testing against Fontconfig version: %s" . showVersion
 
   (testSpec "spec" >=> defaultMain) $ do
     describe "Config Loading" $ do
@@ -212,7 +211,7 @@ main = do
           ["family" ,"familylang" ,"style" ,"stylelang" ,"fullname" ,"fullnamelang" ,"foundry" ,"file" ,"rasterizer" ,"lang" ,"capability" ,"fontformat" ,"fontfeatures" ,"namelang" ,"prgname" ,"postscriptname"]
           patternAddString
           patternGetString
-          $ pure (not . any (== '\NUL'))
+          $ pure (notElem '\NUL')
 
       describe "remove/delete values from patterns correctly" . before (nameParse courierMono121314Styled) $ do
         it "patternDel: all values for existing property are are removed" $ \p -> do
