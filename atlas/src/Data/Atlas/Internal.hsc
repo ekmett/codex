@@ -1,6 +1,7 @@
 {-# language BangPatterns #-}
 {-# language LambdaCase #-}
 {-# language ViewPatterns #-}
+{-# language ImplicitParams #-}
 {-# language RecordWildCards #-}
 {-# language OverloadedStrings #-}
 {-# language ScopedTypeVariables #-}
@@ -42,8 +43,11 @@ module Data.Atlas.Internal
 , peekWH, peekXY
 , pokeWH, peekMaybeXY
 , atlasCtx
+, die
 ) where
 
+import Control.Exception
+import Control.Monad.IO.Class
 import Data.Coerce
 import Data.Default
 import Data.Functor ((<&>))
@@ -55,6 +59,8 @@ import Foreign.ForeignPtr
 import Foreign.Ptr
 import Foreign.Storable
 import GHC.Arr
+import GHC.Exception
+import GHC.Stack
 import qualified Language.C.Inline as C
 import qualified Language.C.Inline.Context as C
 import qualified Language.C.Inline.HaskellIdentifier as C
@@ -68,15 +74,18 @@ data AtlasContext
 
 newtype Atlas s = Atlas (ForeignPtr AtlasContext) deriving (Eq,Ord,Show)
 
-getHsVariable :: String -> C.HaskellIdentifier -> TH.ExpQ
-getHsVariable err s = TH.lookupValueName (C.unHaskellIdentifier s) >>= \ case
-  Nothing -> fail $ "Cannot capture Haskell variable " ++ C.unHaskellIdentifier s ++ ", because it's not in scope. (" ++ err ++ ")"
+die :: (MonadIO m, HasCallStack) => String -> m a
+die msg = liftIO $ throwIO (errorCallWithCallStackException msg ?callStack)
+
+getHsVariable :: HasCallStack => C.HaskellIdentifier -> TH.ExpQ
+getHsVariable s = TH.lookupValueName (C.unHaskellIdentifier s) >>= \ case
+  Nothing -> die $ "Cannot capture Haskell variable " ++ C.unHaskellIdentifier s ++ ", because it's not in scope."
   Just hsName -> TH.varE hsName
 
-anti :: C.Type C.CIdentifier -> TH.TypeQ -> TH.ExpQ -> C.SomeAntiQuoter
+anti :: HasCallStack => C.Type C.CIdentifier -> TH.TypeQ -> TH.ExpQ -> C.SomeAntiQuoter
 anti cTy hsTyQ w = C.SomeAntiQuoter C.AntiQuoter
   { C.aqParser = C.parseIdentifier <&> \hId -> (C.mangleHaskellIdentifier hId, cTy, hId)
-  , C.aqMarshaller = \_ _ _ cId -> (,) <$> hsTyQ <*> [|$w (coerce $(getHsVariable "freeTypeCtx" cId))|]
+  , C.aqMarshaller = \_ _ _ cId -> (,) <$> hsTyQ <*> [|$w (coerce $(getHsVariable cId))|]
   }
 
 atlasCtx :: C.Context

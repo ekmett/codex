@@ -40,6 +40,7 @@ import Data.Maybe (fromMaybe)
 import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
 import Foreign.Ptr
+import GHC.Stack
 import qualified Language.C.Inline as C
 import qualified Language.C.Inline.Unsafe as CU
 
@@ -49,15 +50,15 @@ C.include "stb_rect_pack.h"
 
 -- | Create a packing context.
 
-atlas_create :: PrimMonad m => Int -> Int -> m (Atlas (PrimState m))
+atlas_create :: HasCallStack => PrimMonad m => Int -> Int -> m (Atlas (PrimState m))
 atlas_create w h = atlas_create_explicit w h Nothing
 
 -- | Initialization with an optional node count, when @node count < width@ is used this results in quantization unless
 -- 'atlas_set_allow_out_of_mem' is enabled. When no value is supplied, it defaults to the width of the 'Atlas'.
-atlas_create_explicit :: PrimMonad m => Int -> Int -> Maybe Int -> m (Atlas (PrimState m))
-atlas_create_explicit width@(fromIntegral -> w) height@(fromIntegral -> h) mn = unsafeIOToPrim do
+atlas_create_explicit :: HasCallStack => PrimMonad m => Int -> Int -> Maybe Int -> m (Atlas (PrimState m))
+atlas_create_explicit width@(fromIntegral -> w) height@(fromIntegral -> h) mn = withFrozenCallStack $ unsafeIOToPrim do
   let nodes@(fromIntegral -> n) = fromMaybe width mn
-  unless (width < 0xffff && height < 0xffff) $ fail $ "Atlas.new " ++ show width ++ " " ++ show height ++ ": atlas too large"
+  unless (width < 0xffff && height < 0xffff) $ die $ "Atlas.new " ++ show width ++ " " ++ show height ++ ": atlas too large"
   fp <- mallocForeignPtrBytes (sizeOfAtlas + sizeOfNode * nodes)
   Atlas fp <$ [CU.block|void {
       stbrp_context * p = $atlas:fp;
