@@ -2,7 +2,7 @@ cabal-version: 2.2
 name: primitive-ffi
 version: 0
 synopsis: FFI primitives for ST and MonadPrim
-homepage: https://github.com/ekmett/codex/tree/master/foreign-ref#readme
+homepage: https://github.com/ekmett/codex/tree/master/primitive-ffi#readme
 license: BSD-2-Clause OR Apache-2.0
 license-file: LICENSE.md
 author: Edward Kmett
@@ -20,6 +20,7 @@ extra-doc-files:
 source-repository head
   type: git
   location: https://github.com/ekmett/codex
+  subdir: primitive-ffi
 
 library
   hs-source-dirs: src

@@ -20,8 +20,7 @@ extra-doc-files:
 source-repository head
   type: git
   location: https://github.com/ekmett/codex
-
-common base
+  subdir: weak
 
 library
   build-depends: base >= 4.11 && < 5

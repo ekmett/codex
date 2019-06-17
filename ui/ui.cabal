@@ -22,6 +22,7 @@ data-files:
 source-repository head
   type: git
   location: https://github.com/ekmett/codex
+  subdir: ui
 
 flag embed
   Description: Embed shaders and other resources in the binary where possible
