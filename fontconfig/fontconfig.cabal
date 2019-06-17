@@ -1,4 +1,4 @@
-cabal-version: 2.2
+cabal-version: 3.0
 name: fontconfig
 version: 0
 synopsis: Bindings for fontconfig
@@ -54,26 +54,41 @@ library raw
     Graphics.Fontconfig.Internal
     Graphics.Fontconfig.Private
 
-library
+library core
   import: lib
   hs-source-dirs: src
   build-depends: raw
-  reexported-modules:
-    Graphics.Fontconfig.Internal,
-    Graphics.Fontconfig.Private
   exposed-modules:
     Graphics.Fontconfig
+
+library fcfreetype
+  import: lib
+  hs-source-dirs: fcfreetype
+--  pkgconfig-depends: fontconfig >= 2.11.91, freetype2
+  build-depends: raw, core, freetype
+  exposed-modules:
+    Graphics.Fontconfig.FreeType
+--
+---- Catch-all library for users who don't care about fine-grained dependencies
+library
+  default-language: Haskell2010
+  build-depends:
+    core, raw, fcfreetype
+  reexported-modules:
+    Graphics.Fontconfig,
+    Graphics.Fontconfig.Internal,
+    Graphics.Fontconfig.Private
 
 test-suite spec
   import: base
   type: exitcode-stdio-1.0
   hs-source-dirs: test
   main-is: Spec.hs
-  build-depends:
-    directory,
-    filepath,
-    fontconfig,
-    hspec,
-    QuickCheck,
-    tasty,
-    tasty-hspec
+--  build-depends:
+--    directory,
+--    filepath,
+--    fontconfig,
+--    hspec,
+--    QuickCheck,
+--    tasty,
+--    tasty-hspec
