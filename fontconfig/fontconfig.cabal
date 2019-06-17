@@ -61,11 +61,11 @@ library core
   exposed-modules:
     Graphics.Fontconfig
 
-library fcfreetype
+library freetype
   import: lib
   hs-source-dirs: fcfreetype
 --  pkgconfig-depends: fontconfig >= 2.11.91, freetype2
-  build-depends: raw, core, freetype
+  build-depends: raw, core, freetype:freetype
   exposed-modules:
     Graphics.Fontconfig.FreeType
 --
@@ -73,7 +73,7 @@ library fcfreetype
 library
   default-language: Haskell2010
   build-depends:
-    core, raw, fcfreetype
+    core, raw, fontconfig:freetype
   reexported-modules:
     Graphics.Fontconfig,
     Graphics.Fontconfig.Internal,
