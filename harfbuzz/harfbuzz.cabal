@@ -1,4 +1,4 @@
-cabal-version: 2.2
+cabal-version: 2.4
 name: harfbuzz
 version: 0
 synopsis: Text shaping using harfbuzz
@@ -19,6 +19,19 @@ extra-doc-files:
 source-repository head
   type: git
   location: https://github.com/ekmett/codex
+  subdir: harfbuzz
+
+flag trust-darwin-pkg-config
+  description:
+    On OSX, trust pkg-config to find harfbuzz-icu's icu4c dependency rather than try to find it ourselves. You will probably something like
+    .
+    @
+    $ export PKG_CONFIG_PATH=/usr/local/opt/icu4c/lib/pkgconfig
+    @
+    .
+    to build. On other platforms this flag has no effect.
+  default: False
+  manual: True
 
 common base
   default-language: Haskell2010
@@ -41,13 +54,15 @@ common lib
   build-depends:
     bytestring,
     containers >= 0.6,
+    ghc-prim,
     hashable,
     inline-c,
     primitive,
+    primitive-statevar,
     template-haskell,
     transformers,
 
-library raw
+library harfbuzz-raw
   import: lib
   hs-source-dirs: raw
   build-tool-depends: hsc2hs:hsc2hs
@@ -55,11 +70,12 @@ library raw
     Graphics.Harfbuzz.Internal
     Graphics.Harfbuzz.Private
 
-library
+library harfbuzz-core
   import: lib
-  build-depends: ghc-prim, hkd, raw
-  hs-source-dirs: src
-  reexported-modules: Graphics.Harfbuzz.Internal
+  build-depends:
+    hkd,
+    harfbuzz-raw
+  hs-source-dirs: core
   exposed-modules:
     Graphics.Harfbuzz
     Graphics.Harfbuzz.Blob
@@ -84,3 +100,140 @@ test-suite spec
     hspec,
     tasty,
     tasty-hspec
+
+library harfbuzz-freetype
+  import: lib
+  hs-source-dirs: freetype
+  ghc-options: -Wmissing-export-lists
+  pkgconfig-depends: harfbuzz, freetype2
+  build-depends:
+    freetype,
+    harfbuzz-core,
+    harfbuzz-raw
+  exposed-modules:
+    Graphics.Harfbuzz.FreeType
+
+executable example
+  import: base
+  main-is: example.hs
+  ghc-options: -O2 -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+  build-depends:
+    atlas,
+    bytestring,
+    containers,
+    data-default,
+    freetype,
+    gl,
+    glow,
+    harfbuzz-core,
+    harfbuzz-freetype,
+    harfbuzz-raw,
+    lens,
+    linear,
+    ptrdiff,
+    random,
+    sdl2 >= 2.5,
+    StateVar,
+    text,
+    vector
+
+library harfbuzz-icu
+  import: lib
+  if os(darwin) && !flag(trust-darwin-pkg-config)
+    -- icu4c doesn't get installed in pkgconfig on a mac by default
+    -- manually add the path, like text-icu does.
+    extra-lib-dirs: /usr/local/opt/icu4c/lib
+    include-dirs: /usr/local/opt/icu4c/include
+    -- harfbuzz works fine with pkg-config
+    pkgconfig-depends: harfbuzz
+    -- and this adds the library dir needed for harfbuzz-icu, so just manually add that library dependency
+    extra-libraries: harfbuzz-icu
+  else
+    pkgconfig-depends: harfbuzz-icu
+  build-depends:
+    harfbuzz-core,
+    harfbuzz-raw
+  hs-source-dirs: icu
+  exposed-modules:
+    Graphics.Harfbuzz.ICU
+
+library harfbuzz-subset
+  import: lib
+  hs-source-dirs: subset
+  pkgconfig-depends: harfbuzz-subset >= 2.5.0
+  build-depends:
+    harfbuzz-core,
+    harfbuzz-raw
+  exposed-modules:
+    Graphics.Harfbuzz.Subset
+
+library harfbuzz-opentype-raw
+  import: lib
+  build-depends:
+    harfbuzz-core,
+    harfbuzz-raw
+  hs-source-dirs:
+    opentype-raw
+  exposed-modules:
+    Graphics.Harfbuzz.OpenType.Internal
+    Graphics.Harfbuzz.OpenType.Private
+
+library harfbuzz-opentype
+  import: lib
+  build-depends:
+    ghc-prim,
+    harfbuzz-core,
+    harfbuzz-opentype-raw,
+    harfbuzz-raw,
+    hkd
+  hs-source-dirs: opentype-src
+  exposed-modules:
+    Graphics.Harfbuzz.OpenType
+    Graphics.Harfbuzz.OpenType.Color
+    Graphics.Harfbuzz.OpenType.Font
+    Graphics.Harfbuzz.OpenType.Math
+    Graphics.Harfbuzz.OpenType.Layout
+    Graphics.Harfbuzz.OpenType.Name
+    Graphics.Harfbuzz.OpenType.Shape
+    Graphics.Harfbuzz.OpenType.Variation
+
+library
+  default-language: Haskell2010
+  build-depends:
+    harfbuzz-core,
+    harfbuzz-freetype,
+    harfbuzz-icu,
+    harfbuzz-raw,
+    harfbuzz-opentype,
+    harfbuzz-opentype-raw,
+    harfbuzz-subset
+  reexported-modules:
+    Graphics.Harfbuzz,
+    Graphics.Harfbuzz.Blob,
+    Graphics.Harfbuzz.Buffer,
+    Graphics.Harfbuzz.Common,
+    Graphics.Harfbuzz.Face,
+    Graphics.Harfbuzz.Font,
+    Graphics.Harfbuzz.Map,
+    Graphics.Harfbuzz.Object,
+    Graphics.Harfbuzz.Set,
+    Graphics.Harfbuzz.Shape,
+    Graphics.Harfbuzz.Unicode,
+    Graphics.Harfbuzz.Version,
+
+    Graphics.Harfbuzz.FreeType,
+    Graphics.Harfbuzz.ICU,
+    Graphics.Harfbuzz.Internal,
+    Graphics.Harfbuzz.Subset,
+
+    Graphics.Harfbuzz.OpenType,
+    Graphics.Harfbuzz.OpenType.Color,
+    Graphics.Harfbuzz.OpenType.Font,
+    Graphics.Harfbuzz.OpenType.Math,
+    Graphics.Harfbuzz.OpenType.Layout,
+    Graphics.Harfbuzz.OpenType.Name,
+    Graphics.Harfbuzz.OpenType.Shape,
+    Graphics.Harfbuzz.OpenType.Variation,
+
+    Graphics.Harfbuzz.OpenType.Internal

@@ -24,14 +24,10 @@ import Data.Maybe
 import Data.List (partition, scanl')
 import Data.Text.Foreign (lengthWord16)
 import qualified Data.Foldable as F
-import Data.Functor.Identity
 import Data.Primitive.StateVar
-import Data.Proxy
 import Data.Set.Lens
 import Data.Traversable
-import Data.Vector.Generic.Lens
 import qualified Data.Vector.Storable as V
-import Data.Word
 import Foreign.C.String
 import Foreign.ForeignPtr
 import Foreign.Marshal.Alloc
@@ -50,7 +46,6 @@ import Numeric.Fixed.F26Dot6
 import qualified SDL
 import System.Exit
 import System.IO
-import System.Random
 
 data TextureAtlas k = TextureAtlas
   { ta_texture :: Texture
@@ -97,7 +92,7 @@ uploadGlyph bg (Pt x y) = do
     unless (w*h == 0) $
       if w /= pitch
       then allocaBytes (w*h) $ \ scratch -> do
-        F.for_ [0..h-1] $ \ y -> copyBytes (plusPtr scratch (y*w)) (plusPtr bitmap_buffer (y*pitch)) w
+        F.for_ [0..h-1] $ \ i -> copyBytes (plusPtr scratch (i*w)) (plusPtr bitmap_buffer (i*pitch)) w
         draw scratch
       else draw $ castPtr bitmap_buffer
     TextureGlyph w h x y
@@ -140,13 +135,13 @@ batch
   -> (a -> k) -- key extraction
   -> (BBox -> [(V2 F26Dot6,a,TextureGlyph)] -> IO ()) -- callback, fed accumulated advances, user values, and valid atlas positions.
   -> IO ()
-batch ta@TextureAtlas{..} as0 advance keyinfo key callback = do
+batch ta@TextureAtlas{..} as0 adv keyinfo key callback = do
     known <- readIORef ta_glyphs
     let distinct = F.toList $ setOf (folded.to key.filtered (\k -> hasn't (ix k) known)) as0
-        aas0 = zip (scanl' (\p a -> p + advance a) (V2 0 0) as0) as0
+        aas0 = zip (scanl' (\p a -> p + adv a) (V2 0 0) as0) as0
     fresh <- for distinct $ \k -> (k,) <$> render (keyinfo k)
     let freshMap = Map.fromList fresh
-    box <- getAp $ flip foldMap aas0 $ \ (adv, key -> k) -> Ap $ translate26dot6 adv <$> case known^.at k of
+    box <- getAp $ flip foldMap aas0 $ \ (ad, key -> k) -> Ap $ translate26dot6 ad <$> case known^.at k of
       Just tg -> pure (tg_box tg)
       Nothing -> glyph_get_cbox (freshMap^?!ix k) GLYPH_BBOX_PIXELS
     go False known fresh aas0 box
@@ -155,7 +150,7 @@ batch ta@TextureAtlas{..} as0 advance keyinfo key callback = do
       uploaded <- for xs $ \(xy,(k,bmg)) -> (k,) <$> uploadGlyph bmg xy
       let all_glyphs = known <> Map.fromList uploaded
       writeIORef ta_glyphs all_glyphs
-      callback box $ as <&> \(adv, a) -> (adv, a, all_glyphs ^?! ix (key a))
+      callback box $ as <&> \(ad, a) -> (ad, a, all_glyphs ^?! ix (key a))
 
     go looped known fresh as box = atlas_packM ta_atlas (size.snd) (,) (,) fresh >>= \case
       Right xs -> process known xs as box
@@ -243,7 +238,7 @@ main = do
         sy y = y * recip cy - 1
     glViewport 0 0 (fromIntegral w) (fromIntegral h)
     glClear GL_COLOR_BUFFER_BIT
-    batch ta gs (gp_advance.snd) ((,) face) (\(gi,gp) -> glyph_info_codepoint gi) $ \ (BBox llx lly urx ury) tgs -> do
+    batch ta gs (gp_advance.snd) ((,) face) (\(gi,_) -> glyph_info_codepoint gi) $ \ (BBox llx _lly _urx ury) tgs -> do
       let -- bw = fromIntegral $ urx - llx -- bbox width
           -- bh = fromIntegral $ ury - lly -- bbox height
           bx = fromIntegral llx -- left justify, ignoring baseline, etc.
@@ -251,9 +246,9 @@ main = do
           content = V.fromList $ do
             (V2 x y,(_,gp),TextureGlyph{..}) <- tgs
             let x0 = bx + realToFrac x + fixed26 (glyph_position_x_offset gp) + fromIntegral tg_bx
-                y0 = fromIntegral $ floor (by + realToFrac y + fixed26 (glyph_position_y_offset gp) + fromIntegral tg_by)
+                y0 = fromInteger $ floor (by + realToFrac y + fixed26 (glyph_position_y_offset gp) + fromIntegral tg_by)
                 x1 = x0 + fromIntegral tg_w
-                y1 = fromIntegral $ floor (y0 - fromIntegral tg_h)
+                y1 = fromInteger $ floor (y0 - fromIntegral tg_h)
             [sx x0,tx tg_x,sx x1,tx (tg_x + tg_w),sy y0,ty tg_y,sy y1,ty (tg_y + tg_h) :: Float] -- 8 floats per glyph
       bufferData ArrayBufferTarget $= (StreamDraw, content)
       glDrawArraysInstanced GL_TRIANGLE_STRIP 4 GL_UNSIGNED_INT $ fromIntegral $ div (V.length content) 8
