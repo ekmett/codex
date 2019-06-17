@@ -15,12 +15,15 @@ module Graphics.Harfbuzz.OpenType.Name
 , name_get
 ) where
 
+import Control.Exception
 import Control.Monad.Primitive
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
 import Foreign.Marshal.Utils
 import Foreign.Ptr
 import Foreign.Storable
+import GHC.Exception
+import GHC.Stack
 import qualified Language.C.Inline as C
 
 import Graphics.Harfbuzz.Internal
@@ -52,7 +55,7 @@ name_get :: PrimMonad m => Face (PrimState m) -> Name -> Language -> m (Maybe St
 name_get face name language = unsafeIOToPrim $
   name_get_ face name language 1024 >>= \case
     Left n -> name_get_ face name language n >>= \case -- slow path
-      Left n' -> fail $ "ot_name_get: multiple fetches failed: actual length: " ++ show n'
+      Left n' -> throwIO $ errorCallWithCallStackException ("multiple fetches failed: actual length: " ++ show n') callStack
       Right s -> pure $ Just s
     Right s -> pure $ Just s
 
