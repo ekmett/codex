@@ -1,3 +1,5 @@
 - arguments: [--cpp-define=HLINT]
 - ignore: { name: Use camelCase }
 - ignore: { name: Reduce duplication }
+- ignore: { name: Redundant do }
+- ignore: { name: Parse error }

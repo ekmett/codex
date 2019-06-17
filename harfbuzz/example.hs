@@ -112,7 +112,7 @@ translate26dot6 (V2 x y) (BBox a b c d) = BBox
   (ceiling $ x + fromIntegral c) (ceiling $ y + fromIntegral d)
 
 tg_box :: TextureGlyph -> BBox
-tg_box TextureGlyph{..} = BBox (fromIntegral tg_bx) (fromIntegral $ tg_by - tg_h) (fromIntegral $ tg_bx + tg_w) (fromIntegral $ tg_by )
+tg_box TextureGlyph{..} = BBox (fromIntegral tg_bx) (fromIntegral $ tg_by - tg_h) (fromIntegral $ tg_bx + tg_w) (fromIntegral tg_by)
 
 size :: BitmapGlyph -> IO Pt
 size bmg = withForeignPtr (act bitmapglyph_bitmap_ bmg) $ \bp ->

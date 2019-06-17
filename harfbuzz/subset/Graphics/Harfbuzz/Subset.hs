@@ -45,7 +45,7 @@ C.context $ C.baseCtx <> C.fptrCtx <> harfbuzzCtx <> mempty
 C.include "<hb.h>"
 C.include "<hb-subset.h>"
 
-data Input s = Input (ForeignPtr Input_)
+newtype Input s = Input (ForeignPtr Input_)
 
 {-
 instance IsObject Input where

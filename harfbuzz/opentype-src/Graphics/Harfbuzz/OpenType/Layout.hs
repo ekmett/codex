@@ -202,7 +202,7 @@ layout_get_size_params face = unsafeIOToPrim $
       if cbool b then do
         design_size <- fromIntegral <$> peek ss
         subfamily_id <- fromIntegral <$> peek (advancePtr ss 1)
-        subfamily_name_id <- peek (psubfamily_name_id)
+        subfamily_name_id <- peek psubfamily_name_id
         range_start <- fromIntegral <$> peek (advancePtr ss 2)
         range_end <- fromIntegral <$> peek (advancePtr ss 3)
         pure $ Just $ LayoutSizeParams design_size subfamily_id subfamily_name_id range_start range_end
