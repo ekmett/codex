@@ -48,13 +48,4 @@ source-repository-package
 allow-newer:
   all:base,
   all:Cabal,
-  cabal-install:tar,
-  binary-orphans:binary,
-  hackage-repo-tool:optparse-applicative,
-  hackage-security:Cabal,
-  hackage-security:tar,
-  lens:template-haskell,
-  resolv:tasty,
-  tar:containers,
-  unique:hashable
   text:deepseq
