@@ -1,0 +1,4 @@
+- arguments: [-XNoPatternSynonyms, --cpp-define=HLINT]
+- ignore: {name: Use uncurry, within: Main}
+- ignore: {name: Parse error}
+- ignore: {name: Redundant do}
