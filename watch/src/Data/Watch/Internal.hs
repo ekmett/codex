@@ -58,13 +58,13 @@ type Dep s = ST s ()
 -- hold deps in an mvar?
 newtype Deps s = Deps (MutVar s (HashMap Unique (Dep s)))
 
-data Ref s a = Ref (Deps s) Unique (MutVar s a)
+data Ref s a = Ref (Deps s) (MutVar s a)
 
 instance Eq (Ref s a) where
-  Ref _ _ s == Ref _ _ t = s == t
+  Ref _ s == Ref _ t = s == t
 
 instance TestCoercion (Ref s) where
-  testCoercion (Ref _ _ s :: Ref s a) (Ref _ _ t)
+  testCoercion (Ref _ s :: Ref s a) (Ref _ t)
     | s == unsafeCoerce t = Just $ unsafeCoerce (Coercion :: Coercion a a)
     | otherwise = Nothing
 
@@ -75,11 +75,11 @@ class PrimMonad m => MonadWatch m where
   {-# inline readRef #-}
 
 instance MonadWatch IO where
-  readRef (Ref _ _ m) = readMutVar m
+  readRef (Ref _ m) = readMutVar m
   {-# inline readRef #-}
 
 instance MonadWatch (ST s) where
-  readRef (Ref _ _ m) = readMutVar m
+  readRef (Ref _ m) = readMutVar m
   {-# inline readRef #-}
 
 instance MonadWatch m => MonadWatch (ReaderT e m)
@@ -163,12 +163,12 @@ instance PrimMonad (Watch s) where
   {-# inlinable primitive #-}
 
 instance MonadWatch (Watch s) where
-  readRef (Ref (Deps deps) _ src) = Watch \ u d -> do
+  readRef (Ref (Deps deps) src) = Watch \ u d -> do
     modifyMutVar deps $ HashMap.insert u d
     readMutVar src
   {-# inlinable readRef #-}
 
-data Thunk s a = Thunk (Watch s a) (a -> Dep s) (MVar s ()) (Ref s (Maybe a))
+data Thunk s a = Thunk (Watch s a) (a -> Dep s) (MVar s Unique) (Ref s (Maybe a))
 
 instance Eq (Thunk s a) where
   Thunk _ _ _ x == Thunk _ _ _ y = x == y
