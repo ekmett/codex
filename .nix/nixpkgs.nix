@@ -4,7 +4,7 @@ let
 
   pinnedPkgs = hostNix.pkgs.fetchFromGitHub {
     owner = "NixOS";
-    repo  = "nixpkgs-channels";
+    repo  = "nixpkgs";
     inherit (nixpkgsPin) rev sha256;
   };
 in
