@@ -32,8 +32,8 @@ source-repository-package
 
 source-repository-package
   type: git
-  location: https://github.com/ekmett/Juicy.Pixels.git
-  tag: d4ff75db01b341e21c25941d799be3297240b3c1
+  location: https://github.com/Twinside/Juicy.Pixels.git
+  tag: e2a2c5fc636a1832cba70321208730df6872336e
 
 source-repository-package
   type: git
