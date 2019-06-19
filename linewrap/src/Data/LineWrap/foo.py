@@ -76,6 +76,7 @@ def linear(text, width):
                 break
             i = i + 1
 
+    print(breaks)
     lines = []
     j = count
     while j > 0:
@@ -85,4 +86,6 @@ def linear(text, width):
     lines.reverse()
     return lines
 
-linear("the quick brown fox jumped over the lazy dog", 10)
+werds = "the quick brown fox jumped over the lazy dog";
+print(werds.split())
+print(linear(werds, 10))

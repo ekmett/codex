@@ -1,6 +1,14 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Data.LineWrap where
+module Data.LineWrap
+    ( Score (..)
+    , Mangled (..)
+    , score
+    , scoreOver
+    , hyphenateText
+    , mangleAtBreaks
+    , finaliseMangle
+    ) where
 
 import Control.Lens
 import Data.Text (Text)
@@ -94,7 +102,7 @@ mangleAtBreaks hytor thresh ideal@(Ideal idline) maxl@(MaxLen maxline) t =
                     newh = mconcat hs
                   in
                     -- Move the rest of the hypenated word to the front for the next line
-                    go (newh : xs) widx0 (floopM ms linelen True) 0 (lnnum + 1)                  
+                    go (newh : xs) widx0 (floopM ms linelen True) 0 (lnnum + 1)
 
           -- Under max line length, but nothing follows so don't mark it and we're done.
           LT | null xs -> ms

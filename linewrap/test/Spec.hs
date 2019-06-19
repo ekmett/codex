@@ -7,7 +7,7 @@ import Test.Tasty.HUnit
 import Test.Tasty.Hedgehog
 
 import Hedgehog (Range, Gen, Property, forAll, property, (===))
-import qualified Hedgehog as HH 
+import qualified Hedgehog as HH
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
@@ -69,8 +69,9 @@ prop_linebreaking widthRange wordsRange breaker = property $ do
     broken = breaker input (Width width)
 
   if T.null input
-    then
-      HH.annotate "Empty input remains empty" >> broken === [""]
+    then do
+        HH.annotate "Empty input remains empty"
+        broken === [""]
 
     else do
       -- maximum is partial, joy of joys
@@ -100,18 +101,18 @@ main = defaultMain $ testGroup "Line Wrap (no hyphenation)"
     ]
 
   , testGroup "Properties"
-    [ 
+    [
     --  testProperty "bruteForce (limited to: Width 0 - 15, Words 0 - 20)" $
     --    prop_linebreaking (Range.linear 0 15) (const $ Range.linear 0 20) bruteForce
 
       propWText "dynamicProgramming" dynamicProgramming
     , propWText "shortestPath" shortestPath
     , propWText "binarySearch" binarySearch
-    --, propWText "linear" linear
+    , propWText "linear" linear
     ]
   ]
   where
-    wText f = f T.unwords T.words T.length 
+    wText f = f T.unwords T.words T.length
     propWText n = testProperty n
       . prop_linebreaking (Range.linear 0 100) (\w -> Range.linear 0 (w * 10))
       . wText

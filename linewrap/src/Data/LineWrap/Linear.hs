@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 module Data.LineWrap.Linear (linear) where
 
 import Debug.Trace (traceShowM,traceShowId)
@@ -5,6 +6,7 @@ import Data.STRef
 import Control.Monad.ST
 import Control.Monad
 
+import Data.Functor ((<&>))
 import Data.Foldable (foldlM)
 import Data.LineWrap.Types
 
@@ -126,7 +128,7 @@ cost width offsets minima i j  = do
     pure $ 10 ^ (10::Int) * (w - width)
   else
     -- return minima[i] + (width - w) ** 2
-    (\mi -> mi + (width - 1) ^ (2::Int)) <$> readSTRef (minima V.! i)
+    readSTRef (minima V.! i) <&> \mi -> mi + (width - w) ^ (2::Int)
 
 --     def smawk(rows, columns):
 smawkish
@@ -154,27 +156,13 @@ smawkish width offsets minima breaks rows columns = do
         -- if stack:
         if stackNotEmpty then do
           -- c = columns[len(stack) - 1]
-
-          -- traceShowM "stack"
-          -- traceShowM =<< readSTRef stackRef
-          -- traceShowM "stack length"
-          -- traceShowM . V.length =<< readSTRef stackRef
-          -- traceShowM "columns"
-          -- traceShowM =<< traverse readSTRef columns
-
-          stackLength <- V.length <$> readSTRef stackRef 
+          stackLength <- V.length <$> readSTRef stackRef
           c <- readSTRef $ columns V.! (stackLength - 1)
-
-          -- traceShowM "c"
-          -- traceShowM c
-
           -- cost(stack[-1], c)
           cost0 <- readSTRef stackRef >>= \stack -> costFn (V.last stack) c
-
           -- cost(rows[i], c)
           rowI <- readSTRef $ rows V.! i
           cost1 <- costFn rowI c
-
           -- if cost(stack[-1], c) < cost(rows[i], c):
           if cost0 < cost1 then do
             -- if len(stack) < len(columns):
@@ -182,11 +170,11 @@ smawkish width offsets minima breaks rows columns = do
               -- stack.append(rows[i])
               modifySTRef stackRef (`V.snoc` rowI)
             -- i += 1
-            modifySTRef iRef (+1) 
+            modifySTRef iRef (+1)
             rowL00p
-          else do 
+          else do
             -- stack.pop()
-            modifySTRef stackRef V.init 
+            modifySTRef stackRef V.init
             rowL00p
         else do
           rowI <- readSTRef $ rows V.! i
@@ -225,7 +213,7 @@ smawkish width offsets minima breaks rows columns = do
         if j + 1 < V.length columns then do
           -- end = breaks[columns[j + 1]]
           colJ1 <- readSTRef $ columns V.! (j + 1)
-          readSTRef (breaks V.! colJ1) >>= writeSTRef endRef 
+          readSTRef (breaks V.! colJ1) >>= writeSTRef endRef
         else
           -- end = rows[-1]
           writeSTRef endRef (V.last rows0)
@@ -268,25 +256,28 @@ innerLoop width offsets minima breaks nRef iRef offsetRef = do
     -- r = min(n, 2 ** (i + 1))
     r = min n (2 ^ (i + 1))
     -- edge = 2 ** i + offset
-    edge = 2 ^ (i + offset)
+    edge = 2 ^ i + offset
 
   traceShowM ("r", r, "edge", edge, "offset", offset)
 
   -- range(0 + offset, edge)
-  traceShowM "rows"
-  rowRefs <- traverse newSTRef $ traceShowId $ V.fromList [0 + offset .. edge - 1]
+  let rows = V.fromList [0 + offset .. edge - 1]
+  traceShowM ("rows", rows)
+  rowRefs <- traverse newSTRef rows
   -- range(edge, r + offset)
-  traceShowM "cols"
-  colRefs <- traverse newSTRef $ traceShowId $ V.fromList [edge .. r + offset - 1]
+  let cols = V.fromList [edge .. r + offset - 1]
+  traceShowM ("cols", cols)
+  colRefs <- traverse newSTRef cols
 
   -- smawk(range(0 + offset, edge), range(edge, r + offset))
   smawkish width offsets minima breaks rowRefs colRefs
 
   x <- readSTRef $ minima V.! (r - 1 + offset)
 
-  traceShowM ("r", r - 2)
-  -- [2 ^ i .. min 0 (r - 1)]
-  broken <- (\f -> foldlM f False (V.enumFromN (2 ^ i) (r - 2))) $ \done j -> if done then pure done else do
+  let rng = [2 ^ i .. (r - 2)]
+  traceShowM rng
+  -- python for:else: is gross
+  broken <- (\f -> foldlM f False rng) $ \done j -> if done then pure done else do
     -- y = cost(j + offset, r - 1 + offset)
     y <- cost width offsets minima (j + offset) (r - 1 + offset)
     -- if y <= x:
@@ -332,7 +323,7 @@ linear unsplit split len input (Width width) = if len input <= width then [input
 
   -- minima = [0] + [10 ** 20] * count
   minima <- V.cons <$> newSTRef 0 <*> V.replicateM count (newSTRef initialMinima)
-  
+
   -- breaks = [0] * (count + 1)
   breaks <- V.replicateM (count + 1) $ newSTRef 0
 
@@ -349,6 +340,8 @@ linear unsplit split len input (Width width) = if len input <= width then [input
   linesref <- newSTRef mempty
   -- j = count
   jref <- newSTRef count
+
+  traceShowM . ("breaks",) =<< traverse readSTRef breaks
 
   let
     loop1 = do
