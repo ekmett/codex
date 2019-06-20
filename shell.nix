@@ -12,11 +12,7 @@
         bidi-icu            = { path = ./bidi-icu;            args = {}; };
         const               = { path = ./const;               args = {}; };
         engine              = { path = ./engine;              args = {}; };
-        fontconfig-freetype = { path = ./fontconfig-freetype; args = {}; };
-        freetype            = { path = ./freetype;            args = {}; };
         glow                = { path = ./glow;                args = {}; };
-        harfbuzz-freetype   = { path = ./harfbuzz-freetype;   args = {}; };
-        harfbuzz-opentype   = { path = ./harfbuzz-opentype;   args = {}; };
         hkd                 = { path = ./hkd;                 args = {}; };
         parsnip             = { path = ./parsnip;             args = {}; };
         primitive-ffi       = { path = ./primitive-ffi;       args = {}; };
@@ -29,31 +25,28 @@
         watch-directory     = { path = ./watch-directory;     args = {}; };
         weak                = { path = ./weak;                args = {}; };
 
-        # Snowflakes who depend on a system library of their own name.
-        # Feed them their dep manually to prevent infinite recursion.
+        # Snowflakes who need things passed in explicitly, usually
+        # because they depend on a system library of their own name.
+        # Feed them their deps manually to prevent infinite recursion.
         fontconfig = {
           path = ./fontconfig;
           args = { inherit (self) fontconfig; };
+        };
+
+        freetype = {
+          path = ./freetype;
+          args = { freetype2 = self.freetype; };
         };
 
         harfbuzz = {
           path = ./harfbuzz;
           args = { inherit (self) harfbuzz; };
         };
-
-        harfbuzz-icu = {
-          path = ./harfbuzz-icu;
-          args = { inherit (self) harfbuzz-icu; };
-        };
-
-        harfbuzz-subset = {
-          path =./harfbuzz-subset;
-          args = { inherit (self) harfbuzz-subset; };
-        };
       };
     in {
       haskellPackages =
         let
+          # Use old versions of tools we never link against.
           oldTools = hself: hsuper: {
             cabal2nix = super.haskellPackages.cabal2nix;
             happy = super.haskellPackages.happy;
@@ -89,6 +82,7 @@
               binary-orphans = doJailbreak hsuper.binary-orphans_1_0_1;
               gl = hsuper.gl_0_9;
               inline-c = hsuper.inline-c_0_8_0_1;
+              sdl2 = dontCheck hsuper.sdl2_2_5_0_0;
 
               # On hackage, but not in the package set or all-cabal-hashes.
               JuicyPixels = hsuper.callHackageDirect {
@@ -124,14 +118,7 @@
             codexSources;
 
           codexPackageFixes = hself: hsuper: with pkgs.haskell.lib; {
-            freetype = addBuildDepends hsuper.freetype [ self.freetype ];
-
-            # Haskell package deps and system deps are in a common
-            # namespace in the cabal2nix-generated function.
-            harfbuzz-freetype = addBuildDepends hsuper.harfbuzz-freetype
-              [ self.harfbuzz ];
-            harfbuzz-opentype = addBuildDepends hsuper.harfbuzz-opentype
-              [ self.harfbuzz ];
+            harfbuzz = addBuildDepends hsuper.harfbuzz [ self.freetype ];
           };
 
           baseHaskellPackages = if compiler == "default"
@@ -142,7 +129,6 @@
           baseHaskellPackages.override (old: {
             overrides = builtins.foldl' super.lib.composeExtensions
               (old.overrides or (_: _: {})) [
-                # ghcVersion
                 oldTools
                 hackageFixes
                 codexPackages
@@ -152,7 +138,6 @@
 
       # Minimum version of freetype2 is required
       freetype = super.callPackage ./.nix/freetype {};
-      freetype2 = self.freetype;
 
       # We require a minimum version of fontconfig lib for specific functionality.
       # This is a version that should be equivalent for some macs, so pin it.
