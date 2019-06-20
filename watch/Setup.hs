@@ -1,2 +1,1 @@
-import Distribution.Simple
-main = defaultMain
+common/Setup.hs
