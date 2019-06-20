@@ -1,12 +1,9 @@
-
 let
-  hostNix = import <nixpkgs> {};
-  bytesPin = hostNix.pkgs.lib.importJSON ./bytes.json;
+  bytesPin = builtins.fromJSON (builtins.readFile ./bytes.json);
 
-  bytes = hostNix.pkgs.fetchFromGitHub {
-    owner = "ekmett";
-    repo  = "bytes";
-    inherit (bytesPin) rev sha256;
+  bytes = builtins.fetchGit {
+    inherit (bytesPin) url rev;
+    ref = "master";
   };
 in
   bytes

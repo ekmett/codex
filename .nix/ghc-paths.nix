@@ -1,12 +1,9 @@
-
 let
-  hostNix = import <nixpkgs> {};
-  ghc-pathsPin = hostNix.pkgs.lib.importJSON ./ghc-paths.json;
+  ghc-pathsPin = builtins.fromJSON (builtins.readFile ./ghc-paths.json);
 
-  ghc-paths = hostNix.pkgs.fetchFromGitHub {
-    owner = "simonmar";
-    repo  = "ghc-paths";
-    inherit (ghc-pathsPin) rev sha256;
+  ghc-paths = builtins.fetchGit {
+    inherit (ghc-pathsPin) url rev;
+    ref = "master";
   };
 in
   ghc-paths
