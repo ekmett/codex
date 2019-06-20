@@ -18,3 +18,4 @@ in
 
 nix-prefetch-git "https://github.com/$REPO/$PKG" > "$PKG.json"
 echo "$NUX" > "$PKG.nix"
+
