@@ -33,6 +33,7 @@ module Data.Watch
 
 import Control.Concurrent.Unique
 import Control.Exception
+import Control.Monad
 import Control.Monad.Primitive
 import Control.Monad.ST
 import Control.Monad.ST.Unsafe
@@ -41,6 +42,7 @@ import Data.HashMap.Strict as HashMap
 import Data.Primitive.MutVar
 import Data.Primitive.MVar
 import Data.Watch.Internal
+import GHC.Stack
 
 type IOThunk = Thunk RealWorld
 
@@ -95,7 +97,7 @@ delay = delayWith (\_ -> pure ())
 delayWith :: PrimMonad m => (a -> ST (PrimState m) ()) -> Watch (PrimState m) a -> m (Thunk (PrimState m) a)
 delayWith fin m = stToPrim do
   u <- unsafeIOToPrim newUnique
-  Thunk m fin <$> newMVar u <*> newRef Nothing
+  Thunk fin <$> newMVar u <*> newRef (Left m)
 {-# inlinable delayWith #-}
 
 delayWithIO :: (PrimMonad m, PrimState m ~ RealWorld) => (a -> IO ()) -> Watch RealWorld a -> m (IOThunk a)
@@ -110,20 +112,21 @@ withMVar m io = unsafeIOToPrim $
     b <$ do unsafeSTToIO (putMVar m a :: ST s ())
 
 force :: MonadWatch m => Thunk (PrimState m) a -> m a
-force (Thunk m fin mvar r@(Ref _ _)) = do
+force (Thunk fin mvar r@(Ref _ _)) = do
   readRef r >>= \case
-    Just a -> pure a
-    Nothing -> stToPrim $ withMVar mvar $ \u -> do
+    Right a -> pure a
+    Left _ -> stToPrim $ withMVar mvar $ \u -> do
       readRef r >>= \case -- unrecorded, but recorded above
-        Just a -> pure a
-        Nothing -> do
-          a <- runWatch m u $ atomicModifyRef r (Nothing,) >>= traverse_ (stToPrim . fin)
-          a <$ writeRef r (Just a)
+        Right a -> pure a
+        Left m -> do
+          a <- runWatch m u $ atomicModifyRef r (Left m,) >>= traverse_ (stToPrim . fin)
+          a <$ writeRef r (Right a)
 {-# inlinable force #-}
 
-release :: PrimMonad m => Thunk (PrimState m) a -> m ()
-release (Thunk _ fin mvar (Ref deps mutvar)) = stToPrim $ do
+-- after release, the thunk is destroyed (at least if it was previously evaluated.)
+release :: (HasCallStack, PrimMonad m) => Thunk (PrimState m) a -> m ()
+release (Thunk fin mvar (Ref deps mutvar)) = stToPrim $ do
   withMVar mvar $ \u -> do
-    atomicModifyMutVar mutvar (Nothing,) >>= \case
-      Nothing -> putMVar mvar u -- nothing to see here
-      Just a -> resetDeps deps *> fin a
+    join $ atomicModifyMutVar mutvar $ \case
+      Left m -> (Left m, putMVar mvar u) -- don't destroy ourselves if we don't have to
+      Right a -> (Left $ error "released", resetDeps deps *> fin a)

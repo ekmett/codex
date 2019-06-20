@@ -168,12 +168,12 @@ instance MonadWatch (Watch s) where
     readMutVar src
   {-# inlinable readRef #-}
 
-data Thunk s a = Thunk (Watch s a) (a -> Dep s) (MVar s Unique) (Ref s (Maybe a))
+data Thunk s a = Thunk (a -> Dep s) (MVar s Unique) (Ref s (Either (Watch s a) a))
 
 instance Eq (Thunk s a) where
-  Thunk _ _ _ x == Thunk _ _ _ y = x == y
+  Thunk _ _ x == Thunk _ _ y = x == y
 
 instance TestCoercion (Thunk s) where
-  testCoercion (Thunk _ _ _ s :: Thunk s a) (Thunk _ _ _ t)
+  testCoercion (Thunk _ _ s :: Thunk s a) (Thunk _ _ t)
     | s == unsafeCoerce t = Just $ unsafeCoerce (Coercion :: Coercion a a)
     | otherwise = Nothing
