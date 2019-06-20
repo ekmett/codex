@@ -1,11 +1,9 @@
 let
-  hostNix = import <nixpkgs> {};
-  shellyPin = hostNix.pkgs.lib.importJSON ./shelly.json;
+  shellyPin = builtins.fromJSON  (builtins.readFile ./shelly.json);
 
-  shelly = hostNix.pkgs.fetchFromGitHub {
-    owner = "yesodweb";
-    repo  = "Shelly.hs";
-    inherit (shellyPin) rev sha256;
+  shelly = builtins.fetchGit {
+    inherit (shellyPin) url rev;
+    ref = "master";
   };
 in
   shelly
