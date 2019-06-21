@@ -57,6 +57,9 @@ newKey = unsafeIOToPrim $ Key <$> newUnique
 data Box where
   Lock :: {-# unpack #-} !(Key a) -> a -> Box
 
+instance AsUnique Box where
+  unique (Lock k _) = unique k
+
 unlock :: AsCoercibleKey a t => t -> Box -> Maybe a
 unlock k (Lock l x) = case testCoercion (coercibleKey k) l of
   Just Coercion -> Just $ coerce x

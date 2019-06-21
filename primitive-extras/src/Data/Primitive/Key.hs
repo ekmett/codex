@@ -61,6 +61,9 @@ newKey = unsafeIOToPrim $ Key <$> Coercible.newKey
 data Box where
   Lock :: {-# unpack #-} !(Key a) -> a -> Box
 
+instance AsUnique Box where
+  unique (Lock k _) = unique k
+
 unlock :: AsKey a t => t -> Box -> Maybe a
 unlock k (Lock l x) = case testEquality (key k) l of
   Just Refl -> Just x
