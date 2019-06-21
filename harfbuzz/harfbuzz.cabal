@@ -39,7 +39,7 @@ common base
     base >= 4.11 && < 5,
     const,
     data-default,
-    primitive-statevar,
+    primitive-extras,
     text,
     vector
   ghc-options:
@@ -58,7 +58,7 @@ common lib
     hashable,
     inline-c,
     primitive,
-    primitive-statevar,
+    primitive-extras,
     template-haskell,
     transformers,
 

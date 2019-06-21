@@ -36,7 +36,7 @@ library
     -Wredundant-constraints -Widentities -Wmissing-export-lists
   build-depends:
     hashable,
-    primitive-unlift,
+    primitive-extras,
     transformers,
     unique,
     unliftio-core,

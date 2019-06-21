@@ -7,16 +7,16 @@ import Test.Tasty.Hspec
 spec :: Spec
 spec = do
   it "IO read/write" $ do
-    x <- newRef 12
-    readRef x `shouldReturn` 12
-    writeRef x 13
-    readRef x `shouldReturn` 13
-    modifyRef x (2+)
-    readRef x `shouldReturn` 15
-    atomicModifyRef x (\a -> (a + 3, a + 2)) `shouldReturn` 17
-    readRef x `shouldReturn` 18
-    modifyRef x (`div` 2)
-    readRef x `shouldReturn` 9
+    x <- newVar 12
+    readVar x `shouldReturn` 12
+    writeVar x 13
+    readVar x `shouldReturn` 13
+    modifyVar x (2+)
+    readVar x `shouldReturn` 15
+    atomicModifyVar x (\a -> (a + 3, a + 2)) `shouldReturn` 17
+    readVar x `shouldReturn` 18
+    modifyVar x (`div` 2)
+    readVar x `shouldReturn` 9
   it "delay/force" $ do
     r <- newMutVar 0 -- evil side effects
     t <- delay $ modifyMutVar r (+1)
@@ -31,10 +31,10 @@ spec = do
     force t
     readMutVar r `shouldReturn` 2
   it "delay/read" $ do
-    r <- newRef "hello"
+    r <- newVar "hello"
     m <- newMutVar "nope" -- for detecting effects
     t <- delay $ do
-      v <- readRef r
+      v <- readVar r
       v <$ writeMutVar m v
     readMutVar m `shouldReturn` "nope"
     force t
@@ -44,25 +44,25 @@ spec = do
     readMutVar m `shouldReturn` "oh"
     force t
     readMutVar m `shouldReturn` "oh"
-    writeRef r "bye"
+    writeVar r "bye"
     force t
     readMutVar m `shouldReturn` "bye"
   it "delayWithIO" $ do
-    r <- newRef "hello"
+    r <- newVar "hello"
     m <- newMutVar 0
-    t <- delayWithIO (writeMutVar m) $ length <$> readRef r
+    t <- delayWithIO (writeMutVar m) $ length <$> readVar r
     force t `shouldReturn` 5
     readMutVar m `shouldReturn` 0
-    writeRef r "bye"
+    writeVar r "bye"
     force t `shouldReturn` 3
     readMutVar m `shouldReturn` 5
   it "chains" $ do
-    r <- newRef "hello"
-    x <- delay $ readRef r
+    r <- newVar "hello"
+    x <- delay $ readVar r
     force x `shouldReturn` "hello"
     y <- delay $ length <$> force x
     force y `shouldReturn` 5
-    writeRef r "bye"
+    writeVar r "bye"
     force y `shouldReturn` 3
     
 

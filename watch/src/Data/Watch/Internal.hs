@@ -11,11 +11,14 @@
 -- | My take on mini-adapton.
 module Data.Watch.Internal
   ( Dep
-  , Deps(..)
-  , Ref(..)
+  , Deps
+  , Var(..)
+  , VarState(..)
   , MonadWatch(..)
   , Watch(..)
+  , WatchEnv(..)
   , Thunk(..)
+  , ThunkState(..)
   ) where
 
 import Control.Applicative
@@ -53,34 +56,38 @@ import Prelude hiding (fail)
 import qualified Prelude
 #endif
 
-type Dep s = ST s ()
+type Dep s a = a -> ST s ()
 
--- hold deps in an mvar?
-newtype Deps s = Deps (MutVar s (HashMap Unique (Dep s)))
+type Deps s a = HashMap Unique (Dep s a)
 
-data Ref s a = Ref (Deps s) (MutVar s a)
+data VarState s a = VarState
+  { varDeps  :: !(Deps s a)
+  , varValue :: a
+  }
 
-instance Eq (Ref s a) where
-  Ref _ s == Ref _ t = s == t
+newtype Var s a = Var (MutVar s (VarState s a))
 
-instance TestCoercion (Ref s) where
-  testCoercion (Ref _ s :: Ref s a) (Ref _ t)
+instance Eq (Var s a) where
+  Var s == Var t = s == t
+
+instance TestCoercion (Var s) where
+  testCoercion (Var s :: Var s a) (Var t)
     | s == unsafeCoerce t = Just $ unsafeCoerce (Coercion :: Coercion a a)
     | otherwise = Nothing
 
 class PrimMonad m => MonadWatch m where
-  readRef :: Ref (PrimState m) a -> m a
-  default readRef :: (MonadTrans t, MonadWatch n, PrimState n ~ PrimState (t n), m ~ t n) => Ref (PrimState m) a -> m a
-  readRef = lift . readRef
-  {-# inline readRef #-}
+  readVar :: Var (PrimState m) a -> m a
+  default readVar :: (MonadTrans t, MonadWatch n, PrimState n ~ PrimState (t n), m ~ t n) => Var (PrimState m) a -> m a
+  readVar = lift . readVar
+  {-# inline readVar #-}
 
 instance MonadWatch IO where
-  readRef (Ref _ m) = readMutVar m
-  {-# inline readRef #-}
+  readVar (Var m) = varValue <$> readMutVar m
+  {-# inline readVar #-}
 
 instance MonadWatch (ST s) where
-  readRef (Ref _ m) = readMutVar m
-  {-# inline readRef #-}
+  readVar (Var m) = varValue <$> readMutVar m
+  {-# inline readVar #-}
 
 instance MonadWatch m => MonadWatch (ReaderT e m)
 instance MonadWatch m => MonadWatch (Strict.StateT s m)
@@ -96,79 +103,90 @@ instance MonadWatch m => MonadWatch (ExceptT e m)
 instance MonadWatch m => MonadWatch (IdentityT m)
 instance MonadWatch m => MonadWatch (MaybeT m)
 
-newtype Watch s a = Watch { runWatch :: Unique -> Dep s -> ST s a }
-  deriving (Functor)
+data WatchEnv s = WatchEnv !Unique (ST s ())
+
+-- TODO: fuse Unique and action into one?
+newtype Watch s a = Watch { runWatch :: WatchEnv s -> ST s a }
+  deriving Functor
 
 instance Applicative (Watch s) where
-  pure a = Watch \ _ _ -> pure a
+  pure a = Watch \_ -> pure a
   {-# inlinable pure #-}
-  Watch m <*> Watch n = Watch \u d -> m u d <*> n u d
+  Watch m <*> Watch n = Watch \u -> m u <*> n u
   {-# inlinable (<*>) #-}
-  Watch m *> Watch n = Watch \u d -> m u d *> n u d
+  Watch m *> Watch n = Watch \u -> m u *> n u
   {-# inlinable (*>) #-}
-  Watch m <* Watch n = Watch \u d -> m u d <* n u d
+  Watch m <* Watch n = Watch \u -> m u <* n u
   {-# inlinable (<*) #-}
-  liftA2 f (Watch m) (Watch n) = Watch \u d -> liftA2 f (m u d) (n u d)
+  liftA2 f (Watch m) (Watch n) = Watch \u -> liftA2 f (m u) (n u)
   {-# inlinable liftA2 #-}
 
 instance Monad (Watch s) where
-  Watch m >>= f = Watch \u d -> do
-    a <- m u d
-    runWatch (f a) u d
+  Watch m >>= f = Watch \u -> do
+    a <- m u
+    runWatch (f a) u
   {-# inline (>>=) #-}
-  Watch m >> Watch n = Watch \u d -> m u d >> n u d
+  Watch m >> Watch n = Watch \u -> m u >> n u
   {-# inlinable (>>) #-}
 
 #if !MIN_VERSION_base(4,13,0)
-  fail s = Watch \_ _ -> unsafeIOToST $ fail s
+  fail s = Watch \_ -> unsafeIOToST $ fail s
   {-# inlinable fail #-}
 #endif
 
 --instance MonadBase (ST s) (Watch s) where
---  liftBase m = Watch $ \_ _ -> m
+--  liftBase m = Watch $ \_ -> m
 
 instance s ~ RealWorld => MonadUnliftIO (Watch s) where
-  askUnliftIO = Watch \u d ->
+  askUnliftIO = Watch \u ->
     ioToPrim $ withUnliftIO \k ->
       return $ UnliftIO \ m ->
-        unliftIO k $ stToIO $ runWatch m u d
+        unliftIO k $ stToIO $ runWatch m u
   {-# inline askUnliftIO #-}
   withRunInIO inner =
-    Watch \u d -> ioToPrim $ withRunInIO \run ->
-      inner \m -> run $ stToIO $ runWatch m u d
+    Watch \u -> ioToPrim $ withRunInIO \run ->
+      inner \m -> run $ stToIO $ runWatch m u
   {-# inline withRunInIO #-}
 
 instance MonadUnliftPrim (Watch s) where
-  askUnliftPrim = Watch \u d -> do
+  askUnliftPrim = Watch \u -> do
     withUnliftIOST \k ->
       return $ UnliftPrim \ m ->
-        unliftPrim k $ stToPrim $ runWatch m u d
+        unliftPrim k $ stToPrim $ runWatch m u
   {-# inline askUnliftPrim #-}
   withRunInPrim inner =
-    Watch \u d -> withRunInPrim \run ->
-      inner \m -> run $ stToPrim $ runWatch m u d
+    Watch \u -> withRunInPrim \run ->
+      inner \m -> run $ stToPrim $ runWatch m u
   {-# inline withRunInPrim #-}
 
 instance MonadFail (Watch s) where
-  fail s = Watch \_ _ -> unsafeIOToST $ fail s
+  fail s = Watch \_ -> unsafeIOToST $ fail s
   {-# inlinable fail #-}
 
 instance s ~ RealWorld => MonadIO (Watch s) where
-  liftIO m = Watch \_ _ -> unsafeIOToST m
+  liftIO m = Watch \_ -> unsafeIOToST m
   {-# inlinable liftIO #-}
 
 instance PrimMonad (Watch s) where
   type PrimState (Watch s) = s
-  primitive m = Watch \_ _ -> primitive m
+  primitive m = Watch \_ -> primitive m
   {-# inlinable primitive #-}
 
 instance MonadWatch (Watch s) where
-  readRef (Ref (Deps deps) src) = Watch \ u d -> do
-    modifyMutVar deps $ HashMap.insert u d
-    readMutVar src
-  {-# inlinable readRef #-}
+  readVar (Var v) = Watch \(WatchEnv u d) ->
+    atomicModifyMutVar' v \(VarState hm a) ->
+      (VarState (HashMap.insert u (\_ -> d) hm) a, a)
+  {-# inlinable readVar #-}
 
-data Thunk s a = Thunk (a -> Dep s) (MVar s Unique) (Ref s (Either (Watch s a) a))
+data ThunkState s a
+  = Released
+  | Forced a
+  | Delayed (Watch s a)
+
+data Thunk s a = Thunk
+  (Dep s a) -- on release / change
+  (MVar s Unique) -- all writes to the ref take place through this lock?
+  (Var s (ThunkState s a))
 
 instance Eq (Thunk s a) where
   Thunk _ _ x == Thunk _ _ y = x == y

@@ -46,7 +46,7 @@ common base
     parser-combinators,
     parsnip,
     primitive,
-    primitive-statevar,
+    primitive-extras,
     sdl2,
     StateVar,
     stm,

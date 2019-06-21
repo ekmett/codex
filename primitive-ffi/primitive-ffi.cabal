@@ -35,8 +35,7 @@ library
     ghc-prim,
     StateVar,
     primitive,
-    primitive-statevar,
-    primitive-unlift,
+    primitive-extras,
     ptrdiff
   exposed-modules:
     Foreign.ForeignRef

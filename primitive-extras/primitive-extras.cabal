@@ -1,8 +1,8 @@
 cabal-version: 2.2
-name: primitive-statevar
+name: primitive-extras
 version: 0
-synopsis: Generalized StateVars
-homepage: https://github.com/ekmett/codex/tree/master/primitive-statevar#readme
+synopsis: Primitive extras
+homepage: https://github.com/ekmett/codex/tree/master/primitive-extras#readme
 license: BSD-2-Clause OR Apache-2.0
 license-file: LICENSE.md
 author: Edward Kmett
@@ -12,10 +12,7 @@ stability: experimental
 category: FFI
 build-type: Simple
 description:
-  Generalizes Data.StateVar to an arbitrary PrimMonad.
-
-  The combinators supplied here are compatible with the types from
-  Data.StateVar.
+  Primitive extras,
 extra-doc-files:
   README.md,
   CHANGELOG.md
@@ -23,19 +20,26 @@ extra-doc-files:
 source-repository head
   type: git
   location: https://github.com/ekmett/codex
-  subdir: primitive-statevar
+  subdir: primitive-extras
 
 library
-  hs-source-dirs: src
   default-language: Haskell2010
   ghc-options:
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
     -Wredundant-constraints -Widentities -Wmissing-export-lists
+  hs-source-dirs: src
   build-depends:
-    base >= 4.12 && < 5,
+    base >= 4.11 && < 5,
     const,
+    ghc-prim,
+    hashable,
     primitive,
     StateVar >= 1.1 && < 1.3,
-    stm
+    stm,
+    transformers
   exposed-modules:
+    Control.Monad.IOST
+    Control.Monad.IOST.Unsafe
+    Control.Monad.Primitive.Unlift
     Data.Primitive.StateVar
+    Data.Primitive.Unique

@@ -4,6 +4,7 @@
 {-# language Trustworthy #-}
 {-# language BlockArguments #-}
 {-# language ScopedTypeVariables #-}
+{-# language BangPatterns #-}
 -- |
 -- Copyright :  (c) 2019 Edward Kmett
 -- License   :  BSD-2-Clause OR Apache-2.0
@@ -13,15 +14,15 @@
 --
 -- Concurrent mini-adapton.
 module Data.Watch
-  ( Ref
+  ( Var
   , MonadWatch(..)
   , Watch
-  , newRef
-  , writeRef
-  , modifyRef
-  , modifyRef'
-  , atomicModifyRef
-  , atomicModifyRef'
+  , newVar
+  , writeVar
+  , modifyVar
+  , modifyVar'
+  , atomicModifyVar
+  , atomicModifyVar'
   , Thunk
   , IOThunk
   , delay
@@ -42,53 +43,51 @@ import Data.HashMap.Strict as HashMap
 import Data.Primitive.MutVar
 import Data.Primitive.MVar
 import Data.Watch.Internal
-import GHC.Stack
 
 type IOThunk = Thunk RealWorld
 
-newRef :: PrimMonad m => a -> m (Ref (PrimState m) a)
-newRef a = stToPrim $ Ref . Deps
-  <$> newMutVar HashMap.empty
-  <*> newMutVar a
-{-# inlinable newRef #-}
+newVar :: PrimMonad m => a -> m (Var (PrimState m) a)
+newVar a = stToPrim $ Var <$> newMutVar (VarState HashMap.empty a)
+{-# inlinable newVar #-}
 
--- don't perform in a thunk unless you understand the layering
-writeRef :: PrimMonad m => Ref (PrimState m) a -> a -> m ()
-writeRef (Ref deps r) a = stToPrim $ do
-  resetDeps deps
-  writeMutVar r a
-{-# inlinable writeRef #-}
-
-modifyRef :: PrimMonad m => Ref (PrimState m) a -> (a -> a) -> m ()
-modifyRef (Ref deps r) f = stToPrim $ do
-  resetDeps deps
-  modifyMutVar r f
-{-# inlinable modifyRef #-}
-
-modifyRef' :: PrimMonad m => Ref (PrimState m) a -> (a -> a) -> m ()
-modifyRef' (Ref deps r) f = stToPrim $ do
-  resetDeps deps
-  modifyMutVar' r f
-{-# inlinable modifyRef' #-}
-
-atomicModifyRef :: PrimMonad m => Ref (PrimState m) a -> (a -> (a, b)) -> m b
-atomicModifyRef (Ref deps r) f = stToPrim $ do
-  resetDeps deps
-  atomicModifyMutVar r f
-{-# inlinable atomicModifyRef #-}
-
-atomicModifyRef' :: PrimMonad m => Ref (PrimState m) a -> (a -> (a, b)) -> m b
-atomicModifyRef' (Ref deps r) f = stToPrim $ do
-  resetDeps deps
-  atomicModifyMutVar' r f
-{-# inlinable atomicModifyRef' #-}
-
-resetDeps :: PrimMonad m => Deps (PrimState m) -> m ()
-resetDeps (Deps deps) = do
-  xs <- atomicModifyMutVar deps (HashMap.empty,)
-  stToPrim $ sequence_ xs
-  -- TODO: add a persistent set of deps that can be used for onChange/Future-like behavior
+resetDeps :: PrimMonad m => Deps (PrimState m) a -> a -> m ()
+resetDeps deps a = stToPrim $ traverse_ ($a) deps
 {-# inline resetDeps #-}
+
+-- | don't perform in a thunk unless you understand the layering
+writeVar :: PrimMonad m => Var (PrimState m) a -> a -> m ()
+writeVar (Var r) a' = stToPrim $ join $
+  atomicModifyMutVar' r \ (VarState hm _) -> 
+    (VarState HashMap.empty a', resetDeps hm a')
+{-# inlinable writeVar #-}
+
+-- | don't perform in a thunk unless you understand the layering
+modifyVar :: PrimMonad m => Var (PrimState m) a -> (a -> a) -> m ()
+modifyVar (Var r) f = stToPrim $ join $
+  atomicModifyMutVar' r \(VarState deps a) -> let a' = f a in
+    (VarState HashMap.empty a', resetDeps deps a')
+{-# inlinable modifyVar #-}
+
+-- | don't perform in a thunk unless you understand the layering
+modifyVar' :: PrimMonad m => Var (PrimState m) a -> (a -> a) -> m ()
+modifyVar' (Var r) f = stToPrim $ join $
+  atomicModifyMutVar' r \(VarState deps a) -> let !a' = f a in
+    (VarState HashMap.empty a', resetDeps deps a')
+{-# inlinable modifyVar' #-}
+
+-- | don't perform in a thunk unless you understand the layering
+atomicModifyVar :: PrimMonad m => Var (PrimState m) a -> (a -> (a, b)) -> m b
+atomicModifyVar (Var r) f = stToPrim $ join $ 
+  atomicModifyMutVar' r \(VarState deps a) -> let ~(a',b) = f a in
+    (VarState HashMap.empty a', b <$ resetDeps deps a')
+{-# inlinable atomicModifyVar #-}
+
+-- | don't perform in a thunk unless you understand the layering
+atomicModifyVar' :: PrimMonad m => Var (PrimState m) a -> (a -> (a, b)) -> m b
+atomicModifyVar' (Var r) f = stToPrim $ join $
+  atomicModifyMutVar' r \(VarState deps a) -> let (a',b) = f a in
+    (VarState HashMap.empty a', b <$ resetDeps deps a')
+{-# inlinable atomicModifyVar' #-}
 
 delay :: PrimMonad m => Watch (PrimState m) a -> m (Thunk (PrimState m) a)
 delay = delayWith (\_ -> pure ())
@@ -97,13 +96,14 @@ delay = delayWith (\_ -> pure ())
 delayWith :: PrimMonad m => (a -> ST (PrimState m) ()) -> Watch (PrimState m) a -> m (Thunk (PrimState m) a)
 delayWith fin m = stToPrim do
   u <- unsafeIOToPrim newUnique
-  Thunk fin <$> newMVar u <*> newRef (Left m)
+  Thunk fin <$> newMVar u <*> newVar (Delayed m)
 {-# inlinable delayWith #-}
 
 delayWithIO :: (PrimMonad m, PrimState m ~ RealWorld) => (a -> IO ()) -> Watch RealWorld a -> m (IOThunk a)
 delayWithIO fin = delayWith (primToPrim . fin)
 {-# inlinable delayWithIO #-}
 
+-- Move into 'Data.Primitive.MVar'?
 withMVar :: forall m s a b. (PrimBase m, PrimState m ~ s) => MVar (PrimState m) a -> (a -> m b) -> m b
 withMVar m io = unsafeIOToPrim $
   mask $ \restore -> do
@@ -112,21 +112,25 @@ withMVar m io = unsafeIOToPrim $
     b <$ do unsafeSTToIO (putMVar m a :: ST s ())
 
 force :: MonadWatch m => Thunk (PrimState m) a -> m a
-force (Thunk fin mvar r@(Ref _ _)) = do
-  readRef r >>= \case
-    Right a -> pure a
-    Left _ -> stToPrim $ withMVar mvar $ \u -> do
-      readRef r >>= \case -- unrecorded, but recorded above
-        Right a -> pure a
-        Left m -> do
-          a <- runWatch m u $ atomicModifyRef r (Left m,) >>= traverse_ (stToPrim . fin)
-          a <$ writeRef r (Right a)
+force (Thunk fin mu r) = do
+  readVar r >>= \case -- intentionally in the MonadWatch instance to record dep.
+    Forced a -> pure a
+    Released -> error "entering released thunk"
+    Delayed{} -> stToPrim $ withMVar mu \u -> do
+      readVar r >>= \case -- unrecorded, but recorded above, probably dangerous. use primitive-unlift?
+        Forced a -> pure a -- we lost a race
+        Released -> error "entering released thunk"
+        d@(Delayed m) -> do
+          a <- runWatch m $ WatchEnv u $ atomicModifyVar' r (d,) >>= \case
+             Forced a -> fin a
+             _        -> pure ()
+          a <$ writeVar r (Forced a)
 {-# inlinable force #-}
 
--- after release, the thunk is destroyed (at least if it was previously evaluated.)
-release :: (HasCallStack, PrimMonad m) => Thunk (PrimState m) a -> m ()
-release (Thunk fin mvar (Ref deps mutvar)) = stToPrim $ do
-  withMVar mvar $ \u -> do
-    join $ atomicModifyMutVar mutvar $ \case
-      Left m -> (Left m, putMVar mvar u) -- don't destroy ourselves if we don't have to
-      Right a -> (Left $ error "released", resetDeps deps *> fin a)
+-- after a release, the thunk must never be forced again
+release :: PrimMonad m => Thunk (PrimState m) a -> m ()
+release (Thunk fin mu r) = stToPrim $ do
+  withMVar mu \_ ->
+    atomicModifyVar' r (Released,) >>= \case
+      Forced a -> fin a
+      _ -> pure ()
