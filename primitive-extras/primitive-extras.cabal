@@ -40,6 +40,7 @@ library
   exposed-modules:
     Control.Monad.IOST
     Control.Monad.IOST.Unsafe
+    Control.Monad.Primitive.Class
     Control.Monad.Primitive.Unlift
     Data.Primitive.Key
     Data.Primitive.Key.Coercible

@@ -33,23 +33,23 @@ import Data.Proxy
 import Data.Type.Coercion
 import Unsafe.Coerce
 
-newtype Key m a = Key (MutVar (PrimState m) (Proxy a))
+newtype Key a = Key (MutVar RealWorld (Proxy a))
   deriving Eq
 
-instance TestCoercion (Key m) where
-  testCoercion (Key s :: Key m a) (Key t)
+instance TestCoercion Key where
+  testCoercion (Key s :: Key a) (Key t)
     | s == unsafeCoerce t = Just $ unsafeCoerce (Coercion :: Coercion a a)
     | otherwise           = Nothing
   {-# inline testCoercion #-}
 
-newKey :: PrimMonad m => m (Key m a)
-newKey = Key <$> newMutVar Proxy
+newKey :: PrimMonad m => m (Key a)
+newKey = unsafeIOToPrim $ Key <$> newMutVar Proxy
 {-# inline newKey #-}
 
-data Box m where
-  Lock :: {-# unpack #-} !(Key m a) -> a -> Box m
+data Box where
+  Lock :: {-# unpack #-} !(Key a) -> a -> Box
 
-unlock :: Key m a -> Box m -> Maybe a
+unlock :: Key a -> Box -> Maybe a
 unlock k (Lock l x) = case testCoercion k l of
   Just Coercion -> Just $ coerce x
   Nothing -> Nothing
