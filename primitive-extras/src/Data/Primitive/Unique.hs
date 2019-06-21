@@ -17,6 +17,7 @@
 module Data.Primitive.Unique
   ( Unique
   , newUnique
+  , AsUnique(..)
   ) where
 
 import Control.Monad.Primitive
@@ -39,3 +40,9 @@ newUnique :: PrimMonad m => m Unique
 newUnique = primitive \s -> case newByteArray# 0# s of
   (# s', mba #) -> case unsafeFreezeByteArray# mba s' of
     (# s'', ba #) -> (# s'', Unique (byteArrayContents# ba) ba #)
+
+class AsUnique t where
+  unique :: t -> Unique
+
+instance AsUnique Unique where
+  unique = id

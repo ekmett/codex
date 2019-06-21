@@ -6,6 +6,11 @@
 {-# language RankNTypes #-}
 {-# language GADTs #-}
 {-# language RoleAnnotations #-}
+{-# language MultiParamTypeClasses #-}
+{-# language FunctionalDependencies #-}
+{-# language FlexibleInstances #-}
+{-# language DerivingStrategies #-}
+{-# language GeneralizedNewtypeDeriving #-}
 
 -- |
 -- Copyright :  (c) Edward Kmett 2018-2019
@@ -24,17 +29,20 @@
 module Data.Primitive.Key.Coercible
   ( Key, newKey
   , Box(Lock), unlock
+  , AsCoercibleKey(..)
   ) where
 
 import Control.Monad.Primitive
 import Data.Coerce
-import Data.Primitive.MutVar
-import Data.Proxy
+import Data.Hashable
+import Data.Primitive.Unique
 import Data.Type.Coercion
 import Unsafe.Coerce
 
-newtype Key a = Key (MutVar RealWorld (Proxy a))
-  deriving Eq
+newtype Key a = Key Unique
+  deriving newtype (Eq, Hashable, AsUnique)
+
+type role Key representational
 
 instance TestCoercion Key where
   testCoercion (Key s :: Key a) (Key t)
@@ -43,14 +51,20 @@ instance TestCoercion Key where
   {-# inline testCoercion #-}
 
 newKey :: PrimMonad m => m (Key a)
-newKey = unsafeIOToPrim $ Key <$> newMutVar Proxy
+newKey = unsafeIOToPrim $ Key <$> newUnique
 {-# inline newKey #-}
 
 data Box where
   Lock :: {-# unpack #-} !(Key a) -> a -> Box
 
-unlock :: Key a -> Box -> Maybe a
-unlock k (Lock l x) = case testCoercion k l of
+unlock :: AsCoercibleKey a t => t -> Box -> Maybe a
+unlock k (Lock l x) = case testCoercion (coercibleKey k) l of
   Just Coercion -> Just $ coerce x
   Nothing -> Nothing
 {-# inline unlock #-}
+
+class AsCoercibleKey a t | t -> a where
+  coercibleKey :: t -> Key a
+
+instance AsCoercibleKey a (Key a) where
+  coercibleKey = id

@@ -6,6 +6,11 @@
 {-# language RankNTypes #-}
 {-# language GADTs #-}
 {-# language RoleAnnotations #-}
+{-# language MultiParamTypeClasses #-}
+{-# language FunctionalDependencies #-}
+{-# language FlexibleInstances #-}
+{-# language DerivingStrategies #-}
+{-# language GeneralizedNewtypeDeriving #-}
 
 -- |
 -- Copyright :  (c) Edward Kmett 2018-2019
@@ -21,18 +26,21 @@
 module Data.Primitive.Key
   ( Key, newKey
   , Box(Lock), unlock
+  , AsKey(..)
   ) where
 
 import Control.Monad.Primitive
-import Data.Primitive.MutVar
-import Data.Proxy
+import Data.Hashable
+import qualified Data.Primitive.Key.Coercible as Coercible
+import Data.Primitive.Unique
 import Data.Type.Coercion
 import Data.Type.Equality
 import Unsafe.Coerce
 
 -- move to Equality.Key?
 -- why do we need a region?
-newtype Key a = Key (MutVar RealWorld (Proxy a))
+newtype Key a = Key (Coercible.Key a)
+  deriving newtype (Eq, Hashable, Coercible.AsCoercibleKey a, AsUnique)
 
 type role Key nominal
 
@@ -43,20 +51,24 @@ instance TestEquality Key where
   {-# inline testEquality #-}
 
 instance TestCoercion Key where
-  testCoercion (Key s :: Key a) (Key t)
-    | s == unsafeCoerce t = Just $ unsafeCoerce (Coercion :: Coercion a a)
-    | otherwise           = Nothing
+  testCoercion (Key s) (Key t) = testCoercion s t
   {-# inline testCoercion #-}
 
 newKey :: PrimMonad m => m (Key a)
-newKey = unsafeIOToPrim $ Key <$> newMutVar Proxy
+newKey = unsafeIOToPrim $ Key <$> Coercible.newKey
 {-# inline newKey #-}
 
 data Box where
   Lock :: {-# unpack #-} !(Key a) -> a -> Box
 
-unlock :: Key a -> Box -> Maybe a
-unlock k (Lock l x) = case testEquality k l of
+unlock :: AsKey a t => t -> Box -> Maybe a
+unlock k (Lock l x) = case testEquality (key k) l of
   Just Refl -> Just x
   Nothing -> Nothing
 {-# inline unlock #-}
+
+class AsKey a t | t -> a where
+  key :: t -> Key a
+
+instance AsKey a (Key a) where
+  key = id
