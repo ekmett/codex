@@ -67,7 +67,7 @@ type GivenDirectoryWatcher = (?directoryWatcher :: DirectoryWatcher)
 
 data DirectoryWatcher = DirectoryWatcher
   WatchManager
-  (MVar (HashMap FilePath (Ref RealWorld (Maybe Event), IOThunk (Maybe Event))))
+  (MVar (HashMap FilePath (Var RealWorld (Maybe Event), IOThunk (Maybe Event))))
   -- TODO: WeakRef? that would let us periodically prune the list of references if people stop caring
 
 withDirectoryWatcher :: MonadUnliftIO m => (GivenDirectoryWatcher => m r) -> m r
@@ -97,7 +97,7 @@ listenToDir dir = case ?directoryWatcher of
     watchDir wm dir (const True) \e ->
       withMVar paths pure >>= \hm -> do
         canon <- canonicalizePath (eventPath e)
-        for_ (HashMap.lookup canon hm) \(r,_) -> writeRef r (Just e)
+        for_ (HashMap.lookup canon hm) \(r,_) -> writeVar r (Just e)
 
 listenToTree :: (GivenDirectoryWatcher, MonadIO m) => FilePath -> m StopListening
 listenToTree dir = case ?directoryWatcher of
@@ -105,7 +105,7 @@ listenToTree dir = case ?directoryWatcher of
     watchTree wm dir (const True) \e ->
       withMVar paths pure >>= \hm -> do
         canon <- canonicalizePath (eventPath e)
-        for_ (HashMap.lookup canon hm) \(r,_) -> writeRef r (Just e)
+        for_ (HashMap.lookup canon hm) \(r,_) -> writeVar r (Just e)
 
 -- | This contains the last event associated with a given file. However, it only contains
 -- events since someone started watching. Typical usecase is as a building block for
@@ -117,8 +117,8 @@ onFileEvent fp = case ?directoryWatcher of
     modifyMVar fes \hm -> case HashMap.lookup canon hm of
       Just (_,t) -> pure (hm,t)
       Nothing -> do
-        r <- newRef Nothing
-        t <- delay (readRef r)
+        r <- newVar Nothing
+        t <- delay (readVar r)
         pure (HashMap.insert canon (r,t) hm, t)
 
 -- | invalidated every time the file changes so long as we are watching the containing directory
