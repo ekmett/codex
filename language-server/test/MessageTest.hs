@@ -26,7 +26,6 @@ import Test.Tasty.Golden
 import Test.Tasty.HUnit
 import Test.Tasty.Providers as Tasty
 
-import Paths_coda (getDataDir)
 import Language.Server.Parser
 import Language.Server.Builder
 import Language.Server.Protocol
