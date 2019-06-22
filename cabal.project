@@ -42,8 +42,8 @@ source-repository-package
 
 source-repository-package
   type: git
-  location: https://github.com/bgamari/vector-th-unbox.git
-  tag: b5ecd80e422a1b762923b026eba1efd46d4e8c28
+  location: https://github.com/ekmett/vector-th-unbox.git
+  tag: 3cd0153ea68fa7cfd9a0b948c36717e502001a1
 
 write-ghc-environment-files: always
 
@@ -51,4 +51,4 @@ allow-newer:
   all:base,
   all:Cabal,
   text:deepseq,
-  generics-sop:template-haskell
+  all:template-haskell
