@@ -26,10 +26,6 @@ spec = do
     force t
     readMutVar r `shouldReturn` 1
     release t
-    force t
-    readMutVar r `shouldReturn` 2
-    force t
-    readMutVar r `shouldReturn` 2
   it "delay/read" $ do
     r <- newVar "hello"
     m <- newMutVar "nope" -- for detecting effects
@@ -65,9 +61,6 @@ spec = do
     writeVar r "bye"
     force y `shouldReturn` 3
     
-
-
-
 main :: IO ()
 main = do
   spec' <- testSpec "spec" spec
