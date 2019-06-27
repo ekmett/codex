@@ -6,6 +6,7 @@
 {-# language RankNTypes #-}
 {-# language GADTs #-}
 {-# language RoleAnnotations #-}
+{-# language QuantifiedConstraints #-}
 {-# language MultiParamTypeClasses #-}
 {-# language FunctionalDependencies #-}
 {-# language FlexibleInstances #-}
@@ -54,13 +55,13 @@ newKey :: PrimMonad m => m (Key a)
 newKey = unsafeIOToPrim $ Key <$> newUnique
 {-# inline newKey #-}
 
-data Box where
-  Lock :: {-# unpack #-} !(Key a) -> a -> Box
+data Box f where
+  Lock :: (forall b. Coercible a b => Coercible (f a) (f b)) => {-# unpack #-} !(Key a) -> f a -> Box f
 
-instance AsUnique Box where
+instance AsUnique (Box f) where
   unique (Lock k _) = unique k
 
-unlock :: AsCoercibleKey a t => t -> Box -> Maybe a
+unlock :: AsCoercibleKey a t => t -> Box f -> Maybe (f a)
 unlock k (Lock l x) = case testCoercion (coercibleKey k) l of
   Just Coercion -> Just $ coerce x
   Nothing -> Nothing

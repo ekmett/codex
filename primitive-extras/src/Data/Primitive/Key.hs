@@ -58,13 +58,13 @@ newKey :: PrimMonad m => m (Key a)
 newKey = unsafeIOToPrim $ Key <$> Coercible.newKey
 {-# inline newKey #-}
 
-data Box where
-  Lock :: {-# unpack #-} !(Key a) -> a -> Box
+data Box f where
+  Lock :: {-# unpack #-} !(Key a) -> f a -> Box f
 
-instance AsUnique Box where
+instance AsUnique (Box f) where
   unique (Lock k _) = unique k
 
-unlock :: AsKey a t => t -> Box -> Maybe a
+unlock :: AsKey a t => t -> Box f -> Maybe (f a)
 unlock k (Lock l x) = case testEquality (key k) l of
   Just Refl -> Just x
   Nothing -> Nothing
