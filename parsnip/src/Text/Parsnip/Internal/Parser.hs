@@ -25,7 +25,7 @@
 {-# options_ghc -O2 #-}
 
 module Text.Parsnip.Internal.Parser
-( 
+(
 -- * Parser
   Parser(..)
 , Option, pattern Some, pattern None
@@ -209,7 +209,7 @@ litN q n = Parser \p s -> case io (c_strncmp p q n) s of
 
 -- | Super unsafe. Fabricates a bytestring that directly reference constant memory.
 --
--- Usage: 
+-- Usage:
 --
 -- @
 -- hello = lit "hello"#
@@ -246,7 +246,7 @@ unsafeLiteralByteStringN p n = PS (unsafeLiteralForeignPtr p) 0 (fromIntegral n)
 -- way, no additional memory needs to be copied, and the garbage collector will just
 -- manage the storage of the bytestrings you cut off of the parent for you.
 
-data Base s = Base 
+data Base s = Base
   { baseOriginal  :: Addr# -- the start of a valid bytestring
   , baseContents  :: ForeignPtrContents -- memory management for that bytestring
   , baseStart :: Addr# -- the start of our null terminated copy of the bytestring

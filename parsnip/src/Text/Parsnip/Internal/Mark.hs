@@ -104,7 +104,7 @@ snip = case reflectBase @s of
 snipping :: forall s a. KnownBase s => Parser s a -> Parser s ByteString
 snipping = case reflectBase @s of
   !(Base b g r _) -> \(Parser m) -> Parser \p s -> case m p s of
-    (# o, q, t #) -> 
+    (# o, q, t #) ->
       (# setOption
         ( if isTrue# (geAddr# q p)
           then mkBS (b `plusAddr#` minusAddr# p r) g (minusAddr# q p)
