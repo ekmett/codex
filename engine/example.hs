@@ -2,7 +2,7 @@ import Engine
 
 main :: IO ()
 main = withEngine $ \ drive -> do
-  -- setup ... 
+  -- setup ...
   drive $ do
     -- per frame
     pure ()

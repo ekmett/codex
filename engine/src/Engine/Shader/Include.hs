@@ -69,7 +69,7 @@ import Text.Parsnip as P
 type GivenShaderDir = (?shaderDir :: FilePath)
 
 -- | Shader paths start with "/", so peel that off and attach a given base path.
-shaderPathToRealPath :: GivenShaderDir => FilePath -> FilePath 
+shaderPathToRealPath :: GivenShaderDir => FilePath -> FilePath
 shaderPathToRealPath path = ?shaderDir </> makeRelative "/" path
 
 realPathToShaderPath :: GivenShaderDir => FilePath -> FilePath
@@ -80,7 +80,7 @@ realPathToShaderPath path = "/" </> makeRelative ?shaderDir path
 -- that represent the same.
 --
 -- Note: the filepaths here are absolute paths, not shader paths
-data Body = Body 
+data Body = Body
   { bodySource   :: [ByteString] -- ^ raw bytestring used to construct the body, for 'glCompileShaderIncludeARB'
   , bodyErrors   :: [String] -- ^ any parse errors encountered during construction
   , bodyIncludes :: [Either ByteString FilePath] -- ^ parsed body, with include directives separated out
@@ -142,7 +142,7 @@ type GivenIncludeCache = (?includes :: IncludeCache)
 newIncludeCache :: MonadIO m => m IncludeCache
 newIncludeCache = liftIO $ newMVar HashMap.empty
 
-withIncludeCache :: MonadIO m => (GivenIncludeCache => m a) -> m a 
+withIncludeCache :: MonadIO m => (GivenIncludeCache => m a) -> m a
 withIncludeCache m = do
   c <- newIncludeCache
   let ?includes = c
@@ -178,7 +178,7 @@ cache path = use (at path) >>= \case
 
 -- space within a line
 spaces :: Parser s ()
-spaces = skipMany $ choice 
+spaces = skipMany $ choice
   [ () <$ satisfy \c -> A.isSpace c && c `Prelude.notElem` vspace
   , () <$ do "/*" *> P.skipTillSubstring "*/" *> "*/"
   , () <$ "\\\n"
@@ -214,7 +214,7 @@ directive p = do
   _ <- optional newlines
   b <- mark
   pure $ Run a b <$> m
-  
+
 -- parse (directives include) some_bytestring
 -- parse (directives skipped) gets all directives
 
@@ -234,12 +234,12 @@ file :: KnownBase s => Parser s FilePath
 file = token $ C.unpack <$> choice
   [ char '<' *> tillChar '>' <* char '>'
   , char '"' *> tillChar '"' <* char '"'
-  ] 
+  ]
 
 cut :: KnownBase s => [Run s a] -> [Either ByteString a]
 cut = go minBound where
   go i [] | bs <- snip i maxBound = [Left bs | not $ B.null bs]
-  go i (Run j k a:xs) 
+  go i (Run j k a:xs)
     | bs <- snip i j, not (B.null bs) = Left bs : ys
     | otherwise = ys
     where ys = Right a : go k xs
