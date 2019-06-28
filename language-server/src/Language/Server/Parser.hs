@@ -1,3 +1,4 @@
+{-# language CPP #-}
 {-# language LambdaCase #-}
 {-# language DeriveTraversable #-}
 {-# language OverloadedStrings #-}
@@ -27,6 +28,7 @@ module Language.Server.Parser
   ) where
 
 import Control.Monad
+import qualified Control.Monad.Fail as MonadFail
 import Data.Aeson
 import Data.Char
 import Data.Data
@@ -65,6 +67,11 @@ instance Applicative Parser where
 
 instance Monad Parser where
   Parser m >>= f = Parser $ \h -> m h >>= \a -> runParser (f a) h
+#if !MIN_VERSION_base(4,13,0)
+  fail s = Parser $ \_ -> throw $ ParseError s
+#endif
+
+instance MonadFail.MonadFail Parser where
   fail s = Parser $ \_ -> throw $ ParseError s
 
 parse :: Parser a -> Handle -> IO (Either String a)

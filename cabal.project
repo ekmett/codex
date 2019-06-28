@@ -32,6 +32,11 @@ source-repository-package
 
 source-repository-package
   type: git
+  location: https://github.com/ekmett/aeson.git
+  tag: 2c8a94877829d80f33ab8e95361470fd1049623a
+
+source-repository-package
+  type: git
   location: https://github.com/ekmett/lens.git
   tag: 85908302d08169d7a9e2bae9777fafc6bb1875f0
 
@@ -46,6 +51,8 @@ source-repository-package
   tag: 3cd0153ea68fa7cfd9a0b948c36717e502001a1
 
 write-ghc-environment-files: always
+
+constraints: primitive > 0.7
 
 allow-newer:
   all:base,
