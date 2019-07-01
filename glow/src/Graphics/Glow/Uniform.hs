@@ -17,8 +17,42 @@ module Graphics.Glow.Uniform
 -- * Uniform Locations
   UniformLocation
 , uniformLocation
+-- * Uniform Vectors
+-- $uniformVector
+-- ** Float
+, uniform1fs
+, uniform2fs
+, uniform3fs
+, uniform4fs
+-- ** Int32
+, uniform1is
+, uniform2is
+, uniform3is
+, uniform4is
+-- ** Word32
+, uniform1uis
+, uniform2uis
+, uniform3uis
+, uniform4uis
+-- * Uniform Matrices
+, uniformMat2s
+, uniformMat2
+, uniformMat2x3s
+, uniformMat2x3
+, uniformMat2x4s
+, uniformMat2x4
+, uniformMat3s
+, uniformMat3
+, uniformMat3x2s
+, uniformMat3x2
+, uniformMat3x4s
+, uniformMat3x4
 , uniformMat4s
 , uniformMat4
+, uniformMat4x2s
+, uniformMat4x2
+, uniformMat4x3s
+, uniformMat4x3
 -- * Program Uniforms
 -- $programUniform
 , programUniform1f
@@ -72,6 +106,70 @@ type UniformLocation = GLint
 uniformLocation :: MonadIO m => Program -> String -> m UniformLocation
 uniformLocation (Program p) s = liftIO $ withCString s (glGetUniformLocation p . castPtr)
 
+--------------------------------------------------------------------------------
+-- * Uniform Vectors
+--------------------------------------------------------------------------------
+
+-- $uniformVector
+--
+-- These correspond to 'glUniform3fv' etc. The trailing @s@ is for
+-- consistency with the matrix operations below.
+--
+-- Q: Where are the non-vector variants?
+-- A: Call 'glUniform3f' etc. directly.
+
+uniformVector
+  :: (MonadIO m, Foldable f, Storable a)
+  => (GLint -> GLsizei -> Ptr x -> IO ())
+  -> UniformLocation -> f a -> m ()
+uniformVector f loc xs = liftIO $ withArrayLen (toList xs) \n p -> f loc (fromIntegral n) (castPtr p)
+
+-- ** Float
+
+uniform1fs :: (MonadIO m, Foldable f) => UniformLocation -> f Float -> m ()
+uniform1fs = uniformVector glUniform1fv
+
+uniform2fs :: (MonadIO m, Foldable f) => UniformLocation -> f Vec2 -> m ()
+uniform2fs = uniformVector glUniform2fv
+
+uniform3fs :: (MonadIO m, Foldable f) => UniformLocation -> f Vec3 -> m ()
+uniform3fs = uniformVector glUniform3fv
+
+uniform4fs :: (MonadIO m, Foldable f) => UniformLocation -> f Vec4 -> m ()
+uniform4fs = uniformVector glUniform4fv
+
+-- ** Int32
+
+uniform1is :: (MonadIO m, Foldable f) => UniformLocation -> f Int32 -> m ()
+uniform1is = uniformVector glUniform1iv
+
+uniform2is :: (MonadIO m, Foldable f) => UniformLocation -> f IVec2 -> m ()
+uniform2is = uniformVector glUniform2iv
+
+uniform3is :: (MonadIO m, Foldable f) => UniformLocation -> f IVec3 -> m ()
+uniform3is = uniformVector glUniform3iv
+
+uniform4is :: (MonadIO m, Foldable f) => UniformLocation -> f IVec4 -> m ()
+uniform4is = uniformVector glUniform4iv
+
+-- ** Word32
+
+uniform1uis :: (MonadIO m, Foldable f) => UniformLocation -> f Word32 -> m ()
+uniform1uis = uniformVector glUniform1uiv
+
+uniform2uis :: (MonadIO m, Foldable f) => UniformLocation -> f UVec2 -> m ()
+uniform2uis = uniformVector glUniform2uiv
+
+uniform3uis :: (MonadIO m, Foldable f) => UniformLocation -> f UVec3 -> m ()
+uniform3uis = uniformVector glUniform3uiv
+
+uniform4uis :: (MonadIO m, Foldable f) => UniformLocation -> f UVec4 -> m ()
+uniform4uis = uniformVector glUniform4uiv
+
+--------------------------------------------------------------------------------
+-- * Uniform Matrices
+--------------------------------------------------------------------------------
+
 canTranspose :: Bool
 canTranspose = False -- not (gles && version < Version [3,1] []) -- older opengl es doesn't support transpose in glUniformMatrix
 
@@ -84,11 +182,59 @@ uniformMatrices rowMajor columnMajor loc xs
   | canTranspose = liftIO $ withArrayLen (              toList xs) \n p -> rowMajor    loc (fromIntegral n) GL_TRUE  (castPtr p)
   | otherwise    = liftIO $ withArrayLen (transpose <$> toList xs) \n p -> columnMajor loc (fromIntegral n) GL_FALSE (castPtr p)
 
-uniformMat4s :: (MonadIO m, Foldable f)  => UniformLocation -> f Mat4 -> m ()
+uniformMat2s :: (MonadIO m, Foldable f) => UniformLocation -> f Mat4 -> m ()
+uniformMat2s = uniformMatrices glUniformMatrix4fv glUniformMatrix4fv
+
+uniformMat2 :: MonadIO m => UniformLocation -> Mat4 -> m ()
+uniformMat2 l = uniformMat4s l . Identity
+
+uniformMat2x3s :: (MonadIO m, Foldable f) => UniformLocation -> f Mat2x3 -> m ()
+uniformMat2x3s = uniformMatrices glUniformMatrix2x3fv glUniformMatrix2x3fv
+
+uniformMat2x3 :: MonadIO m => UniformLocation -> Mat2x3 -> m ()
+uniformMat2x3 l = uniformMat2x3s l . Identity
+
+uniformMat2x4s :: (MonadIO m, Foldable f) => UniformLocation -> f Mat2x4 -> m ()
+uniformMat2x4s = uniformMatrices glUniformMatrix2x4fv glUniformMatrix2x4fv
+
+uniformMat2x4 :: MonadIO m => UniformLocation -> Mat2x4 -> m ()
+uniformMat2x4 l = uniformMat2x4s l . Identity
+
+uniformMat3s :: (MonadIO m, Foldable f) => UniformLocation -> f Mat4 -> m ()
+uniformMat3s = uniformMatrices glUniformMatrix4fv glUniformMatrix4fv
+
+uniformMat3 :: MonadIO m => UniformLocation -> Mat4 -> m ()
+uniformMat3 l = uniformMat4s l . Identity
+
+uniformMat3x2s :: (MonadIO m, Foldable f) => UniformLocation -> f Mat3x2 -> m ()
+uniformMat3x2s = uniformMatrices glUniformMatrix3x2fv glUniformMatrix3x2fv
+
+uniformMat3x2 :: MonadIO m => UniformLocation -> Mat3x2 -> m ()
+uniformMat3x2 l = uniformMat3x2s l . Identity
+
+uniformMat3x4s :: (MonadIO m, Foldable f) => UniformLocation -> f Mat3x4 -> m ()
+uniformMat3x4s = uniformMatrices glUniformMatrix3x4fv glUniformMatrix3x4fv
+
+uniformMat3x4 :: MonadIO m => UniformLocation -> Mat3x4 -> m ()
+uniformMat3x4 l = uniformMat3x4s l . Identity
+
+uniformMat4s :: (MonadIO m, Foldable f) => UniformLocation -> f Mat4 -> m ()
 uniformMat4s = uniformMatrices glUniformMatrix4fv glUniformMatrix4fv
 
-uniformMat4 :: MonadIO m  => UniformLocation -> Mat4 -> m ()
+uniformMat4 :: MonadIO m => UniformLocation -> Mat4 -> m ()
 uniformMat4 l = uniformMat4s l . Identity
+
+uniformMat4x2s :: (MonadIO m, Foldable f) => UniformLocation -> f Mat4x2 -> m ()
+uniformMat4x2s = uniformMatrices glUniformMatrix4x2fv glUniformMatrix4x2fv
+
+uniformMat4x2 :: MonadIO m => UniformLocation -> Mat4x2 -> m ()
+uniformMat4x2 l = uniformMat4x2s l . Identity
+
+uniformMat4x3s :: (MonadIO m, Foldable f) => UniformLocation -> f Mat4x3 -> m ()
+uniformMat4x3s = uniformMatrices glUniformMatrix4x3fv glUniformMatrix4x3fv
+
+uniformMat4x3 :: MonadIO m => UniformLocation -> Mat4x3 -> m ()
+uniformMat4x3 l = uniformMat4x3s l . Identity
 
 --------------------------------------------------------------------------------
 -- * Program Uniforms
@@ -107,17 +253,17 @@ programUniform1f p l = StateVar g s where
   g = alloca $ (>>) <$> glGetUniformfv (coerce p) (coerce l) . castPtr <*> peek
   s = glProgramUniform1f (coerce p) (coerce l)
 
-programUniform2f :: Program -> UniformLocation -> StateVar (V2 Float)
+programUniform2f :: Program -> UniformLocation -> StateVar (Vec2)
 programUniform2f p l = StateVar g s where
   g = alloca $ (>>) <$> glGetUniformfv (coerce p) (coerce l) . castPtr <*> peek
   s (V2 a b) = glProgramUniform2f (coerce p) (coerce l) a b
 
-programUniform3f :: Program -> UniformLocation -> StateVar (V3 Float)
+programUniform3f :: Program -> UniformLocation -> StateVar (Vec3)
 programUniform3f p l = StateVar g s where
   g = alloca $ (>>) <$> glGetUniformfv (coerce p) (coerce l) . castPtr <*> peek
   s (V3 a b c) = glProgramUniform3f (coerce p) (coerce l) a b c
 
-programUniform4f :: Program -> UniformLocation -> StateVar (V4 Float)
+programUniform4f :: Program -> UniformLocation -> StateVar (Vec4)
 programUniform4f p l = StateVar g s where
   g = alloca $ (>>) <$> glGetUniformfv (coerce p) (coerce l) . castPtr <*> peek
   s (V4 a b c d) = glProgramUniform4f (coerce p) (coerce l) a b c d
@@ -127,17 +273,17 @@ programUniform1d p l = StateVar g s where
   g = alloca $ (>>) <$> glGetUniformdv (coerce p) (coerce l) . castPtr <*> peek
   s = glProgramUniform1d (coerce p) (coerce l)
 
-programUniform2d :: Program -> UniformLocation -> StateVar (V2 Double)
+programUniform2d :: Program -> UniformLocation -> StateVar (DVec2)
 programUniform2d p l = StateVar g s where
   g = alloca $ (>>) <$> glGetUniformdv (coerce p) (coerce l) . castPtr <*> peek
   s (V2 a b) = glProgramUniform2d (coerce p) (coerce l) a b
 
-programUniform3d :: Program -> UniformLocation -> StateVar (V3 Double)
+programUniform3d :: Program -> UniformLocation -> StateVar (DVec3)
 programUniform3d p l = StateVar g s where
   g = alloca $ (>>) <$> glGetUniformdv (coerce p) (coerce l) . castPtr <*> peek
   s (V3 a b c) = glProgramUniform3d (coerce p) (coerce l) a b c
 
-programUniform4d :: Program -> UniformLocation -> StateVar (V4 Double)
+programUniform4d :: Program -> UniformLocation -> StateVar (DVec4)
 programUniform4d p l = StateVar g s where
   g = alloca $ (>>) <$> glGetUniformdv (coerce p) (coerce l) . castPtr <*> peek
   s (V4 a b c d) = glProgramUniform4d (coerce p) (coerce l) a b c d
@@ -147,17 +293,17 @@ programUniform1i p l = StateVar g s where
   g = alloca $ (>>) <$> glGetUniformiv (coerce p) (coerce l) . castPtr <*> peek
   s = glProgramUniform1i (coerce p) (coerce l)
 
-programUniform2i :: Program -> UniformLocation -> StateVar (V2 Int32)
+programUniform2i :: Program -> UniformLocation -> StateVar (IVec2)
 programUniform2i p l = StateVar g s where
   g = alloca $ (>>) <$> glGetUniformiv (coerce p) (coerce l) . castPtr <*> peek
   s (V2 a b) = glProgramUniform2i (coerce p) (coerce l) a b
 
-programUniform3i :: Program -> UniformLocation -> StateVar (V3 Int32)
+programUniform3i :: Program -> UniformLocation -> StateVar (IVec3)
 programUniform3i p l = StateVar g s where
   g = alloca $ (>>) <$> glGetUniformiv (coerce p) (coerce l) . castPtr <*> peek
   s (V3 a b c) = glProgramUniform3i (coerce p) (coerce l) a b c
 
-programUniform4i :: Program -> UniformLocation -> StateVar (V4 Int32)
+programUniform4i :: Program -> UniformLocation -> StateVar (IVec4)
 programUniform4i p l = StateVar g s where
   g = alloca $ (>>) <$> glGetUniformiv (coerce p) (coerce l) . castPtr <*> peek
   s (V4 a b c d) = glProgramUniform4i (coerce p) (coerce l) a b c d
@@ -167,17 +313,17 @@ programUniform1ui p l = StateVar g s where
   g = alloca $ (>>) <$> glGetUniformuiv (coerce p) (coerce l) . castPtr <*> peek
   s = glProgramUniform1ui (coerce p) (coerce l)
 
-programUniform2ui :: Program -> UniformLocation -> StateVar (V2 Word32)
+programUniform2ui :: Program -> UniformLocation -> StateVar (UVec2)
 programUniform2ui p l = StateVar g s where
   g = alloca $ (>>) <$> glGetUniformuiv (coerce p) (coerce l) . castPtr <*> peek
   s (V2 a b) = glProgramUniform2ui (coerce p) (coerce l) a b
 
-programUniform3ui :: Program -> UniformLocation -> StateVar (V3 Word32)
+programUniform3ui :: Program -> UniformLocation -> StateVar (UVec3)
 programUniform3ui p l = StateVar g s where
   g = alloca $ (>>) <$> glGetUniformuiv (coerce p) (coerce l) . castPtr <*> peek
   s (V3 a b c) = glProgramUniform3ui (coerce p) (coerce l) a b c
 
-programUniform4ui :: Program -> UniformLocation -> StateVar (V4 Word32)
+programUniform4ui :: Program -> UniformLocation -> StateVar (UVec4)
 programUniform4ui p l = StateVar g s where
   g = alloca $ (>>) <$> glGetUniformuiv (coerce p) (coerce l) . castPtr <*> peek
   s (V4 a b c d) = glProgramUniform4ui (coerce p) (coerce l) a b c d
