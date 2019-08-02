@@ -89,9 +89,12 @@ test-suite spec
   type: exitcode-stdio-1.0
   hs-source-dirs: test
   main-is: Spec.hs
-  build-depends:
-    directory,
-    fontconfig,
-    hspec,
-    tasty,
-    tasty-hspec
+  build-depends: fontconfig-core,
+                 fontconfig-freetype,
+                 fontconfig-raw,
+                 filepath,
+                 directory,
+                 hspec,
+                 tasty,
+                 tasty-hspec,
+                 QuickCheck

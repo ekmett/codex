@@ -1,6 +1,13 @@
 { nixpkgs ? import ./.nix/nixpkgs.nix
 , compiler ? "ghc881"
 }: let
+  # newCabal = self: super: {
+  #   haskellPackages = super.haskellPackages.override (old: {
+  #     overrides = super.lib.composeExtensions (old.overrides or (_: _: {})) (hself: hsuper: {
+  #     });
+  #   });
+  # };
+    
   overlay = self: super:
     let
       # Codex packages, add new source locations here first. If you
@@ -63,6 +70,12 @@
             in {
               # Blocks of fixes are in increasing order of invasiveness.
 
+              integer-logarithms = doJailbreak (hsuper.callHackageDirect {
+                pkg = "integer-logarithms";
+                ver = "1.0.3";
+                sha256 = "1h7fsf3vwzf9ligjmis8p1jy04vgy48xzivr6qqir86ljiwk6s1k";
+              } {});
+
               # Jailbreaks.
               QuickCheck = doJailbreak hsuper.QuickCheck;
               system-fileio = doJailbreak hsuper.system-fileio;
@@ -98,6 +111,12 @@
               ghc-paths = hsuper.callCabal2nix "ghc-paths"
                 (import ./.nix/ghc-paths.nix) {};
 
+              attoparsec = dontCheck (doJailbreak
+                (hsuper.callCabal2nix "attoparsec" (import ./.nix/attoparsec.nix) {}));
+
+              cabal-doctest = hsuper.callCabal2nix "cabal-doctest" (import ./.nix/cabal-doctest.nix) {};
+              dlist = hsuper.callCabal2nix "dlist" (import ./.nix/dlist.nix) {};
+
               # Patched packages.
               shelly = appendPatches
                 (hsuper.callCabal2nix "shelly" (import ./.nix/shelly.nix) {})
@@ -129,6 +148,7 @@
           baseHaskellPackages.override (old: {
             overrides = builtins.foldl' super.lib.composeExtensions
               (old.overrides or (_: _: {})) [
+                # newCabal
                 oldTools
                 hackageFixes
                 codexPackages
@@ -145,7 +165,7 @@
         version = "2.13.1";
         name    = "fontconfig-${version}";
         src     = pkgs.fetchurl {
-          url = "https://www.freedesktop.org/software/fontconfig/release/fontconfig-2.13.1.tar.gz";
+          url = "https://www.freedesktop.org/software/fontconfig/release/fontconfig-${version}.tar.gz";
           sha256 = "0zzspdnydj9g5fxl9804c7rr8lsm6bmm0f7mz5awcpyp74mqa3cz";
         };
         buildInputs = oldAttrs.buildInputs ++
@@ -171,6 +191,11 @@
       icu-uc = super.icu;
 
       codexShell = self.haskellPackages.shellFor {
+        buildInputs = [
+          self.haskellPackages.ghcid
+          self.haskellPackages.cabal-install
+        ];
+
         packages = p:
           super.lib.attrsets.attrVals (builtins.attrNames codexSources) p;
       };

@@ -7,7 +7,7 @@ NUX="let
   ${PKG}Pin = builtins.fromJSON (builtins.readFile ./$PKG.json);
 
   $PKG = builtins.fetchGit {
-    inherit (${PKG}Pin) url ref;
+    inherit (${PKG}Pin) url;
     ref = \"master\";
   };
 in
