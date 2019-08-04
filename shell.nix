@@ -1,13 +1,6 @@
 { nixpkgs ? import ./.nix/nixpkgs.nix
 , compiler ? "ghc881"
 }: let
-  # newCabal = self: super: {
-  #   haskellPackages = super.haskellPackages.override (old: {
-  #     overrides = super.lib.composeExtensions (old.overrides or (_: _: {})) (hself: hsuper: {
-  #     });
-  #   });
-  # };
-    
   overlay = self: super:
     let
       # Codex packages, add new source locations here first. If you
@@ -15,26 +8,28 @@
       # might need to pass in some other packages explicitly like
       # the harfbuzz stuff below.
       codexSources = {
-        atlas               = { path = ./atlas;               args = {}; };
-        bidi-icu            = { path = ./bidi-icu;            args = {}; };
-        const               = { path = ./const;               args = {}; };
-        engine              = { path = ./engine;              args = {}; };
-        glow                = { path = ./glow;                args = {}; };
-        hkd                 = { path = ./hkd;                 args = {}; };
-        parsnip             = { path = ./parsnip;             args = {}; };
-        primitive-ffi       = { path = ./primitive-ffi;       args = {}; };
-        primitive-statevar  = { path = ./primitive-statevar;  args = {}; };
-        primitive-unlift    = { path = ./primitive-unlift;    args = {}; };
-        ptrdiff             = { path = ./ptrdiff;             args = {}; };
-        smawk               = { path = ./smawk;               args = {}; };
-        ui                  = { path = ./ui;                  args = {}; };
-        watch               = { path = ./watch;               args = {}; };
-        watch-directory     = { path = ./watch-directory;     args = {}; };
-        weak                = { path = ./weak;                args = {}; };
+        atlas            = { path = ./atlas;            args = {}; };
+        bidi-icu         = { path = ./bidi-icu;         args = {}; };
+        const            = { path = ./const;            args = {}; };
+        engine           = { path = ./engine;           args = {}; };
+        glow             = { path = ./glow;             args = {}; };
+        hkd              = { path = ./hkd;              args = {}; };
+        parsnip          = { path = ./parsnip;          args = {}; };
+        primitive-ffi    = { path = ./primitive-ffi;    args = {}; };
+        primitive-extras = { path = ./primitive-extras; args = {}; };
+        ptrdiff          = { path = ./ptrdiff;          args = {}; };
+        smawk            = { path = ./smawk;            args = {}; };
+        ui               = { path = ./ui;               args = {}; };
+        watch            = { path = ./watch;            args = {}; };
+        watch-directory  = { path = ./watch-directory;  args = {}; };
+        weak             = { path = ./weak;             args = {}; };
+        tabulation-hash  = { path = ./tabulation-hash;  args = {}; };
+        language-server  = { path = ./language-server;  args = {}; };
 
         # Snowflakes who need things passed in explicitly, usually
         # because they depend on a system library of their own name.
         # Feed them their deps manually to prevent infinite recursion.
+
         fontconfig = {
           path = ./fontconfig;
           args = { inherit (self) fontconfig; };
@@ -69,6 +64,7 @@
               });
             in {
               # Blocks of fixes are in increasing order of invasiveness.
+              tasty-discover = dontCheck hsuper.tasty-discover;
 
               integer-logarithms = doJailbreak (hsuper.callHackageDirect {
                 pkg = "integer-logarithms";
@@ -88,8 +84,11 @@
               comonad       = dontCabalDoctest hsuper.comonad;
               distributive  = dontCabalDoctest hsuper.distributive;
               lens          = dontCabalDoctest hsuper.lens;
+              lens-aeson    = dontCabalDoctest hsuper.lens-aeson;
               linear        = dontCabalDoctest hsuper.linear;
               semigroupoids = dontCabalDoctest hsuper.semigroupoids;
+
+              dlist = hsuper.callCabal2nix "dlist" (import ./.nix/dlist.nix) {};
 
               # Newer versions from within the package set.
               binary-orphans = doJailbreak hsuper.binary-orphans_1_0_1;
@@ -98,6 +97,18 @@
               sdl2 = dontCheck hsuper.sdl2_2_5_0_0;
 
               # On hackage, but not in the package set or all-cabal-hashes.
+              sop-core = hsuper.callHackageDirect {
+                pkg = "sop-core";
+                ver = "0.5.0.0";
+                sha256 = "13jr2njm1nw319a0y52yjxaflcms7gf4cd2d5cvz992qis0jyxm4";
+              } {};
+
+              generics-sop = doJailbreak (hsuper.callHackageDirect {
+                pkg = "generics-sop";
+                ver = "0.5.0.0";
+                sha256 = "1jf9zmxqzl2g9amcmsm6cm54bzin56hkdkklb3nx86vki3f586g1";
+              } {});
+
               JuicyPixels = hsuper.callHackageDirect {
                 pkg = "JuicyPixels";
                 ver = "3.3.3.1";
@@ -113,9 +124,6 @@
 
               attoparsec = dontCheck (doJailbreak
                 (hsuper.callCabal2nix "attoparsec" (import ./.nix/attoparsec.nix) {}));
-
-              cabal-doctest = hsuper.callCabal2nix "cabal-doctest" (import ./.nix/cabal-doctest.nix) {};
-              dlist = hsuper.callCabal2nix "dlist" (import ./.nix/dlist.nix) {};
 
               # Patched packages.
               shelly = appendPatches
@@ -148,7 +156,6 @@
           baseHaskellPackages.override (old: {
             overrides = builtins.foldl' super.lib.composeExtensions
               (old.overrides or (_: _: {})) [
-                # newCabal
                 oldTools
                 hackageFixes
                 codexPackages
@@ -192,11 +199,12 @@
 
       codexShell = self.haskellPackages.shellFor {
         buildInputs = [
+          self.haskellPackages.tasty-discover
           self.haskellPackages.ghcid
           self.haskellPackages.cabal-install
         ];
 
-        packages = p:
+        packages = p: [ p.tasty-discover ] ++
           super.lib.attrsets.attrVals (builtins.attrNames codexSources) p;
       };
     };
