@@ -1,3 +1,4 @@
+.envrc
 dist
 dist-*
 cabal-dev
@@ -17,6 +18,8 @@ cabal.sandbox.config
 *.eventlog
 old
 .stack-work/
+nix-shell-cabal.project.local
+nix-shell-cabal.project.local~
 cabal.project.local
 cabal.project.local~
 .HTF/
@@ -37,3 +40,4 @@ tags
 *.actual.*
 freetype/example_a.png
 nih
+result

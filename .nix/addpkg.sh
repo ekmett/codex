@@ -1,21 +1,18 @@
 #! /usr/bin/env nix-shell
 #! nix-shell --pure -i bash -p nix-prefetch-git
-PKG=$1
-REPO=$2
+OWNER=$1
+PKG=$2
 
-NUX="
-let
-  hostNix = import <nixpkgs> {};
-  ${PKG}Pin = hostNix.pkgs.lib.importJSON ./$PKG.json;
+NUX="let
+  ${PKG}Pin = builtins.fromJSON (builtins.readFile ./$PKG.json);
 
-  $PKG = hostNix.pkgs.fetchFromGitHub {
-    owner = \"$REPO\";
-    repo  = \"$PKG\";
-    inherit (${PKG}Pin) rev sha256;
+  $PKG = builtins.fetchGit {
+    inherit (${PKG}Pin) url;
+    ref = \"master\";
   };
 in
   $PKG"
 
-nix-prefetch-git "https://github.com/$REPO/$PKG" > "$PKG.json"
+nix-prefetch-git "https://github.com/$OWNER/$PKG" > "$PKG.json"
 echo "$NUX" > "$PKG.nix"
 

@@ -1,0 +1,7 @@
+{
+  "url": "https://github.com/simonmar/ghc-paths",
+  "rev": "3c867c34b6f505a500cc63bba5161b97aa0a9177",
+  "date": "2018-09-19T19:53:21+01:00",
+  "sha256": "06sfwhk27gdc41hhjiykd6adjzfgk0kwwzsa0b2skm9ll57bind7",
+  "fetchSubmodules": false
+}
