@@ -1447,6 +1447,6 @@ harfbuzzCtx = mempty
     ]
   } where
   anti cTy hsTyQ w = C.SomeAntiQuoter C.AntiQuoter
-    { C.aqParser = C.parseIdentifier <&> \hId -> (C.mangleHaskellIdentifier hId, cTy, hId)
+    { C.aqParser = C.parseIdentifier <&> \hId -> (C.mangleHaskellIdentifier False hId, cTy, hId)
     , C.aqMarshaller = \_ _ _ cId -> (,) <$> hsTyQ <*> [|$w (coerce $(getHsVariable "harfbuzzCtx" cId))|]
     }

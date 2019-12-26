@@ -28,7 +28,7 @@ getHsVariable err s = TH.lookupValueName (C.unHaskellIdentifier s) >>= \ case
 
 anti :: C.Type C.CIdentifier -> TH.TypeQ -> TH.ExpQ -> C.SomeAntiQuoter
 anti cTy hsTyQ w = C.SomeAntiQuoter C.AntiQuoter
-  { C.aqParser = C.parseIdentifier <&> \hId -> (C.mangleHaskellIdentifier hId, cTy, hId)
+  { C.aqParser = C.parseIdentifier <&> \hId -> (C.mangleHaskellIdentifier False hId, cTy, hId)
   , C.aqMarshaller = \_ _ _ cId -> (,) <$> hsTyQ <*> [|$w (coerce $(getHsVariable "freeTypeCtx" cId))|]
   }
 

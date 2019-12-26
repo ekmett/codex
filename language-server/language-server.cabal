@@ -54,7 +54,6 @@ test-suite tasty
   type: exitcode-stdio-1.0
   hs-source-dirs: test
   other-modules: MessageTest
-  build-tool-depends: tasty-discover:tasty-discover >= 3.0 && < 4.3
   build-depends:
     aeson,
     bifunctors,

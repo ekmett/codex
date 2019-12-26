@@ -335,7 +335,7 @@ withBidi = withForeignPtr . getBidi
 
 let
   anti cTy hsTyQ w = C.SomeAntiQuoter C.AntiQuoter
-    { C.aqParser = C.parseIdentifier <&> \hId -> (C.mangleHaskellIdentifier hId, cTy, hId)
+    { C.aqParser = C.parseIdentifier <&> \hId -> (C.mangleHaskellIdentifier False hId, cTy, hId)
     , C.aqMarshaller = \_ _ _ cId -> (,) <$> hsTyQ <*> [|$w (coerce $(getHsVariable "bidirectionalCtx" cId))|]
     }
   getHsVariable err s = TH.lookupValueName (C.unHaskellIdentifier s) >>= \ case
