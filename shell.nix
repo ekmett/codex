@@ -1,4 +1,4 @@
-{ nixpkgs ? <nixpkgs-unstable> # import ./.nix/nixpkgs.nix
+{ nixpkgs ? import ./.nix/nixpkgs.nix
 , compiler ? "ghc881"
 , withHoogle ? false
 }: let
@@ -110,7 +110,7 @@
         ];
 
         packages = p: super.lib.attrsets.attrVals (builtins.attrNames codexSources) p;
-        withHoogle = withHoogle;
+        inherit withHoogle;
       };
     };
 
