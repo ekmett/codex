@@ -2,8 +2,43 @@
 , compiler ? "ghc881"
 , withHoogle ? false
 }: let
+
   overlay = self: super:
+  
     let
+      cherrypick-stb-lib = name: file: ver: desc: super.stdenv.mkDerivation {
+        pname = name;
+        version = ver;
+        src = super.fetchFromGitHub {
+          owner = "nothings";
+          repo = "stb";
+          rev = "f67165c2bb2af3060ecae7d20d6f731173485ad0";
+          sha256 = "1b8r55q4siqfvm1r4wdqgj4vwzw0bfhypgm60dk4b5c7i7rgxx3g";
+        };
+        phases = [ "unpackPhase" "installPhase" ];
+        outputs = [ "out" "dev" ];
+        nativeBuildInputs = [ self.pkgconfig ];
+        installPhase = ''
+          mkdir -p $out/include/${name}
+          # We only care about a single library/header
+          cp ${file} $out/include/${name}/
+
+          mkdir -p $dev/lib/pkgconfig
+
+          # These should exist in the stb repo, probably...
+          cat >> $dev/lib/pkgconfig/${name}.pc << EOF
+          prefix=$out
+          exec_prefix=$out
+          includedir=$out/include/${name}
+
+          Name: ${name}
+          Description: ${desc}
+          Version: ${ver}
+          Cflags: -I$out/include/${name}
+          EOF
+        '';
+      };
+
       # Codex packages, add new source locations here first. If you
       # hit infinite recursion errors when trying to 'nix-shell' you
       # might need to pass in some other packages explicitly like
@@ -26,6 +61,7 @@
         weak             = { path = ./weak;             args = {}; };
         tabulation-hash  = { path = ./tabulation-hash;  args = {}; };
         language-server  = { path = ./language-server;  args = {}; };
+        stb-truetype     = { path = ./stb-truetype;     args = {}; };
 
         # Snowflakes who need things passed in explicitly, usually
         # because they depend on a system library of their own name.
@@ -64,6 +100,10 @@
 
           codexPackageFixes = hself: hsuper: with pkgs.haskell.lib; {
             harfbuzz = addBuildDepends hsuper.harfbuzz [ self.freetype ];
+            stb-truetype = addPkgconfigDepends hsuper.stb-truetype
+              [ self.stb_rect_pack
+                self.stb_truetype
+              ];
           };
 
           baseHaskellPackages = if compiler == "default"
@@ -102,6 +142,19 @@
 
       # some renames to keep cabal & pkg-config happy
       icu-uc = super.icu;
+
+      # pin stb to recent version
+      stb_rect_pack = cherrypick-stb-lib
+        "stb_rect_pack"
+        "stb_rect_pack.h"
+        "1.00"
+        "simple 2D rectangle packer with decent quality";
+
+      stb_truetype = cherrypick-stb-lib
+        "stb_truetype"
+        "stb_truetype.h"
+        "1.22"
+        "Font text rasteriser";
 
       codexShell = self.haskellPackages.shellFor {
         nativeBuildInputs = [
