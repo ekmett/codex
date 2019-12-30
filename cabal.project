@@ -23,7 +23,7 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/haskell/hsc2hs.git
-  tag: 1ba919f9eb05da3b697223e8c7ceb7867cd50f6d
+  tag: 0b44990f0282755b75091838363ad4a1f4cb245d
 
 source-repository-package
   type: git

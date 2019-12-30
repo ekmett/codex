@@ -5,6 +5,9 @@ endif
 all:
 	cabal new-build ${PROJECT_FILE} all
 
+configure:
+	cabal v2-configure ${PROJECT_FILE} all
+
 docs:
 	@cabal new-haddock ${PROJECT_FILE} all
 	@echo
