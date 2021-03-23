@@ -37,6 +37,7 @@ import GHC.Prim
 import GHC.Ptr
 import GHC.Types
 import System.IO.Unsafe
+import Unsafe.Coerce
 
 io :: IO a -> State# s -> (# State# s, a #)
 io = unsafeCoerce#
