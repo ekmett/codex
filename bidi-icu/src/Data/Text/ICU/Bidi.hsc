@@ -244,53 +244,92 @@ newtype UErrorCode = UErrorCode Int32
 instance Default UErrorCode where
   def = UErrorCode 0
 
--- * Reordering Options
-
+-- |
+-- 'ReorderingOption' values indicate which options are
+-- specified to affect the Bidi algorithm.
 newtype ReorderingOption = ReorderingOption Int32
   deriving (Eq,Ord,Show,Bits)
 
 #ifndef HLINT
+-- | 
+-- option for 'setReorderingOptions' that disables all the options which can be
+-- set with this function
+-- 
+-- @since ICU 3.6
 pattern OPTION_DEFAULT = ReorderingOption (#const UBIDI_OPTION_DEFAULT)
+-- | @since ICU 3.6
 pattern OPTION_INSERT_MARKS = ReorderingOption (#const UBIDI_OPTION_INSERT_MARKS)
+-- | @since ICU 3.6
 pattern OPTION_REMOVE_CONTROLS = ReorderingOption (#const UBIDI_OPTION_REMOVE_CONTROLS)
+-- | 
 pattern OPTION_STREAMING = ReorderingOption (#const UBIDI_OPTION_STREAMING)
 #endif
 
 instance Default ReorderingOption where
   def = OPTION_DEFAULT
 
--- * Character Directions
-
+-- | Character Directions.
+--
 -- This is morally the same as text-icu's Direction type, but that one is missing a few definitions =(
--- See bos/text-icu#44
+--
+-- When issue <https://github.com/haskell/text-icu/issues/44 44> is resolved, this will
+-- be able to be text.icu's @Data.Text.ICU.Char.Direction@.
 
 newtype CharDirection = CharDirection Int32 deriving
   (Eq,Ord,Show,Storable,Prim)
 
 #ifndef HLINT
+-- | L @\@stable@ ICU 2.0
 pattern LEFT_TO_RIGHT = CharDirection (#const U_LEFT_TO_RIGHT)
+-- | R @\@stable@ ICU 2.0
 pattern RIGHT_TO_LEFT = CharDirection (#const U_RIGHT_TO_LEFT)
+-- | EN @\@stable@ ICU 2.0
 pattern EUROPEAN_NUMBER = CharDirection (#const U_EUROPEAN_NUMBER)
+-- | ES @\@stable@ ICU 2.0
 pattern EUROPEAN_NUMBER_SEPARATOR = CharDirection (#const U_EUROPEAN_NUMBER_SEPARATOR)
+-- | ET @\@stable@ ICU 2.0
 pattern EUROPEAN_NUMBER_TERMINATOR = CharDirection (#const U_EUROPEAN_NUMBER_TERMINATOR)
+-- | AN @\@stable@ ICU 2.0
 pattern ARABIC_NUMBER = CharDirection (#const U_ARABIC_NUMBER)
+-- | CS @\@stable@ ICU 2.0
 pattern COMMON_NUMBER_SEPARATOR = CharDirection (#const U_COMMON_NUMBER_SEPARATOR)
+-- | B @\@stable@ ICU 2.0
 pattern BLOCK_SEPARATOR = CharDirection (#const U_BLOCK_SEPARATOR)
+-- | SS@\@stable@ ICU 2.0
 pattern SEGMENT_SEPARATOR = CharDirection (#const U_SEGMENT_SEPARATOR)
+-- | WS @\@stable@ ICU 2.0
 pattern WHITE_SPACE_NEUTRAL = CharDirection (#const U_WHITE_SPACE_NEUTRAL)
+-- | ON @\@stable@ ICU 2.0
 pattern OTHER_NEUTRAL = CharDirection (#const U_OTHER_NEUTRAL)
+-- | LRE @\@stable@ ICU 2.0
 pattern LEFT_TO_RIGHT_EMBEDDING = CharDirection (#const U_LEFT_TO_RIGHT_EMBEDDING)
+-- | LRO @\@stable@ ICU 2.0
 pattern LEFT_TO_RIGHT_OVERRIDE = CharDirection (#const U_LEFT_TO_RIGHT_OVERRIDE)
+-- | AL @\@stable@ ICU 2.0
 pattern RIGHT_TO_LEFT_ARABIC = CharDirection (#const U_RIGHT_TO_LEFT_ARABIC)
+-- | RLE @\@stable@ ICU 2.0
 pattern RIGHT_TO_LEFT_EMBEDDING = CharDirection (#const U_RIGHT_TO_LEFT_EMBEDDING)
+-- | RLO @\@stable@ ICU 2.0
 pattern RIGHT_TO_LEFT_OVERRIDE = CharDirection (#const U_RIGHT_TO_LEFT_OVERRIDE)
+-- | PDF @\@stable@ ICU 2.0
 pattern POP_DIRECTIONAL_FORMAT = CharDirection (#const U_POP_DIRECTIONAL_FORMAT)
+-- | NSM @\@stable@ ICU 2.0
 pattern DIR_NON_SPACING_MARK = CharDirection (#const U_DIR_NON_SPACING_MARK)
+
+-- after text-icu scanned the headers
+
+-- | BN @\@stable@ ICU 52
 pattern BOUNDARY_NEUTRAL = CharDirection (#const U_BOUNDARY_NEUTRAL)
+-- | FSI @\@stable@ ICU 52
 pattern FIRST_STRONG_ISOLATE = CharDirection (#const U_FIRST_STRONG_ISOLATE)
+-- | LRI @\@stable@ ICU 52
 pattern LEFT_TO_RIGHT_ISOLATE = CharDirection (#const U_LEFT_TO_RIGHT_ISOLATE)
+-- | RLI @\@stable@ ICU 52
 pattern RIGHT_TO_LEFT_ISOLATE = CharDirection (#const U_RIGHT_TO_LEFT_ISOLATE)
+-- | PDI @\@stable@ ICU 52
 pattern POP_DIRECTIONAL_ISOLATE = CharDirection (#const U_POP_DIRECTIONAL_ISOLATE)
+
+-- | ICU 58 The numeric value may change over time, see ICU ticket #12420.
 pattern BIDI_CLASS_DEFAULT = CharDirection (#const U_BIDI_CLASS_DEFAULT) -- a damn lie
 #endif
 
@@ -357,7 +396,9 @@ let
         , (C.TypeName "WriteOptions", [t|WriteOptions|])
         ]
       , C.ctxAntiQuoters = Map.fromList
-        [ ("bidi", anti (C.Ptr [] $ C.TypeSpecifier mempty $ C.TypeName "UBiDi") [t|Ptr UBiDi|] [|withBidi|])
+        [ ("bidi", anti (C.Ptr [] $ C.TypeSpecifier mempty $ C.TypeName "UBiDi") 
+                        [t|Ptr UBiDi|] [|withBidi|]
+          )
         ]
       }
 
@@ -371,7 +412,8 @@ C.verbatim "typedef UBiDiClassCallback * UBiDiClassCallbackPtr;"
 C.verbatim "typedef int16_t WriteOptions;"
 
 instance Exception UErrorCode where
-  displayException e = unsafeLocalState $ peekCString [C.pure|const char * { u_errorName($(UErrorCode e)) }|]
+  displayException e = unsafeLocalState $ peekCString 
+    [C.pure|const char * { u_errorName($(UErrorCode e)) }|]
 
 foreignBidi :: Ptr UBiDi -> IO (Bidi s)
 foreignBidi self_ptr = do
