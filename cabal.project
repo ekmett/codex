@@ -1,61 +1,21 @@
-packages: *
-
-source-repository-package
-  type: git
-  location: https://github.com/ekmett/attoparsec.git
-  tag: c330427e85c0c1f5460880db41aa02481c6f4d1e
-
-source-repository-package
-  type: git
-  location: https://github.com/ekmett/bytes.git
-  tag: b4753cb284e1d9826b23e9d632ba695314bf7a4f
-
-source-repository-package
-  type: git
-  location: https://github.com/ekmett/cabal-doctest.git
-  tag: ba5b0ed6477a48bf67aa66e35476f67be4a828e6
-
-source-repository-package
-  type: git
-  location: https://github.com/spl/dlist.git
-  tag: fccd135132d892cb5f22d1717e5e59b287930644
-
-source-repository-package
-  type: git
-  location: https://github.com/haskell/hsc2hs.git
-  tag: 0b44990f0282755b75091838363ad4a1f4cb245d
-
-source-repository-package
-  type: git
-  location: https://github.com/haskell-vanguard/integer-logarithms.git
-  tag: 9a7d1742be1d062445f545366b669a9eb586e5fd
-
-source-repository-package
-  type: git
-  location: https://github.com/ekmett/aeson.git
-  tag: 2c8a94877829d80f33ab8e95361470fd1049623a
-
-source-repository-package
-  type: git
-  location: https://github.com/ekmett/lens.git
-  tag: 85908302d08169d7a9e2bae9777fafc6bb1875f0
-
-source-repository-package
-  type: git
-  location: https://github.com/ekmett/zlib.git
-  tag: 71f71a517755fd63978da50e21d1d340357ca910
-
-source-repository-package
-  type: git
-  location: https://github.com/ekmett/vector-th-unbox.git
-  tag: 3cd0153ea68fa7cfd9a0b948c36717e502001a1
-
+packages:
+  atlas
+  bidi-icu
+  const
+  fontconfig
+  freetype
+  glow
+  harfbuzz
+  hkd
+  language-server
+  parsnip
+  ptrdiff
 write-ghc-environment-files: always
-
 constraints: primitive > 0.7
 
 allow-newer:
-  all:base,
-  all:Cabal,
-  text:deepseq,
-  all:template-haskell
+  lens:template-haskell,
+  lens:Cabal,
+  all:base
+
+-- engine nix-shell-cabal.project old.project primitive-extras primitive-ffi shell.nix smawk tabulation-hash ui weak
