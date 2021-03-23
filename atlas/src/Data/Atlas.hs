@@ -8,7 +8,7 @@
 {-# language ViewPatterns #-}
 {-# language BlockArguments #-}
 -- |
--- Copyright :  (c) 2019 Edward Kmett
+-- Copyright :  (c) 2019-2021 Edward Kmett
 -- License   :  BSD-2-Clause OR Apache-2.0
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
@@ -50,7 +50,7 @@ C.include "stb_rect_pack.h"
 
 -- | Create a packing context.
 
-atlas_create :: HasCallStack => PrimMonad m => Int -> Int -> m (Atlas (PrimState m))
+atlas_create :: (HasCallStack, PrimMonad m) => Int -> Int -> m (Atlas (PrimState m))
 atlas_create w h = atlas_create_explicit w h Nothing
 
 -- | Initialization with an optional node count, when @node count < width@ is used this results in quantization unless
