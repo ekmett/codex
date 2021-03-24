@@ -4,6 +4,8 @@
 {-# language BangPatterns #-}
 {-# language ViewPatterns #-}
 {-# language UnliftedFFITypes #-}
+{-# language UnliftedNewtypes #-}
+
 -- | the proverbial junk drawer
 module Text.Parsnip.Internal.Private
 ( io
@@ -42,11 +44,10 @@ import Unsafe.Coerce
 io :: IO a -> State# s -> (# State# s, a #)
 io = unsafeCoerce#
 
--- !(*@#U missing primitive
+-- | Missing primitive
 mutableByteArrayContents# :: MutableByteArray# s -> Addr#
 mutableByteArrayContents# arr = byteArrayContents# (unsafeCoerce# arr)
 
--- hacked to return in any region
 pinnedByteArrayFromString0 :: String -> MutableByteArray RealWorld
 pinnedByteArrayFromString0 xs = pinnedByteArrayFromStringN0 (length xs) xs
 
@@ -109,4 +110,3 @@ csize (fromIntegral -> I# i) = i
 mkBS :: Addr# -> ForeignPtrContents -> Int# -> ByteString
 mkBS b g l = PS (ForeignPtr b g) 0 (I# l)
 {-# inline mkBS #-}
-
