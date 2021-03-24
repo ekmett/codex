@@ -2,7 +2,7 @@ cabal-version: 2.2
 name: bidi-icu
 version: 0
 synopsis: The unicode bidirectional algorithm via ICU
-description: The unicode bidirectional algorithm via ICU
+description: The unicode bidirectional algorithm via ICU.
 homepage: https://github.com/ekmett/codex/tree/master/bidi-icu#readme
 license: BSD-2-Clause OR Apache-2.0
 license-file: LICENSE.md
