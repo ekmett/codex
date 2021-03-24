@@ -17,18 +17,18 @@
 -- skyline packing using @stb_rect_pack.h@
 module Data.Atlas
 ( Atlas
-, atlas_create
-, atlas_create_explicit
-, atlas_reset
+, create
+, createExplicit
+, reset
 -- * Setup
 , Heuristic(..)
-, atlas_set_heuristic
-, atlas_set_allow_out_of_mem
+, setHeuristic
+, setAllowOutOfMem
 -- * Using a context
 , Pt(..)
-, atlas_pack
-, atlas_pack1
-, atlas_packM
+, pack
+, pack1
+, packM
 ) where
 
 import Control.Lens
@@ -50,13 +50,13 @@ C.include "stb_rect_pack.h"
 
 -- | Create a packing context.
 
-atlas_create :: (HasCallStack, PrimMonad m) => Int -> Int -> m (Atlas (PrimState m))
-atlas_create w h = atlas_create_explicit w h Nothing
+create :: (HasCallStack, PrimMonad m) => Int -> Int -> m (Atlas (PrimState m))
+create w h = createExplicit w h Nothing
 
 -- | Initialization with an optional node count, when @node count < width@ is used this results in quantization unless
--- 'atlas_set_allow_out_of_mem' is enabled. When no value is supplied, it defaults to the width of the 'Atlas'.
-atlas_create_explicit :: HasCallStack => PrimMonad m => Int -> Int -> Maybe Int -> m (Atlas (PrimState m))
-atlas_create_explicit width@(fromIntegral -> w) height@(fromIntegral -> h) mn = withFrozenCallStack $ unsafeIOToPrim do
+-- 'setAllowOutOfMem' is enabled. When no value is supplied, it defaults to the width of the 'Atlas'.
+createExplicit :: HasCallStack => PrimMonad m => Int -> Int -> Maybe Int -> m (Atlas (PrimState m))
+createExplicit width@(fromIntegral -> w) height@(fromIntegral -> h) mn = withFrozenCallStack $ unsafeIOToPrim do
   let nodes@(fromIntegral -> n) = fromMaybe width mn
   unless (width < 0xffff && height < 0xffff) $ die $ "Atlas.new " ++ show width ++ " " ++ show height ++ ": atlas too large"
   fp <- mallocForeignPtrBytes (sizeOfAtlas + sizeOfNode * nodes)
@@ -66,8 +66,8 @@ atlas_create_explicit width@(fromIntegral -> w) height@(fromIntegral -> h) mn = 
   }|]
 
 -- | Reinitialize an atlas with the same parameters
-atlas_reset :: PrimMonad m => Atlas (PrimState m) -> m ()
-atlas_reset atlas = unsafeIOToPrim
+reset :: PrimMonad m => Atlas (PrimState m) -> m ()
+reset atlas = unsafeIOToPrim
   [CU.block| void {
     stbrp_context * p = $atlas:atlas;
     int heuristic = p->heuristic;
@@ -77,31 +77,38 @@ atlas_reset atlas = unsafeIOToPrim
     p->align = align;
   }|]
 
-atlas_set_heuristic :: PrimMonad m => Atlas (PrimState m) -> Heuristic -> m ()
-atlas_set_heuristic fp (heuristicId -> h) = unsafeIOToPrim [CU.block|void { stbrp_setup_heuristic($atlas:fp,$(int h)); }|]
+setHeuristic :: PrimMonad m => Atlas (PrimState m) -> Heuristic -> m ()
+setHeuristic fp (heuristicId -> h) = unsafeIOToPrim [CU.block|void { stbrp_setup_heuristic($atlas:fp,$(int h)); }|]
 
-atlas_set_allow_out_of_mem :: PrimMonad m => Atlas (PrimState m) -> Bool -> m ()
-atlas_set_allow_out_of_mem fp (fromIntegral . fromEnum -> b) = unsafeIOToPrim [CU.block|void { stbrp_setup_allow_out_of_mem($atlas:fp,$(int b)); }|]
+setAllowOutOfMem :: PrimMonad m => Atlas (PrimState m) -> Bool -> m ()
+setAllowOutOfMem fp (fromIntegral . fromEnum -> b) = unsafeIOToPrim [CU.block|void { stbrp_setup_allow_out_of_mem($atlas:fp,$(int b)); }|]
 
-atlas_pack
+pack
   :: (PrimMonad m, Traversable f)
-  => Atlas (PrimState m)
-  -> (a -> Pt)
-  -> (Maybe Pt -> a -> b)
-  -> (Pt -> a -> c)
-  -> f a
-  -> m (Either (f b) (f c))
-atlas_pack atlas f g h as = stToPrim $ atlas_packM atlas (pure . f) g h as
+  => Atlas (PrimState m)    -- ^ The atlas you want to pack these rectangles into.
+  -> (a -> Pt)              -- ^ for each item you want to pack, extract the size.
+  -> (Maybe Pt -> a -> b)   -- ^ when some fail to pack this will be called, with
+                            -- 'Just' a position for each that succeeded, and
+                            -- 'Nothing' for any that it failed on. The successes
+                            -- and failures may well be out of order.
+  -> (Pt -> a -> c)         -- ^ when all succeed this will be called with each position.
+  -> f a                    -- ^ A container full of things that you'd like to pack into the atlas.
+  -> m (Either (f b) (f c)) -- ^ Either a mixture of successes and failures, or a successful pack.
+pack atlas f g h as = stToPrim $ packM atlas (pure . f) g h as
 
-atlas_packM
+packM
   :: (PrimBase m, Traversable f)
-  => Atlas (PrimState m)
-  -> (a -> m Pt)
-  -> (Maybe Pt -> a -> b)
-  -> (Pt -> a -> c)
-  -> f a
-  -> m (Either (f b) (f c))
-atlas_packM fc f g h as = unsafeIOToPrim do
+  => Atlas (PrimState m)    -- ^ The 'Atlas' you want to pack these rectangles into.
+  -> (a -> m Pt)            -- ^ for each item you want to pack, extract the size, 
+                            --   with effects in @m@
+  -> (Maybe Pt -> a -> b)   -- ^ when some fail to pack this will be called, with
+                            -- 'Just' a position for each that succeeded, and 
+                            -- 'Nothing' for any that it failed on. The successes
+                            -- and failures may well be out of order.
+  -> (Pt -> a -> c)         -- ^ when all succeed, this will be called with each position.
+  -> f a                    -- ^ A container full of things that you'd like to pack into the atlas.
+  -> m (Either (f b) (f c)) -- ^ 'Either' a mixture of successes and failures, or a successful pack.
+packM fc f g h as = unsafeIOToPrim do
   let n = length as
   let cn = fromIntegral n
   allocaBytes (n*sizeOfRect) \ rs -> do
@@ -117,5 +124,7 @@ atlas_packM fc f g h as = unsafeIOToPrim do
     go k gh a = StateT \p -> (\b -> (,) (gh b a) $! plusPtr p sizeOfRect) <$> k p
     {-# inline go #-}
 
-atlas_pack1 :: PrimMonad m => Atlas (PrimState m) -> Pt -> m (Maybe Pt)
-atlas_pack1 atlas p = stToPrim $ either runIdentity runIdentity <$> atlas_pack atlas id const (const . Just) (Identity p)
+-- | Add one rectangle to the 'Atlas'. Using 'pack' can yield significantly better
+-- packing than calling this one rectangle at a time.
+pack1 :: PrimMonad m => Atlas (PrimState m) -> Pt -> m (Maybe Pt)
+pack1 atlas p = stToPrim $ either runIdentity runIdentity <$> pack atlas id const (const . Just) (Identity p)

@@ -1,5 +1,6 @@
 {-# language BangPatterns #-}
 {-# language LambdaCase #-}
+{-# language DeriveLift #-}
 {-# language ViewPatterns #-}
 {-# language ImplicitParams #-}
 {-# language RecordWildCards #-}
@@ -66,6 +67,7 @@ import qualified Language.C.Inline.Context as C
 import qualified Language.C.Inline.HaskellIdentifier as C
 import qualified Language.C.Types as C
 import qualified Language.Haskell.TH as TH
+import qualified Language.Haskell.TH.Syntax as TH
 
 type Coord = Word16
 data Node
@@ -95,20 +97,26 @@ atlasCtx = mempty
     , (C.TypeName "stbrp_rect",    [t|Rect|])
     ]
   , C.ctxAntiQuoters = Map.fromList
-    [ ("atlas", anti (C.Ptr [] $ C.TypeSpecifier mempty $ C.TypeName "stbrp_context") [t|Ptr AtlasContext|] [|withForeignPtr|])
+    [ ("atlas"
+      , anti 
+          (C.Ptr [] $ C.TypeSpecifier mempty $ C.TypeName "stbrp_context") 
+          [t|Ptr AtlasContext|]
+          [|withForeignPtr|]
+      )
     ]
   }
 
 data Heuristic
-  = BottomLeft -- bottom-left sort-height
-  | BestFirst -- best first sort-height
-  deriving (Eq,Ord,Show,Read,Enum,Ix,Bounded)
+  = BottomLeft -- ^ bottom-left sort-height
+  | BestFirst -- ^ best first sort-height
+  deriving (Eq,Ord,Show,Read,Enum,Ix,Bounded,TH.Lift)
 
 instance Default Heuristic where
   def = BottomLeft
+  {-# inline def #-}
 
 -- | Use and cast back and forth to ints instead for more natural API?
-data Pt = Pt Int Int deriving (Eq,Ord,Show,Read)
+data Pt = Pt Int Int deriving (Eq,Ord,Show,Read,TH.Lift)
 
 instance Num Pt where
   Pt a b + Pt c d = Pt (a + c) (b + d)
@@ -118,26 +126,38 @@ instance Num Pt where
   signum (Pt a b) = Pt (signum a) (signum b)
   negate (Pt a b) = Pt (negate a) (negate b)
   fromInteger n = Pt (fromInteger n) (fromInteger n)
+  {-# inline (+) #-}
+  {-# inline (-) #-}
+  {-# inline (*) #-}
+  {-# inline abs #-}
+  {-# inline signum #-}
+  {-# inline negate #-}
+  {-# inline fromInteger #-}
 
 #ifndef HLINT
 
 heuristicId :: Heuristic -> CInt
 heuristicId BottomLeft = #const STBRP_HEURISTIC_Skyline_BL_sortHeight
 heuristicId BestFirst  = #const STBRP_HEURISTIC_Skyline_BF_sortHeight
+{-# inline heuristicId #-}
 
 sizeOfAtlas :: Int
 sizeOfAtlas = #size stbrp_context
+{-# inline sizeOfAtlas #-}
 
 sizeOfNode :: Int
 sizeOfNode = #size stbrp_node
+{-# inline sizeOfNode #-}
 
 sizeOfRect :: Int
 sizeOfRect = #size stbrp_rect
+{-# inline sizeOfRect #-}
 
 peekWH :: Ptr Rect -> IO Pt
 peekWH p = (\(w :: Coord) (h :: Coord) -> Pt (fromIntegral w) (fromIntegral h))
   <$> (#peek stbrp_rect, w) p
   <*> (#peek stbrp_rect, h) p
+{-# inline peekWH #-}
 
 pokeWH :: Ptr Rect -> Pt -> IO ()
 pokeWH p (Pt w h) = do
@@ -147,15 +167,18 @@ pokeWH p (Pt w h) = do
   (#poke stbrp_rect, w) p (fromIntegral w :: Coord)
   (#poke stbrp_rect, h) p (fromIntegral h :: Coord)
   (#poke stbrp_rect, was_packed) p (0 :: Int32)
+{-# inline pokeWH #-}
 
 peekXY :: Ptr Rect -> IO Pt
 peekXY p = (\(w :: Coord) (h :: Coord) -> Pt (fromIntegral w) (fromIntegral h))
   <$> (#peek stbrp_rect, x) p
   <*> (#peek stbrp_rect, y) p
+{-# inline peekXY #-}
 
 peekMaybeXY :: Ptr Rect -> IO (Maybe Pt)
 peekMaybeXY p = (#peek stbrp_rect, was_packed) p >>= \case
   (0 :: Int32) -> pure Nothing
   _            -> Just <$> peekXY p
+{-# inline peekMaybeXY #-}
 
 #endif

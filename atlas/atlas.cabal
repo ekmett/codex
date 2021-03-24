@@ -12,10 +12,11 @@ stability: experimental
 category: Graphics
 build-type: Simple
 description:
-  Skyline rectangle packing for Atlases and the like using @stb_rect_pack.h@
+  Skyline rectangle packing for font atlases and the like using @stb_rect_pack.h@
 extra-doc-files:
   README.md,
   CHANGELOG.md
+extra-source-files: cbits/stb_rect_pack.h
 
 source-repository head
   type: git
@@ -57,23 +58,3 @@ test-suite atlas-test
     atlas,
     hspec
 
--- executable example
---   import: base
---   main-is: example.hs
---   ghc-options: -O2 -threaded -rtsopts -with-rtsopts=-N
---   build-depends:
---     atlas,
---     bytestring,
---     containers,
---     data-default,
---     gl,
---     glow,
---     harfbuzz-freetype,
---     lens,
---     linear,
---     ptrdiff,
---     random,
---     sdl2 >= 2.4.1 && < 2.5,
---     StateVar,
---     text,
---     vector
