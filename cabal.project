@@ -10,6 +10,7 @@ packages:
   language-server
   parsnip
   ptrdiff
+  weak
 write-ghc-environment-files: always
 constraints: primitive > 0.7
 
