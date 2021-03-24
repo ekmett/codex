@@ -11,8 +11,7 @@ copyright: Copyright (c) 2019 Edward Kmett
 stability: experimental
 category: FFI
 build-type: Simple
-description:
-  Type-checked pointer diffs
+description: Type-checked pointer diffs.
 extra-doc-files:
   README.md,
   CHANGELOG.md
