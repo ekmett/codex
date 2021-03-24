@@ -41,7 +41,7 @@ instance Category Diff where
   Diff a . Diff b = Diff (a + b)
   {-# inline (.) #-}
 
--- | 'Diff' is a groupoid, so @Diff a a@ is a group, and as such it forms a module over the integers
+-- | 'Diff' is a groupoid. @'Diff' a a@ is a Abelian group, and as such it forms a module over the integers
 (.*) :: Int -> Diff a a -> Diff a a
 n .* Diff a = Diff (n*a)
 {-# inline (.*) #-}
@@ -74,7 +74,7 @@ class DiffTorsor t where
   act :: Diff a b -> t a -> t b
   diff :: t b -> t a -> Diff a b
 
--- 'Ptr' is a torsor w/ structure category 'Diff'
+-- | 'Ptr' is a torsor w/ structure category 'Diff'
 instance DiffTorsor Ptr where
   act = coerce (flip plusPtr)
   diff = coerce minusPtr
