@@ -7,7 +7,7 @@ at your option.
 
 ## BSD 2-Clause License
 
-- Copyright 2019 Edward Kmett
+- Copyright 2019-2021 Edward Kmett
 
 All rights reserved.
 
