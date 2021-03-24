@@ -7,7 +7,7 @@ license: BSD-2-Clause OR Apache-2.0
 license-file: LICENSE.md
 author: Edward Kmett
 maintainer: Edward Kmett <ekmett@gmail.com>
-copyright: Copyright (c) 2019 Edward Kmett
+copyright: Copyright (c) 2019-2021 Edward Kmett
 stability: experimental
 category: FFI
 build-type: Simple
@@ -32,7 +32,11 @@ library
   ghc-options:
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
     -Wredundant-constraints -Widentities -Wmissing-export-lists
-  build-depends: base >= 4.11 && < 5, bytestring, primitive, ptrdiff
+  build-depends:
+    , base >= 4.12 && < 5
+    , bytestring >= 0.10.8 && < 0.12
+    , primitive ^>= 0.7
+    , ptrdiff ^>= 0
   exposed-modules:
     Data.Const
     Data.Const.ByteString

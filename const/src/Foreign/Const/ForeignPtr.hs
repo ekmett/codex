@@ -2,6 +2,7 @@
 {-# language ScopedTypeVariables #-}
 {-# language FlexibleContexts #-}
 {-# language TypeApplications #-}
+{-# language NoStarIsType #-}
 {-# language ConstraintKinds #-}
 {-# language TypeFamilies #-}
 {-# language Trustworthy #-}
@@ -42,6 +43,7 @@ module Foreign.Const.ForeignPtr
 ) where
 
 import Data.Coerce
+import Data.Kind
 import Data.Type.Coercion
 import Foreign.Const.Ptr
 import Foreign.ForeignPtr
@@ -49,7 +51,7 @@ import Foreign.Ptr
 
 import Data.Const.Unsafe
 
-type family Unforeign (fp :: * -> *) :: * -> *
+type family Unforeign (fp :: Type -> Type) :: Type -> Type
 
 type instance Unforeign ForeignPtr = Ptr
 type instance Unforeign ConstForeignPtr = ConstPtr
