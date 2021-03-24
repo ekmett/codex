@@ -32,3 +32,4 @@ library
   exposed-modules:
     System.Mem.Weak.ForeignPtr
     System.Mem.Weak.IORef
+  other-extensions: CPP
