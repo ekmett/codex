@@ -22,18 +22,16 @@ license: BSD-2-Clause OR Apache-2.0
 license-file: LICENSE.md
 author: Edward Kmett
 maintainer: Edward Kmett <ekmett@gmail.com>
-copyright: Copyright (c) 2019 Edward Kmett
+copyright: Copyright (c) 2019-2021 Edward Kmett
 stability: experimental
 category: Graphics
 build-type: Simple
 extra-doc-files:
   README.md,
   CHANGELOG.md
-data-files:
-  shaders/*.frag,
-  shaders/*.vert
 extra-source-files:
   cbits/*.h
+  cbits/*.c
 
 source-repository head
   type: git

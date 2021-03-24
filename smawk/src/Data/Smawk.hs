@@ -39,18 +39,28 @@ interleave [] bs = bs
 -- |
 -- /O(|rows| + |cols|)/.
 --
--- Computes _row_ minima in totally monotone matrices using the SMAWK algorithm.
+-- Computes __row__ minima in totally monotone matrices using the SMAWK algorithm.
 --
 -- Returns 'Nothing' if we have no columns.
-smawk :: (Traversable f, Foldable g, Ord a) => f r -> g c -> (r -> c -> a) -> Maybe (f c)
+smawk
+  :: (Traversable f, Foldable g, Ord a)
+  => f r -- ^ rows (in any desired ascending order)
+  -> g c -- ^ columns (in any desired ascending order)
+  -> (r -> c -> a) -- ^ a monotone matrix
+  -> Maybe (f c) -- ^ each of the row minima
 smawk rs cs0 m = (\cs -> smawk1 rs cs m) <$> nonEmpty (Foldable.toList cs0)
 {-# inline smawk #-}
 
 -- |
 -- /O(|rows| + |cols|)/.
 --
--- Computes _row_ minima in totally monotone matrices using the SMAWK algorithm.
-smawk1 :: (Traversable f, Foldable1 g, Ord a) => f r -> g c -> (r -> c -> a) -> f c
+-- Computes __row__ minima in totally monotone matrices using the SMAWK algorithm.
+smawk1
+  :: (Traversable f, Foldable1 g, Ord a)
+  => f r -- ^ rows (in any desired ascending order)
+  -> g c -- ^ columns (in any desired ascending order)
+  -> (r -> c -> a) -- ^ a monotone matrix
+  -> f c -- ^ each of the row minima
 smawk1 rs0 cs0 m = evalState (traverse refill rs0) $ go (Foldable.toList rs0) [0..length raws-1] where
   raws = Exts.fromList $ Foldable.toList cs0
   refill _ = state $ \ ~(x:xs) -> (indexArray raws x,xs)

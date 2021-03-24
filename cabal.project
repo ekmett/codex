@@ -2,15 +2,17 @@ packages:
   atlas
   bidi-icu
   const
-  fontconfig
-  freetype
   glow
-  harfbuzz
-  hkd
   language-server
   parsnip
   ptrdiff
   weak
+  smawk
+
+--  harfbuzz
+-- fontconfig
+-- freetype
+-- hkd -- on hackage
 write-ghc-environment-files: always
 constraints: primitive > 0.7
 
