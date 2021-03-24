@@ -22,13 +22,14 @@
 {-# language UnboxedTuples #-}
 {-# language MagicHash #-}
 {-# language PatternSynonyms #-}
+{-# language UnliftedNewtypes #-}
 {-# options_ghc -O2 #-}
 
 module Text.Parsnip.Internal.Parser
 (
 -- * Parser
   Parser(..)
-, Option, pattern Some, pattern None
+, Option(Option#,Some,None)
 , mapOption, setOption
 , Result, pattern OK, pattern Fail
 , mapResult, setResult
@@ -66,13 +67,13 @@ import Text.Parsnip.Internal.Private
 --------------------------------------------------------------------------------
 
 -- | Unlifted 'Maybe'
-type Option a = (# a | (##) #)
+newtype Option a = Option# (# a | (##) #)
 
 pattern Some :: a -> Option a
-pattern Some a = (# a | #)
+pattern Some a = Option# (# a | #)
 
 pattern None :: Option a
-pattern None = (# | (##) #)
+pattern None = Option# (# | (##) #)
 
 {-# complete Some, None #-} -- these don't work outside this module =(
 

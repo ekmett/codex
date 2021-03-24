@@ -10,7 +10,6 @@
 
 -- | Note: @parsnip@ will still be assuming that the input is null terminated
 -- even if you use these combinators.
---
 module Text.Parsnip.Word8
 ( satisfy
 , word8
@@ -83,7 +82,7 @@ scan f = go where
 skipWhile :: (Word8 -> Bool) -> Parser s ()
 skipWhile f = Parser \p s -> case scan f p s of
   (# t, q #) -> OK () q t
-{-# inline [1] skipWhile #-}  
+{-# inline [1] skipWhile #-}
 
 {-# RULES
 "skipWhile (x/=)" forall x.
@@ -112,13 +111,15 @@ foreign import ccall "parsnip.h" strchr0 :: Addr# -> Char# -> IO (Ptr Word8) -- 
 skipTillWord8 :: Word8 -> Parser s ()
 skipTillWord8 (W8# c) = Parser $ \p s -> case io (strchr0 p (chr# (word2Int# c))) s of -- lazy cast is lazy
   (# t, Ptr q #) -> OK () q t
+{-# inline skipTillWord8 #-}
 
 skipWhileSome :: (Word8 -> Bool) -> Parser s ()
 skipWhileSome p = satisfy p *> skipWhile p
+{-# inline skipWhileSome #-}
 
 while :: KnownBase s => (Word8 -> Bool) -> Parser s ByteString
 while f = snipping (skipWhile f)
-{-# inline while #-}  
+{-# inline while #-}
 
 till :: KnownBase s => (Word8 -> Bool) -> Parser s ByteString
 till p = snipping (skipTill p)
@@ -136,7 +137,7 @@ tillSome :: KnownBase s => (Word8 -> Bool) -> Parser s ByteString
 tillSome p = snipping (skipTillSome p)
 {-# inline tillSome #-}
 
--- Peek at the previous character. Always succeeds. 
+-- | Peek at the previous character. Always succeeds.
 previousWord8 :: forall s. KnownBase s => Parser s (Maybe Word8)
 previousWord8 = case reflectBase @s of
   !(Base _ _ l _) -> Parser \p s ->
@@ -144,8 +145,9 @@ previousWord8 = case reflectBase @s of
     then case readWord8OffAddr# p (-1#) s of
       (# t, c #) -> OK (Just (W8# c)) p t
     else OK Nothing p s
+{-# inline previousWord8 #-}
 
--- Peek at the previous character. Fails if we're at the start of input.
+-- | Peek at the previous character. Fails if we're at the start of input.
 previousWord8' :: forall s. KnownBase s => Parser s Word8
 previousWord8' = case reflectBase @s of
   !(Base _ _ l _) -> Parser \p s ->
@@ -153,3 +155,4 @@ previousWord8' = case reflectBase @s of
     then case readWord8OffAddr# p (-1#) s of
       (# t, c #) -> OK (W8# c) p t
     else Fail p s
+{-# inline previousWord8' #-}

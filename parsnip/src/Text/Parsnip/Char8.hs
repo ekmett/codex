@@ -143,9 +143,11 @@ foreign import ccall "parsnip.h" strchr0 :: Addr# -> Char# -> IO (Ptr Word8)
 skipTillChar :: Char -> Parser s ()
 skipTillChar (C# c) = Parser $ \p s -> case io (strchr0 p c) s of
   (# t, Ptr q #) -> OK () q t
+{-# inline skipTillChar #-}
 
 skipWhileSome :: (Char -> Bool) -> Parser s ()
 skipWhileSome p = satisfy p *> skipWhile p
+{-# inline skipWhileSome #-}
 
 while :: KnownBase s => (Char -> Bool) -> Parser s ByteString
 while f = snipping (skipWhile f)

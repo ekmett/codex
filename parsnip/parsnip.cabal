@@ -1,8 +1,22 @@
 cabal-version: 2.2
 name: parsnip
 version: 0
-synopsis: A minimal parser
-description: A minimal parser
+synopsis: A fast, minimal parser
+description:
+  A fast, minimal parser.
+  .
+  @parsnip@ parses null-terminated input strings with an absolute minimum of
+  internal state. It copies the input to a c string and works its way through
+  hand-over-hand with just an @Addr#@ as the internal state.
+  .
+  It uses @reflection@-like tricks to lift the input 'ByteString' into a
+  constraint that is then passed to just the combinators that need access
+  to it to compute position, snip out slices of the original, or ask the
+  number of bytes remaining, but none of the monadic combinators nor simple
+  'satisfy' or 'eof' predicates need access to this information.
+  .
+  Because of the null-termination, we can't assume that we can handle binary
+  inputs, but this works well for text-based source languages.
 homepage: https://github.com/ekmett/codex/tree/master/parsnip#readme
 license: BSD-2-Clause OR Apache-2.0
 license-file: LICENSE.md

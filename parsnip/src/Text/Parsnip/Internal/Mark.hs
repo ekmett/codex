@@ -35,6 +35,8 @@ pattern Mk a = Mark (Ptr a)
 instance KnownBase s => Bounded (Mark s) where
   minBound = Mk (start @s)
   maxBound = Mk (end @s)
+  {-# inline minBound #-}
+  {-# inline maxBound #-}
 
 instance KnownBase s => Enum (Mark s) where
   fromEnum p = minusMark p minBound
@@ -57,38 +59,56 @@ instance KnownBase s => Enum (Mark s) where
   enumFromThenTo (Mk p) (Mk q) (Mk r) = if isTrue# (gtAddr# p q)
     then dptrs p (minusAddr# q p) r
     else ptrs p (minusAddr# q p) r
+  {-# inline fromEnum #-}
+  {-# inline toEnum #-}
+  {-# inline succ #-}
+  {-# inline pred #-}
+  {-# inline enumFrom #-}
+  {-# inline enumFromTo #-}
+  {-# inline enumFromThen #-}
+  {-# inline enumFromThenTo #-}
 
 instance Ix (Mark s) where
   range (Mk p, Mk q) = ptrs1 p q
   unsafeIndex (p,_) r = minusMark r p
   inRange (Mk p, Mk q) (Mk r) = isTrue# (leAddr# p r) && isTrue# (leAddr# r q)
   unsafeRangeSize = uncurry minusMark
+  {-# inline range #-}
+  {-# inline unsafeIndex #-}
+  {-# inline inRange #-}
+  {-# inline unsafeRangeSize #-}
 
 ptrs1 :: Addr# -> Addr# -> [Mark s]
 ptrs1 l h
   | isTrue# (leAddr# l h) = Mk l : ptrs1 (plusAddr# l 1#) h
   | otherwise = []
+{-# inline ptrs1 #-}
 
 ptrs :: Addr# -> Int# -> Addr# -> [Mark s]
 ptrs l d h
   | isTrue# (leAddr# l h) = Mk l : ptrs (plusAddr# l d) d h
   | otherwise = []
+{-# inline ptrs #-}
 
 dptrs :: Addr# -> Int# -> Addr# -> [Mark s]
 dptrs h d l
   | isTrue# (leAddr# l h) = Mark (Ptr h) : ptrs (plusAddr# h d) d l
   | otherwise = []
+{-# inline dptrs #-}
 
 minusMark :: Mark s -> Mark s -> Int
 minusMark (Mk p) (Mk q) = I# (minusAddr# p q)
+{-# inline minusMark #-}
 
 -- | Record the current position
 mark :: Parser s (Mark s)
 mark = Parser \p s -> OK (Mk p) p s
+{-# inline mark #-}
 
 -- | Return to a previous location.
 release :: Mark s -> Parser s ()
 release (Mk q) = Parser \_ s -> OK () q s
+{-# inline release #-}
 
 -- | To grab all the text covered by a given parser, consider using @snipping@
 -- and applying it to a combinator simply recognizes the content rather than returns
@@ -100,6 +120,7 @@ snip = case reflectBase @s of
     if isTrue# (geAddr# i j)
     then mkBS x g (minusAddr# i j)
     else B.empty
+{-# inline snip #-}
 
 snipping :: forall s a. KnownBase s => Parser s a -> Parser s ByteString
 snipping = case reflectBase @s of
@@ -111,4 +132,4 @@ snipping = case reflectBase @s of
           else B.empty
         ) o
       , q, t #)
-
+{-# inline snipping #-}
