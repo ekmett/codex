@@ -47,7 +47,7 @@ common base
   c-sources: cbits/parsnip.c
   build-depends:
     attoparsec,
-    base >= 4.15 && < 5,
+    base >= 4.14.1.0 && < 5,
     bytestring,
     containers,
     data-default,
