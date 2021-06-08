@@ -75,8 +75,8 @@ scan :: (Word8 -> Bool) -> Addr# -> State# s -> (# State# s, Addr# #)
 scan f = go where
   go p s = case readWord8OffAddr# p 0# s of
     (# t, c #) -> if isTrue# (0## `neWord#` c) && f (W8# c)
-      then (# t, p #)
-      else scan f (plusAddr# p 1#) t
+      then scan f (plusAddr# p 1#) t
+      else (# t, p #)
 {-# inline scan #-}
 
 skipWhile :: (Word8 -> Bool) -> Parser s ()
