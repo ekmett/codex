@@ -1,6 +1,6 @@
 cabal-version: 2.2
 name: parsnip
-version: 0
+version: 0.0.0.1
 synopsis: A fast, minimal parser
 description:
   A fast, minimal parser.
@@ -67,3 +67,10 @@ library
     Text.Parsnip.Internal.Parser
     Text.Parsnip.Internal.Private
     Text.Parsnip.Internal.Simple
+
+test-suite spec
+  import: base
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  build-depends: parsnip >= 0.0.0.1, hspec, tasty, tasty-hspec
+  main-is: Spec.hs
