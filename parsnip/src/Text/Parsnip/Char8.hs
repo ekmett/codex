@@ -84,7 +84,7 @@ anyChar = Parser \p s -> case readCharOffAddr# p 0# s of
 {-# inline anyChar #-}
 
 digit :: Parser s Char
-digit = satisfy A.isDigit 
+digit = satisfy A.isDigit
 {-# inline digit #-}
 
 space :: Parser s Char
@@ -107,14 +107,14 @@ scan :: (Char -> Bool) -> Addr# -> State# s -> (# State# s, Addr# #)
 scan f = go where
   go p s = case readCharOffAddr# p 0# s of
     (# t, c #) -> if isTrue# (chr# 0# `neChar#` c) && f (C# c)
-      then (# t, p #)
-      else scan f (plusAddr# p 1#) t
+      then scan f (plusAddr# p 1#) t
+      else (# t, p #)
 {-# inline scan #-}
 
 skipWhile :: (Char -> Bool) -> Parser s ()
 skipWhile f = Parser \p s -> case scan f p s of
   (# t, q #) -> OK () q t
-{-# inline [1] skipWhile #-}  
+{-# inline [1] skipWhile #-}
 
 {-# RULES
 "skipWhile (x/=)" forall x.
@@ -151,7 +151,7 @@ skipWhileSome p = satisfy p *> skipWhile p
 
 while :: KnownBase s => (Char -> Bool) -> Parser s ByteString
 while f = snipping (skipWhile f)
-{-# inline while #-}  
+{-# inline while #-}
 
 till :: KnownBase s => (Char -> Bool) -> Parser s ByteString
 till p = snipping (skipTill p)
@@ -169,7 +169,7 @@ tillSome :: KnownBase s => (Char -> Bool) -> Parser s ByteString
 tillSome p = snipping (skipTillSome p)
 {-# inline tillSome #-}
 
--- Peek at the previous character. Always succeeds. 
+-- Peek at the previous character. Always succeeds.
 previousChar :: forall s. KnownBase s => Parser s (Maybe Char)
 previousChar = case reflectBase @s of
   !(Base _ _ l _) -> Parser \p s ->
