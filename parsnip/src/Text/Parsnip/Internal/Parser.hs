@@ -33,9 +33,13 @@ module Text.Parsnip.Internal.Parser
 (
 -- * Parser
   Parser(..)
+#if __GLASGOW_HASKELL__ >= 810
+, Option(Option#, Some, None)
+#else
 , Option
 , pattern Some
 , pattern None
+#endif
 , mapOption, setOption
 , Result, pattern OK, pattern Fail
 , mapResult, setResult
