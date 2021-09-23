@@ -4,7 +4,6 @@
 {-# language BangPatterns #-}
 {-# language ViewPatterns #-}
 {-# language UnliftedFFITypes #-}
-{-# language UnliftedNewtypes #-}
 
 -- | the proverbial junk drawer
 module Text.Parsnip.Internal.Private
