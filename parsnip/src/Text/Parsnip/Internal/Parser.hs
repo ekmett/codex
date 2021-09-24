@@ -22,14 +22,24 @@
 {-# language UnboxedTuples #-}
 {-# language MagicHash #-}
 {-# language PatternSynonyms #-}
+
+#if __GLASGOW_HASKELL__ >= 810
 {-# language UnliftedNewtypes #-}
+#endif
+
 {-# options_ghc -O2 #-}
 
 module Text.Parsnip.Internal.Parser
 (
 -- * Parser
   Parser(..)
-, Option(Option#,Some,None)
+#if __GLASGOW_HASKELL__ >= 810
+, Option(Option#, Some, None)
+#else
+, Option
+, pattern Some
+, pattern None
+#endif
 , mapOption, setOption
 , Result, pattern OK, pattern Fail
 , mapResult, setResult
@@ -67,6 +77,9 @@ import Text.Parsnip.Internal.Private
 --------------------------------------------------------------------------------
 
 -- | Unlifted 'Maybe'
+
+#if __GLASGOW_HASKELL__ >= 810
+
 newtype Option a = Option# (# a | (##) #)
 
 pattern Some :: a -> Option a
@@ -74,6 +87,18 @@ pattern Some a = Option# (# a | #)
 
 pattern None :: Option a
 pattern None = Option# (# | (##) #)
+
+#else
+
+type Option a = (# a | (##) #)
+
+pattern Some :: a -> Option a
+pattern Some a = (# a | #)
+
+pattern None :: Option a
+pattern None = (# | (##) #)
+
+#endif
 
 {-# complete Some, None #-} -- these don't work outside this module =(
 
